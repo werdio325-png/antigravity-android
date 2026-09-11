@@ -10,6 +10,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://github.com/werdio325-png/antigravity-android/releases/latest"><img src="https://img.shields.io/github/v/release/werdio325-png/antigravity-android?color=orange&label=Release" alt="Latest Release"></a>
   <img src="https://img.shields.io/badge/Arch-ARM64--v8a-blue.svg" alt="ARM64">
   <img src="https://img.shields.io/badge/Platform-Android%208.0%2B-green.svg" alt="Android 8.0+">
   <img src="https://img.shields.io/badge/Engine-2.11.0-orange.svg" alt="Engine 2.11.0">
@@ -26,12 +27,31 @@
 
 ---
 
+## Загрузка готовых APK (Releases)
+
+Готовые установочные пакеты и нативные бинарники доступны в разделе [**GitHub Releases v2.11.0**](https://github.com/werdio325-png/antigravity-android/releases/latest):
+
+* **[Antigravity-v2.11.0-Vanilla.apk](https://github.com/werdio325-png/antigravity-android/releases/download/v2.11.0/Antigravity-v2.11.0-Vanilla.apk)** — чистая оригинальная версия Google Antigravity для пользователей, которым **VPN не нужен по локации** (прямой доступ без блокировок).
+* **[Antigravity-v2.11.0-Patched.apk](https://github.com/werdio325-png/antigravity-android/releases/download/v2.11.0/Antigravity-v2.11.0-Patched.apk)** — версия со специальным патчем на уровне авторизации (`MANAGER_GATE_ARM64`). Используется **в связке с VPN** для обхода ограничений авторизации Google API.
+* **[antigravity-cores-arm64-v2.11.0.tar.gz](https://github.com/werdio325-png/antigravity-android/releases/download/v2.11.0/antigravity-cores-arm64-v2.11.0.tar.gz)** — сжатый архив всех нативных ARM64-ядер и библиотек для разработчиков, собирающих проект из исходников.
+
+---
+
 ## Благодарности и первоисточники (Credits & Acknowledgments)
 
-Выражаем огромную благодарность разработчику [**@wallentx**](https://github.com/wallentx) и его проекту [**antigravity-cli-termux**](https://github.com/wallentx/antigravity-cli-termux)!
+Выражаем огромную благодарность разработчику [**@wallentx**](https://github.com/wallentx) и его проекту [**antigravity-cli-termux**](https://github.com/wallentx/antigravity-cli-termux), а также пионерам сообщества [**@hjotha**](https://github.com/hjotha) и [**@Brajesh2022**](https://github.com/Brajesh2022)!
 
-* Именно в **antigravity-cli-termux** была заложена фундаментальная основа: проведен глубокий реверс-инжиниринг и первичная адаптация нативного ARM64-ядра Google Antigravity под Android Bionic / glibc окружение, решены проблемы с SECCOMP-фильтрами (`faccessat2`), внедрен динамический компоновщик `ld-linux-aarch64` и эмуляция разделяемой памяти SysV SHM (`libandroid-shmem`).
-* Проект **antigravity-android** развивает эту инициативу дальше: мы перенесли консольное ядро в **полноценное самостоятельное Android-приложение (APK)**, добавили графический WebView-интерфейс, интеграцию с системным оконным менеджером Android (Freeform), службу переднего плана (Foreground Service) для предотвращения выгрузки ОС Android, механизм автоматической авторизации через мобильный браузер и сборщик двойного ядра (*Patched / Vanilla*).
+### Инженерная основа:
+* **Патчинг адресного пространства VA39 (TCMalloc):** оригинальный бинарник Google Antigravity использует TCMalloc, рассчитывающий на 48-битное виртуальное адресное пространство (`VA48`). На ядрах Android пользовательское пространство ограничено 39 битами (`VA39`). Благодаря исследованиям сообщества и реализации в `antigravity-cli-termux`, инструкции `ubfx`, маски адресов и выравнивание `mmap` модифицируются в бинарнике для полной стабильности на мобильных чипсетах.
+* **Трансляция системных вызовов SECCOMP:** низкоуровневые вызовы (например, `faccessat2`), блокируемые строгой политикой SECCOMP ядра Android, перенаправляются и обрабатываются без крашей.
+* **Мост между Bionic libc и glibc:** нативный динамический компоновщик `ld-linux-aarch64.so.1` в связке с библиотекой эмуляции разделяемой памяти SysV SHM (`libandroid-shmem.so`) связывает glibc-рантайм Google Antigravity с системными библиотеками Android Bionic.
+
+### Развитие в `antigravity-android`:
+Наш проект совершает качественный переход от консольного терминала к **автономной мобильной экосистеме**:
+* Консольный TUI перенесён в полноценное нативное Android-приложение (APK) со встроенным веб-интерфейсом (WebView) на локальном порту `38695`.
+* Добавлена поддержка системных плавающих окон (Freeform Window Mode) для комфортной многозадачности на планшетах, складных устройствах и смартфонах.
+* Реализована неубиваемая служба переднего плана (Foreground Service), предотвращающая выгрузку рантайма операционной системой Android при выключении экрана или переключении задач.
+* Добавлен OAuth-мост `xdg-open` для автоматического открытия мобильного браузера при авторизации в аккаунте Google.
 
 ---
 
@@ -95,8 +115,8 @@ antigravity-android/
 
 ## Быстрый старт
 
-### 1. Сборка APK
-Для сборки из исходников запустите в окружении Termux (требуются `aapt`, `javac`, `d8`, `apksigner`):
+### 1. Сборка APK из исходников
+Для сборки запустите в окружении Termux (требуются пакеты `aapt`, `javac`, `d8`, `apksigner`):
 
 ```bash
 # Сборка обеих версий (Patched и Vanilla):
