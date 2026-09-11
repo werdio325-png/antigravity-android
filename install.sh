@@ -6,11 +6,11 @@ MODE="${1:-patched}"
 
 if [ "$MODE" == "vanilla" ] || [ "$MODE" == "v" ]; then
     APK="$PROJECT_DIR/dist/Antigravity-v2.11.0-Vanilla.apk"
-    TITLE="Vanilla (без патча региона, для чистого VPN)"
+    TITLE="Vanilla (чистая версия, для тех кому VPN не нужен по локации)"
 else
     APK="$PROJECT_DIR/dist/Antigravity-v2.11.0-Patched.apk"
     [ -f "$APK" ] || APK="$PROJECT_DIR/dist/Antigravity-v2.11.0.apk"
-    TITLE="Patched (с патчем обхода региона)"
+    TITLE="Patched (с патчем авторизации, для работы под VPN)"
 fi
 
 if [ ! -f "$APK" ]; then
