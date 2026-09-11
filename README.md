@@ -18,7 +18,7 @@
 
 ---
 
-## 🚀 Статус проекта: Активная разработка (Active Development)
+## Статус проекта: Активная разработка (Active Development)
 
 > [!NOTE]
 > **Проект находится в стадии активной разработки и постоянного совершенствования!**  
@@ -26,7 +26,7 @@
 
 ---
 
-## 🙏 Благодарности и первоисточники (Credits & Acknowledgments)
+## Благодарности и первоисточники (Credits & Acknowledgments)
 
 Выражаем огромную благодарность разработчику [**@wallentx**](https://github.com/wallentx) и его проекту [**antigravity-cli-termux**](https://github.com/wallentx/antigravity-cli-termux)!
 
@@ -115,7 +115,7 @@ bash build.sh vanilla
 # Установка версии с обходом региона:
 bash install.sh patched
 
-# Установка чистой версии (для VPN):
+# Чистая версия:
 bash install.sh vanilla
 ```
 
@@ -125,7 +125,7 @@ bash install.sh vanilla
 # Запуск в свободном плавающем окне (Freeform):
 bash launch.sh --window
 
-# Запуск на весь экран:
+# На весь экран:
 bash launch.sh --full
 
 # Полная остановка приложения и фоновой службы:
