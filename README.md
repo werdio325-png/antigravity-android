@@ -1,75 +1,147 @@
-﻿# Antigravity Android
+﻿<p align="center">
+  <img src="assets/mascot.png" width="140" height="140" alt="Antigravity Android Mascot" style="border-radius: 28px;">
+</p>
 
-Автономный ARM64-клиент для Google Antigravity в виде Android-приложения (APK) с поддержкой оконного режима (Freeform) и фоновой службы.
+<h1 align="center">Google Antigravity Standalone for Android</h1>
 
-Основан на наработках [antigravity-cli-termux](https://github.com/wallentx/antigravity-cli-termux) от [@wallentx](https://github.com/wallentx).
+<p align="center">
+  <b>Автономный ARM64-клиент для Google Antigravity с поддержкой Freeform-окон, фонового сервиса и независимой среды выполнения</b>
+</p>
 
-## Возможности
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/Arch-ARM64--v8a-blue.svg" alt="ARM64">
+  <img src="https://img.shields.io/badge/Platform-Android%208.0%2B-green.svg" alt="Android 8.0+">
+  <img src="https://img.shields.io/badge/Engine-2.11.0-orange.svg" alt="Engine 2.11.0">
+  <img src="https://img.shields.io/badge/Status-Active%20Development-brightgreen.svg" alt="Active Development">
+</p>
 
-- **APK с графическим интерфейсом:** WebView-интерфейс, запуск без ручного поднятия Termux или chroot.
-- **Плавающие окна (Freeform):** запуск в отдельном окне с изменением размера на Android 8.0+.
-- **Фоновая служба (Foreground Service):** процесс не выгружается системой при блокировке экрана или сворачивании.
-- **Два варианта ядра:**
-  - `patched` (`libserver-patched.so`) — обход региональных ограничений без VPN (`MANAGER_GATE_ARM64`).
-  - `vanilla` (`libserver-vanilla.so`) — оригинальное ядро для работы через VPN.
-- **Встроенный rootfs:** glibc 2.44, Python 3, Git, cURL, jq, ripgrep, BusyBox.
-- **Интеграция с системным шеллом:** поддержка Shizuku (`rish`) и root (`su`).
-- **OAuth-мост:** открытие ссылок авторизации Google через системный браузер (`xdg-open`).
+---
 
-## Структура
+## 🚀 Статус проекта: Активная разработка (Active Development)
+
+> [!NOTE]
+> **Проект находится в стадии активной разработки и постоянного совершенствования!**  
+> Мы регулярно выпускаем обновления, оптимизируем энергопотребление, добавляем новые возможности интеграции с Android и актуализируем нативные ядра. Все идеи, баг-репорты и pull request'ы горячо приветствуются!
+
+---
+
+## 🙏 Благодарности и первоисточники (Credits & Acknowledgments)
+
+Выражаем огромную благодарность разработчику [**@wallentx**](https://github.com/wallentx) и его проекту [**antigravity-cli-termux**](https://github.com/wallentx/antigravity-cli-termux)!
+
+* Именно в **antigravity-cli-termux** была заложена фундаментальная основа: проведен глубокий реверс-инжиниринг и первичная адаптация нативного ARM64-ядра Google Antigravity под Android Bionic / glibc окружение, решены проблемы с SECCOMP-фильтрами (`faccessat2`), внедрен динамический компоновщик `ld-linux-aarch64` и эмуляция разделяемой памяти SysV SHM (`libandroid-shmem`).
+* Проект **antigravity-android** развивает эту инициативу дальше: мы перенесли консольное ядро в **полноценное самостоятельное Android-приложение (APK)**, добавили графический WebView-интерфейс, интеграцию с системным оконным менеджером Android (Freeform), службу переднего плана (Foreground Service) для предотвращения выгрузки ОС Android, механизм автоматической авторизации через мобильный браузер и сборщик двойного ядра (*Patched / Vanilla*).
+
+---
+
+## Ключевые особенности
+
+- **Полноценное Android-приложение (APK):** запуск с графическим WebView-интерфейсом без необходимости вручную открывать консоль Termux или настраивать chroot-контейнеры.
+- **Плавающие окна (Freeform Window Mode):** работа в отдельном перемещаемом окне с изменяемым размером на планшетах, складных устройствах и смартфонах с поддержкой многооконности Android.
+- **Фоновая служба (Foreground Service):** фоновый сервис гарантирует, что среда выполнения не будет выгружена системой при выключении экрана или переключении задач.
+- **Двойная архитектура ядер (Dual-Core):**
+  - **Patched (`libserver-patched.so`):** патч региональной верификации (`MANAGER_GATE_ARM64`) для прямого подключения без VPN.
+  - **Vanilla (`libserver-vanilla.so`):** оригинальное нативное ядро для работы через VPN.
+- **Автономный Rootfs:** минимальный runtime-стек (glibc 2.44, Python 3, Git, cURL, jq, ripgrep, BusyBox), распаковывающийся во внутреннее хранилище приложения.
+- **Интеграция с Shizuku и Root:** прямой доступ к системному шеллу Android (UID 2000 через `rish` или root через `su`) для управления пакетами, сервисами и файловой системой.
+- **OAuth-мост:** перехват запросов авторизации Google через `xdg-open` с автоматическим открытием мобильного браузера.
+
+---
+
+## Структура проекта
 
 ```
 antigravity-android/
-├── app/          # Исходный код APK (MainActivity, EngineService)
-├── assets/       # Ресурсы
-├── config/       # Настройки среды и правила агентов
-├── core/         # Библиотеки связки (libldlinux.so, libandroid-shmem.so)
-├── rootfs/       # Runtime-окружение (упаковывается в APK)
-├── build.sh      # Сборка APK
-├── install.sh    # Установка через Shizuku / adb
-└── launch.sh     # Запуск и управление
+├── LICENSE                     # Лицензия MIT
+├── README.md                   # Главная документация и руководство
+├── .gitignore                  # Исключения
+│
+├── app/                        # Исходный код Android APK
+│   ├── src/main/AndroidManifest.xml     # Манифест с флагами Freeform и сервиса
+│   ├── src/main/java/com/antigravity/standalone/
+│   │   ├── MainActivity.java   # Главная Activity, WebView, перехватчик URL
+│   │   └── EngineService.java  # Foreground Service
+│   └── src/main/res/           # Разметка, иконки, конфигурация сети
+│
+├── assets/                     # Графические ресурсы
+│   └── mascot.png              # Маскот проекта
+│
+├── config/                     # Предустановленные профили и правила
+│   ├── AGENTS.md               # Системные правила среды для ИИ-агентов
+│   ├── settings.json           # Начальные настройки темы и моделей
+│   ├── antigravity_state.pbtxt # Чистый профиль состояния онбординга
+│   ├── jetski_state.pbtxt      # Профиль состояния движка Jetski
+│   └── projects/               # Базовые профили рабочих пространств
+│
+├── core/                       # Нативные библиотеки связывания (ARM64)
+│   ├── arm64-v8a/
+│   │   ├── libldlinux.so       # Динамический компоновщик glibc (ld-linux-aarch64)
+│   │   └── libandroid-shmem.so # Эмулятор SysV SHM
+│   └── README.md               # Инструкция по размещению ядер libserver*.so
+│
+├── rootfs/                     # Минимальное runtime-окружение (упаковывается в APK)
+│   ├── bin/                    # xdg-open, bash, rish, su, busybox, git, python3, curl, jq, rg
+│   ├── etc/                    # resolv.conf, hosts, nsswitch.conf, ssl certs
+│   └── lib/                    # glibc 2.44, nss, readline, python3 runtime libs
+│
+├── build.sh                    # Скрипт сборки APK (patched / vanilla / all)
+├── install.sh                  # Скрипт установки APK через Shizuku / adb
+├── launch.sh                   # Скрипт запуска в окне (--window) или на полный экран (--full)
+└── screenshot.py               # Инструмент захвата экрана плавающего окна
 ```
 
-## Сборка
+---
 
-Для сборки в Termux требуются: `aapt`, `javac`, `d8`, `apksigner`.
+## Быстрый старт
+
+### 1. Сборка APK
+Для сборки из исходников запустите в окружении Termux (требуются `aapt`, `javac`, `d8`, `apksigner`):
 
 ```bash
-# Обе версии (patched и vanilla):
+# Сборка обеих версий (Patched и Vanilla):
 bash build.sh all
 
-# Только patched:
+# Или конкретной версии:
 bash build.sh patched
-
-# Только vanilla:
 bash build.sh vanilla
 ```
 
-Собранные файлы сохраняются в `dist/`.
+Собранные готовые APK помещаются в каталог `dist/`.
 
-## Установка
+### 2. Установка через Shizuku
 
 ```bash
-# Версия с обходом региона:
+# Установка версии с обходом региона:
 bash install.sh patched
 
-# Чистая версия:
+# Установка чистой версии (для VPN):
 bash install.sh vanilla
 ```
 
-## Запуск
+### 3. Запуск
 
 ```bash
-# В плавающем окне (Freeform):
+# Запуск в свободном плавающем окне (Freeform):
 bash launch.sh --window
 
-# На весь экран:
+# Запуск на весь экран:
 bash launch.sh --full
 
-# Остановка приложения и сервиса:
+# Полная остановка приложения и фоновой службы:
 bash launch.sh stop
 ```
 
+---
+
+## Команда проекта
+
+* **[werdio325-png](https://github.com/werdio325-png)** — Владелец и создатель проекта.
+* **[maksimcvetkov888-crypto](https://github.com/maksimcvetkov888-crypto)** (*AngelV1bexs*) — Коллаборатор и мейнтейнер.
+
+---
+
 ## Лицензия
 
-[MIT](LICENSE)
+Проект распространяется под лицензией **MIT**. Подробности в файле [LICENSE](LICENSE).  
+Google Antigravity является торговой маркой Google LLC. Проект является независимой разработкой.
