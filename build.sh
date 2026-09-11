@@ -73,9 +73,9 @@ print('  + Injected native libraries for ${var_title}')
     apksigner sign         --ks $KEYSTORE         --ks-key-alias androiddebugkey         --ks-pass pass:android         --key-pass pass:android         --out $out_apk         $BUILD_DIR/aligned_${variant}.apk
 
     cp -f $out_apk $docs_apk
-    echo "  ✅ Собрано: $out_apk"
-    echo "  ✅ В Documents: $docs_apk"
-    apksigner verify $out_apk && echo "  ✅ Подпись ${var_title} валидна!"
+    echo "  Собрано: $out_apk"
+    echo "  В Documents: $docs_apk"
+    apksigner verify $out_apk && echo "  Подпись ${var_title} валидна!"
 }
 
 case "$TARGET" in
@@ -98,6 +98,6 @@ case "$TARGET" in
 esac
 
 echo "=========================================================="
-echo "🎉 ВСЕ ВЫБРАННЫЕ ВЕРСИИ УСПЕШНО СОБРАНЫ!"
+echo "ВСЕ ВЫБРАННЫЕ ВЕРСИИ УСПЕШНО СОБРАНЫ!"
 ls -lh $DIST_DIR/Antigravity-*.apk
 echo "=========================================================="

@@ -7,16 +7,36 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.PowerManager;
 
 public class EngineService extends Service {
     public static final String CHANNEL_ID = "antigravity_engine_channel";
+    private PowerManager.WakeLock wakeLock;
 
     @Override
     public void onCreate() {
         super.onCreate();
+        try {
+            PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+            if (pm != null) {
+                wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Antigravity:EngineWakeLock");
+                wakeLock.setReferenceCounted(false);
+                wakeLock.acquire(12 * 60 * 60 * 1000L);
+            }
+        } catch (Exception ignored) {}
+
         createNotificationChannel();
         Notification notification = buildNotification();
-        startForeground(1001, notification);
+        if (Build.VERSION.SDK_INT >= 29) {
+            try {
+                Service.class.getMethod("startForeground", int.class, Notification.class, int.class)
+                        .invoke(this, 1001, notification, 1);
+            } catch (Exception e) {
+                startForeground(1001, notification);
+            }
+        } else {
+            startForeground(1001, notification);
+        }
     }
 
     private void createNotificationChannel() {
@@ -57,5 +77,15 @@ public class EngineService extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         return null;
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        try {
+            if (wakeLock != null && wakeLock.isHeld()) {
+                wakeLock.release();
+            }
+        } catch (Exception ignored) {}
     }
 }

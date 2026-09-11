@@ -15,6 +15,10 @@
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
 
     <application
@@ -44,18 +48,19 @@
             </intent-filter>
 
             <layout
-                android:defaultWidth="1200dp"
-                android:defaultHeight="900dp"
+                android:defaultWidth="360dp"
+                android:defaultHeight="640dp"
                 android:gravity="center"
-                android:minWidth="480dp"
-                android:minHeight="480dp" />
+                android:minWidth="280dp"
+                android:minHeight="320dp" />
 
         </activity>
 
         <service
             android:name=".EngineService"
             android:enabled="true"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
     </application>
 

@@ -134,6 +134,11 @@ public class MainActivity extends Activity {
         settings.setSupportMultipleWindows(true);
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
 
+        webView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            settings.setOffscreenPreRaster(true);
+        }
+
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onConsoleMessage(ConsoleMessage cm) {
@@ -470,6 +475,15 @@ public class MainActivity extends Activity {
                 env.put("LANG", "ru_RU.UTF-8");
                 env.put("LC_ALL", "ru_RU.UTF-8");
                 env.put("TERM", "xterm-256color");
+
+                // Bengal / Snapdragon 685 (8-core) & 6GB RAM tuning
+                env.put("MALLOC_ARENA_MAX", "2");
+                env.put("MALLOC_MMAP_THRESHOLD_", "131072");
+                env.put("MALLOC_TRIM_THRESHOLD_", "131072");
+                env.put("GOMAXPROCS", "6");
+                env.put("UV_THREADPOOL_SIZE", "4");
+                env.put("PYTHONUNBUFFERED", "1");
+                env.put("PYTHONDONTWRITEBYTECODE", "1");
 
                 pb.redirectErrorStream(true);
                 serverProcess = pb.start();

@@ -14,10 +14,10 @@ else
 fi
 
 if [ ! -f "$APK" ]; then
-    echo "❌ APK не найден ($APK). Сначала выполните: bash build.sh"
+    echo "APK не найден ($APK). Сначала выполните: bash build.sh"
     exit 1
 fi
 
-echo "📦 Скрытая установка APK [$TITLE] через Shizuku..."
+echo "Скрытая установка APK [$TITLE] через Shizuku..."
 cat "$APK" | rish -c "cat > /data/local/tmp/app.apk && pm install -r -d -t -g /data/local/tmp/app.apk && rm -f /data/local/tmp/app.apk"
-echo "✅ Приложение com.antigravity.standalone [$TITLE] успешно установлено!"
+echo "Приложение com.antigravity.standalone [$TITLE] успешно установлено!"

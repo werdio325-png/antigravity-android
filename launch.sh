@@ -3,21 +3,21 @@
 MODE="${1:---window}"
 
 if [ "$1" == "stop" ]; then
-    echo "⏹ Остановка com.antigravity.standalone..."
+    echo "Остановка com.antigravity.standalone..."
     rish -c "am force-stop com.antigravity.standalone"
-    echo "✅ Остановлено."
+    echo "Остановлено."
     exit 0
 fi
 
 if [ "$MODE" == "--window" ] || [ "$MODE" == "-w" ]; then
-    echo "🪟 Запуск Antigravity в ОКОННОМ режиме (Freeform)..."
-    rish -c "am start -n com.antigravity.standalone/.MainActivity --windowingMode 5"
+    echo "Запуск Antigravity в оконном режиме (Freeform)..."
+    rish -c "am start -n com.antigravity.standalone/.MainActivity --windowingMode 5 --windowBounds 50 150 1030 2250"
 elif [ "$MODE" == "--full" ] || [ "$MODE" == "-f" ]; then
-    echo "📱 Запуск Antigravity в полноэкранном режиме..."
+    echo "Запуск Antigravity в полноэкранном режиме..."
     rish -c "am start -n com.antigravity.standalone/.MainActivity --windowingMode 1"
 else
     echo "Использование: bash launch.sh [--window | --full | stop]"
     rish -c "am start -n com.antigravity.standalone/.MainActivity"
 fi
 
-echo "🚀 Команда запуска отправлена!"
+echo "Команда запуска отправлена."
