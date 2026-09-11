@@ -1,0 +1,16 @@
+#!/system/bin/sh
+SCRIPT="$0"
+case "$SCRIPT" in
+  /*) DIR="${SCRIPT%/*}" ;;
+  */*) DIR="$(pwd)/${SCRIPT%/*}" ;;
+  *) DIR="$(pwd)" ;;
+esac
+export PATH="$DIR:$PATH"
+export LD_LIBRARY_PATH="$DIR/../lib:/system/lib64:$LD_LIBRARY_PATH"
+export SSL_CERT_FILE="$DIR/../etc/ssl/certs/ca-certificates.crt"
+export CURL_CA_BUNDLE="$DIR/../etc/ssl/certs/ca-certificates.crt"
+export GIT_EXEC_PATH="$DIR/../lib/git-core"
+export GIT_TEMPLATE_DIR="$DIR/../share/git-core/templates"
+export PYTHONHOME="$DIR/../lib/python3.14"
+export PYTHONPATH="$DIR/../lib/python3.14:$DIR/../lib/python3.14/site-packages:$DIR/../lib/python3.14/lib-dynload"
+exec "$DIR/bash" "$@"

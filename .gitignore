@@ -1,0 +1,39 @@
+# Personal workspace & local projects
+workspace/
+
+# Sensitive credentials & tokens
+*-oauth-token
+config/*-oauth-token
+config/installation_id
+*.keystore
+
+# Build artifacts & packages
+build/
+dist/
+gen/
+obj/
+bin/*.apk
+*.apk
+*.idsig
+*.dex
+*.class
+
+# Large native core binaries (hosted via GitHub Releases / external assets)
+core/arm64-v8a/libserver*.so
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temporary, screenshots & log files
+screenshot.png
+*.log
+.tmp/
+temp/
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

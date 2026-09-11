@@ -1,0 +1,8 @@
+#!/system/bin/sh
+SCRIPT="$0"
+case "$SCRIPT" in
+  /*) DIR="${SCRIPT%/*}" ;;
+  */*) DIR="$(pwd)/${SCRIPT%/*}" ;;
+  *) DIR="$(pwd)" ;;
+esac
+exec "$DIR/pip3" "$@"

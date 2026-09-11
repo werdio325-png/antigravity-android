@@ -1,0 +1,8 @@
+{
+  "colorScheme": "dark",
+  "model": "Gemini 3.8 Flash (High)",
+  "trustedWorkspaces": [
+    "/storage/emulated/0/Documents/Antigravity/workspace",
+    "/data/data/com.termux/files/home"
+  ]
+}

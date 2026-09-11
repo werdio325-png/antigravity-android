@@ -1,0 +1,7 @@
+#!/system/bin/sh
+DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -x "$DIR/rish" ]; then
+    exec "$DIR/rish" "$@"
+else
+    exec /system/bin/su "$@"
+fi

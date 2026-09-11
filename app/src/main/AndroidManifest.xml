@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.antigravity.standalone"
+    android:versionCode="3"
+    android:versionName="2.11.0">
+
+    <uses-sdk 
+        android:minSdkVersion="24" 
+        android:targetSdkVersion="28" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
+
+    <application
+        android:label="@string/app_name"
+        android:icon="@drawable/ic_launcher"
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
+        android:hardwareAccelerated="true"
+        android:usesCleartextTraffic="true"
+        android:extractNativeLibs="true"
+        android:largeHeap="true"
+        android:debuggable="true"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:requestLegacyExternalStorage="true">
+
+        <activity
+            android:name="com.antigravity.standalone.MainActivity"
+            android:exported="true"
+            android:resizeableActivity="true"
+            android:supportsPictureInPicture="false"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|keyboardHidden|keyboard"
+            android:windowSoftInputMode="adjustResize"
+            android:launchMode="singleTask">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <layout
+                android:defaultWidth="1200dp"
+                android:defaultHeight="900dp"
+                android:gravity="center"
+                android:minWidth="480dp"
+                android:minHeight="480dp" />
+
+        </activity>
+
+        <service
+            android:name=".EngineService"
+            android:enabled="true"
+            android:exported="false" />
+
+    </application>
+
+</manifest>

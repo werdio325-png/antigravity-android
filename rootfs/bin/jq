@@ -1,0 +1,9 @@
+#!/system/bin/sh
+SCRIPT="$0"
+case "$SCRIPT" in
+  /*) DIR="${SCRIPT%/*}" ;;
+  */*) DIR="$(pwd)/${SCRIPT%/*}" ;;
+  *) DIR="$(pwd)" ;;
+esac
+export LD_LIBRARY_PATH="$DIR/../lib:/system/lib64:$LD_LIBRARY_PATH"
+exec "$DIR/../lib/ld-linux-aarch64.so.1" --library-path "$DIR/../lib:/system/lib64" "$DIR/jq.bin" "$@"
