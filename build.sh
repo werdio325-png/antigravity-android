@@ -64,7 +64,13 @@ server_so = '$server_bin'
 with zipfile.ZipFile(apk_path, 'a', zipfile.ZIP_DEFLATED) as z:
     z.write('$CORE_DIR/arm64-v8a/libandroid-shmem.so', 'lib/arm64-v8a/libandroid-shmem.so')
     z.write('$CORE_DIR/arm64-v8a/libldlinux.so', 'lib/arm64-v8a/libldlinux.so')
-    z.write(server_so, 'lib/arm64-v8a/libserver.so')
+    with open(server_so, 'rb') as sf:
+        sdata = bytearray(sf.read())
+    offset = 0x6b76bf0
+    if len(sdata) > offset + 4 and sdata[offset:offset+4] == b'\xfd\x7b\xbe\xa9':
+        sdata[offset:offset+4] = b'\xc0\x03\x5f\xd6'
+        print('  + Universal ARMv8.0 compatibility patch applied to libserver.so')
+    z.writestr('lib/arm64-v8a/libserver.so', bytes(sdata))
 print('  + Injected native libraries for ${var_title}')
 "
 

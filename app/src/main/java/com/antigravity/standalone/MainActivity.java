@@ -63,6 +63,13 @@ public class MainActivity extends Activity {
         webView.setBackgroundColor(Color.parseColor("#101010"));
 
         setupWebView();
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            try {
+                if (checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 1001);
+                }
+            } catch (Exception ignored) {}
+        }
         startForegroundEngineService();
         startStandaloneEngine();
     }
@@ -430,7 +437,7 @@ public class MainActivity extends Activity {
                 // 4. Native libraries and runtime location
                 String nativeDir = getApplicationInfo().nativeLibraryDir;
                 File loaderLib = new File(nativeDir, "libldlinux.so");
-                File serverBin = new File(nativeDir, "libserver.so");
+                File serverBin = ensureUniversalServerBin(new File(nativeDir, "libserver.so"), filesDir);
 
                 File glibcDir = new File(rootfsDir, "lib");
                 File binDir = new File(rootfsDir, "bin");
@@ -476,14 +483,38 @@ public class MainActivity extends Activity {
                 env.put("LC_ALL", "ru_RU.UTF-8");
                 env.put("TERM", "xterm-256color");
 
-                // Bengal / Snapdragon 685 (8-core) & 6GB RAM tuning
-                env.put("MALLOC_ARENA_MAX", "2");
+                // Adaptive hardware tuning for low-end, mid-range and flagship devices (RAM & CPU scaling)
+                int cores = Runtime.getRuntime().availableProcessors();
+                int gomaxprocs = Math.max(2, cores - 2);
+                int uvThreads = Math.max(2, Math.min(8, cores / 2));
+
+                long totalMemBytes = 4L * 1024 * 1024 * 1024;
+                try {
+                    android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
+                    if (am != null) {
+                        android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo();
+                        am.getMemoryInfo(mi);
+                        totalMemBytes = mi.totalMem;
+                    }
+                } catch (Exception ignored) {}
+                long totalMemGb = totalMemBytes / (1024 * 1024 * 1024);
+                int maxArenas = (totalMemGb <= 4) ? 1 : (totalMemGb <= 6 ? 2 : 4);
+
+                env.put("MALLOC_ARENA_MAX", String.valueOf(maxArenas));
                 env.put("MALLOC_MMAP_THRESHOLD_", "131072");
                 env.put("MALLOC_TRIM_THRESHOLD_", "131072");
-                env.put("GOMAXPROCS", "6");
-                env.put("UV_THREADPOOL_SIZE", "4");
+                env.put("GOMAXPROCS", String.valueOf(gomaxprocs));
+                env.put("UV_THREADPOOL_SIZE", String.valueOf(uvThreads));
                 env.put("PYTHONUNBUFFERED", "1");
                 env.put("PYTHONDONTWRITEBYTECODE", "1");
+
+                // Geo-bypass: Go net/http respects HTTPS_PROXY natively
+                String proxyUrl = readProxyConfig(filesDir, extConfigDir);
+                if (proxyUrl != null && !proxyUrl.isEmpty()) {
+                    env.put("HTTPS_PROXY", proxyUrl);
+                    env.put("HTTP_PROXY", proxyUrl);
+                    Log.i(TAG, "Proxy configured: " + proxyUrl);
+                }
 
                 pb.redirectErrorStream(true);
                 serverProcess = pb.start();
@@ -554,6 +585,76 @@ public class MainActivity extends Activity {
                     "</body></html>";
             webView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
         });
+    }
+
+    private String readProxyConfig(File filesDir, File extConfigDir) {
+        // Priority: external config > internal
+        File[] candidates = {
+            new File(extConfigDir, "proxy.txt"),
+            new File(filesDir, "proxy.txt")
+        };
+        for (File f : candidates) {
+            if (f != null && f.exists()) {
+                try (BufferedReader r = new BufferedReader(new FileReader(f))) {
+                    String line = r.readLine();
+                    if (line != null && !line.trim().isEmpty()) return line.trim();
+                } catch (Exception ignored) {}
+            }
+        }
+        return null;
+    }
+
+    private File ensureUniversalServerBin(File originalServerBin, File filesDir) {
+        try {
+            if (originalServerBin == null || !originalServerBin.exists()) {
+                return originalServerBin;
+            }
+
+            boolean lacksAtomics = false;
+            try (BufferedReader br = new BufferedReader(new FileReader("/proc/cpuinfo"))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    if (line.startsWith("Features")) {
+                        if (!line.contains("atomics")) {
+                            lacksAtomics = true;
+                        }
+                        break;
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            File binDir = new File(filesDir, "bin");
+            binDir.mkdirs();
+            File patchedBin = new File(binDir, "libserver.so");
+
+            long offset = 0x6b76bf0L;
+            try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(originalServerBin, "r")) {
+                if (raf.length() > offset + 4) {
+                    raf.seek(offset);
+                    byte[] buf = new byte[4];
+                    raf.readFully(buf);
+                    boolean hasLseCheck = (buf[0] == (byte)0xfd && buf[1] == (byte)0x7b && buf[2] == (byte)0xbe && buf[3] == (byte)0xa9);
+
+                    if (hasLseCheck && lacksAtomics) {
+                        Log.i(TAG, "ARMv8.0 CPU without LSE atomics detected. Preparing universal engine binary...");
+                        if (!patchedBin.exists() || patchedBin.length() != originalServerBin.length()) {
+                            copyFile(originalServerBin, patchedBin);
+                            try (java.io.RandomAccessFile wraf = new java.io.RandomAccessFile(patchedBin, "rw")) {
+                                wraf.seek(offset);
+                                wraf.write(new byte[]{(byte)0xc0, (byte)0x03, (byte)0x5f, (byte)0xd6});
+                            }
+                            patchedBin.setReadable(true, false);
+                            patchedBin.setExecutable(true, false);
+                            Log.i(TAG, "Universal ARMv8.0 patch successfully applied: " + patchedBin.getAbsolutePath());
+                        }
+                        return patchedBin;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error in ensureUniversalServerBin", e);
+        }
+        return originalServerBin;
     }
 
     private void writeFile(File file, String content) {
