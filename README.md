@@ -14,16 +14,8 @@
   <img src="https://img.shields.io/badge/Arch-ARM64--v8a-blue.svg" alt="ARM64">
   <img src="https://img.shields.io/badge/Platform-Android%208.0%2B-green.svg" alt="Android 8.0+">
   <img src="https://img.shields.io/badge/Engine-2.11.0-orange.svg" alt="Engine 2.11.0">
-  <img src="https://img.shields.io/badge/Status-Active%20Development-brightgreen.svg" alt="Active Development">
+  <img src="https://img.shields.io/badge/Status-Release-brightgreen.svg" alt="Status: Release">
 </p>
-
----
-
-## Статус проекта: Активная разработка (Active Development)
-
-> [!NOTE]
-> **Проект находится в стадии активной разработки и постоянного совершенствования!**  
-> Мы регулярно выпускаем обновления, оптимизируем энергопотребление, добавляем новые возможности интеграции с Android и актуализируем нативные ядра. Все идеи, баг-репорты и pull request'ы горячо приветствуются!
 
 ---
 
@@ -31,8 +23,8 @@
 
 Готовые установочные пакеты и нативные бинарники доступны в разделе [**GitHub Releases v2.11.0**](https://github.com/werdio325-png/antigravity-android/releases/latest):
 
-* **[Antigravity-v2.11.0-Vanilla.apk](https://github.com/werdio325-png/antigravity-android/releases/download/v2.11.0/Antigravity-v2.11.0-Vanilla.apk)** — чистая оригинальная версия Google Antigravity для пользователей, которым **VPN не нужен по локации** (прямой доступ без блокировок).
-* **[Antigravity-v2.11.0-Patched.apk](https://github.com/werdio325-png/antigravity-android/releases/download/v2.11.0/Antigravity-v2.11.0-Patched.apk)** — версия со специальным патчем на уровне авторизации (`MANAGER_GATE_ARM64`). Используется **в связке с VPN** для обхода ограничений авторизации Google API.
+* **[Antigravity-v2.11.0-Universal.apk](https://github.com/werdio325-png/antigravity-android/releases/download/v2.11.0/Antigravity-v2.11.0-Universal.apk)** — универсальная версия Google Antigravity со встроенным LSE-транслятором (`libqemu.so`) и автоматической поддержкой всех процессоров (ARMv8.0 и ARMv8.1+).
+* **[Antigravity-v2.11.0-Vanilla.apk](https://github.com/werdio325-png/antigravity-android/releases/download/v2.11.0/Antigravity-v2.11.0-Vanilla.apk)** — чистая оригинальная версия Google Antigravity для пользователей с чипами ARMv8.1+ и прямым доступом к API.
 * **[antigravity-cores-arm64-v2.11.0.tar.gz](https://github.com/werdio325-png/antigravity-android/releases/download/v2.11.0/antigravity-cores-arm64-v2.11.0.tar.gz)** — сжатый архив всех нативных ARM64-ядер и библиотек для разработчиков, собирающих проект из исходников.
 
 ---
@@ -48,7 +40,7 @@
 
 ### Развитие в `antigravity-android`:
 Наш проект совершает качественный переход от консольного терминала к **автономной мобильной экосистеме**:
-* Консольный TUI перенесён в полноценное нативное Android-приложение (APK) со встроенным веб-интерфейсом (WebView) на локальном порту `38695`.
+* Консольный TUI перенесён в полноценное нативное Android-приложение (APK) со встроенным веб-интерфейсом (WebView) на локальном порту `38696`.
 * Добавлена поддержка системных плавающих окон (Freeform Window Mode) для комфортной многозадачности на планшетах, складных устройствах и смартфонах.
 * Реализована неубиваемая служба переднего плана (Foreground Service), предотвращающая выгрузку рантайма операционной системой Android при выключении экрана или переключении задач.
 * Добавлен OAuth-мост `xdg-open` для автоматического открытия мобильного браузера при авторизации в аккаунте Google.
@@ -60,9 +52,9 @@
 - **Полноценное Android-приложение (APK):** запуск с графическим WebView-интерфейсом без необходимости вручную открывать консоль Termux или настраивать chroot-контейнеры.
 - **Плавающие окна (Freeform Window Mode):** работа в отдельном перемещаемом окне с изменяемым размером на планшетах, складных устройствах и смартфонах с поддержкой многооконности Android.
 - **Фоновая служба (Foreground Service):** фоновый сервис гарантирует, что среда выполнения не будет выгружена системой при выключении экрана или переключении задач.
-- **Двойная архитектура ядер (Dual-Core):**
-  - **Patched (`libserver-patched.so`):** ядро со специальным патчем на уровне авторизации (`MANAGER_GATE_ARM64`). Используется в связке с VPN для обхода ограничений авторизации Google API.
-  - **Vanilla (`libserver-vanilla.so`):** чистое оригинальное ядро Google Antigravity для пользователей, которым VPN не нужен по локации (прямой доступ без ограничений).
+- **Универсальная архитектура ядер (Universal & Vanilla):**
+  - **Universal (`libqemu.so` + `libserver.so`):** универсальное ядро с прозрачной трансляцией LSE atomics для старых процессоров (ARMv8.0) и прямым выполнением на ARMv8.1+.
+  - **Vanilla (`libserver-vanilla.so`):** чистое оригинальное ядро Google Antigravity для пользователей с чипами ARMv8.1+ и прямым доступом к API.
 - **Автономный Rootfs:** минимальный runtime-стек (glibc 2.44, Python 3, Git, cURL, jq, ripgrep, BusyBox), распаковывающийся во внутреннее хранилище приложения.
 - **Интеграция с Shizuku и Root:** прямой доступ к системному шеллу Android (UID 2000 через `rish` или root через `su`) для управления пакетами, сервисами и файловой системой.
 - **OAuth-мост:** перехват запросов авторизации Google через `xdg-open` с автоматическим открытием мобильного браузера.
