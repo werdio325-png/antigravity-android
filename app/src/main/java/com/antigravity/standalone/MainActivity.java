@@ -2,9 +2,12 @@ package com.antigravity.standalone;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraManager;
 import android.net.Uri;
 import android.net.http.SslError;
 import android.os.Bundle;
@@ -67,6 +70,7 @@ public class MainActivity extends Activity {
 
         setupWebView();
         startUrlRequestListener();
+        startDeviceCommandListener();
         requestRootPermission();
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             try {
@@ -77,6 +81,67 @@ public class MainActivity extends Activity {
         }
         startForegroundEngineService();
         startStandaloneEngine();
+    }
+
+    private volatile boolean isTorchActive = false;
+
+    private void setTorchMode(boolean enable) {
+        try {
+            CameraManager cm = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+            if (cm != null) {
+                for (String id : cm.getCameraIdList()) {
+                    CameraCharacteristics cc = cm.getCameraCharacteristics(id);
+                    Boolean hasFlash = cc.get(CameraCharacteristics.FLASH_INFO_AVAILABLE);
+                    if (Boolean.TRUE.equals(hasFlash)) {
+                        cm.setTorchMode(id, enable);
+                        isTorchActive = enable;
+                        Log.i(TAG, "Hardware torch successfully set to: " + enable);
+                        break;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to toggle torch mode", e);
+        }
+    }
+
+    private void startDeviceCommandListener() {
+        new Thread(() -> {
+            File[] targets = new File[] {
+                new File(getCacheDir(), "torch_cmd"),
+                new File(getFilesDir(), "torch_cmd"),
+                new File(getApplicationInfo().dataDir, "torch_cmd"),
+                new File("/data/local/tmp/torch_cmd"),
+                new File("/sdcard/torch_cmd")
+            };
+            while (isRunning) {
+                for (File cmdFile : targets) {
+                    try {
+                        if (cmdFile != null && cmdFile.exists()) {
+                            String cmd = null;
+                            try (BufferedReader reader = new BufferedReader(new FileReader(cmdFile))) {
+                                cmd = reader.readLine();
+                            }
+                            cmdFile.delete();
+                            if (cmd != null) {
+                                cmd = cmd.trim().toLowerCase();
+                                boolean enable = false;
+                                if (cmd.equals("on") || cmd.equals("1") || cmd.equals("enable")) {
+                                    enable = true;
+                                } else if (cmd.equals("off") || cmd.equals("0") || cmd.equals("disable")) {
+                                    enable = false;
+                                } else if (cmd.equals("toggle")) {
+                                    enable = !isTorchActive;
+                                }
+                                final boolean finalEnable = enable;
+                                handler.post(() -> setTorchMode(finalEnable));
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+                try { Thread.sleep(200); } catch (Exception ignored) {}
+            }
+        }, "DeviceCommandListener").start();
     }
 
     private void startForegroundEngineService() {
@@ -254,6 +319,32 @@ public class MainActivity extends Activity {
                     "} catch (e) {}",
                     null
                 );
+                String mobileCss =
+                    "@media (max-width: 900px) {" +
+                    "  div:has(> div[data-aux-pane-open=\"true\"]) {" +
+                    "    position: fixed !important;" +
+                    "    top: 0 !important;" +
+                    "    right: 0 !important;" +
+                    "    bottom: 0 !important;" +
+                    "    width: 85vw !important;" +
+                    "    max-width: 380px !important;" +
+                    "    z-index: 9999 !important;" +
+                    "    box-shadow: -6px 0 25px rgba(0,0,0,0.7) !important;" +
+                    "    background: #18181b !important;" +
+                    "  }" +
+                    "}";
+                view.evaluateJavascript(
+                    "(function() {" +
+                    "  var st = document.getElementById('ag-mobile-fixes');" +
+                    "  if (!st) {" +
+                    "    st = document.createElement('style');" +
+                    "    st.id = 'ag-mobile-fixes';" +
+                    "    st.textContent = '" + mobileCss + "';" +
+                    "    document.head.appendChild(st);" +
+                    "  }" +
+                    "})();",
+                    null
+                );
             }
 
             @Override
@@ -297,7 +388,7 @@ public class MainActivity extends Activity {
     }
 
     private synchronized File getPatchedMainJs() {
-        File patched = new File(getFilesDir(), "main_mobile_patched.js");
+        File patched = new File(getFilesDir(), "main_mobile_patched_v3.js");
         if (patched.exists() && patched.length() > 5000000) {
             return patched;
         }
@@ -323,6 +414,14 @@ public class MainActivity extends Activity {
             content = content.replace(
                 "baseUrl(){return`https://127.0.0.1:${this.port}`}",
                 "baseUrl(){return`http://127.0.0.1:${this.port}`}"
+            );
+            content = content.replace(
+                "m=(N,O)=>{if(!(O.detail>1)){if(O=I.find(Q=>Q.id===N))",
+                "m=(N,O)=>{if(!(O.detail>1)){if(N===J){l(lp({treeId:a,isOpen:!1}));return;}if(O=I.find(Q=>Q.id===N))"
+            );
+            content = content.replace(
+                "y.createElement(SHb,null))",
+                "y.createElement(SHb,null),y.createElement(\"button\",{type:\"button\",onClick:()=>l(lp({treeId:a,isOpen:!1})),className:\"px-2 py-0.5 text-muted-foreground hover:text-foreground cursor-pointer text-sm font-bold ml-1 rounded hover:bg-muted\",\"aria-label\":\"Close\"},\"✕\"))"
             );
             try (FileOutputStream fos = new FileOutputStream(patched)) {
                 fos.write(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -530,6 +629,27 @@ public class MainActivity extends Activity {
                     writeFileIfMissing(new File(projectsDir, "default-cli-project.json"),
                             "{\n  \"id\": \"default-cli-project\",\n  \"name\": \"CLI Project\",\n  \"projectResources\": {}\n}");
                 }
+
+                String defaultAgentsMd = "# Antigravity Standalone Environment Rules\n\n" +
+                        "You are running directly on an Android device (Redmi Note 12, ARM64) as a native autonomous agent with direct operating system and hardware access:\n" +
+                        "- **Device & Hardware Access**: You HAVE direct access to device hardware. When the user asks you to perform actions on the phone (e.g. \"Включи фонарик\", \"Выключи фонарик\", open app, check system state), NEVER say you don't have access to hardware. ALWAYS execute the command in your terminal.\n" +
+                        "- **Flashlight / Torch**: To turn the flashlight on or off, run `torch on` or `torch off` (or `flashlight on` / `flashlight off`). You can also use `torch toggle`.\n" +
+                        "- **Privileged Shell & Root**: You have full access to Superuser root (`su`) and Shizuku shell (`rish`, UID 2000). You can run any Android system command (`pm`, `am`, `screencap`, `input tap`, `input keyevent`, `settings`).\n" +
+                        "- **System Utilities**: GNU Bash (`bash`), Python 3, Git, curl, jq, ripgrep, and BusyBox are built into `$PATH`.\n" +
+                        "- **Storage**: Full access to device storage at `/storage/emulated/0/Documents/Antigravity/workspace` and `/sdcard`.\n";
+
+                File rulesDir = new File(configDir, "rules");
+                rulesDir.mkdirs();
+                writeFile(new File(rulesDir, "AGENTS.md"), defaultAgentsMd);
+                writeFile(new File(rulesDir, "GEMINI.md"), defaultAgentsMd);
+                writeFile(new File(configDir, "AGENTS.md"), defaultAgentsMd);
+                writeFile(new File(filesDir, "AGENTS.md"), defaultAgentsMd);
+                writeFile(new File(geminiDir, "AGENTS.md"), defaultAgentsMd);
+                try {
+                    File extConfig = new File("/storage/emulated/0/Documents/Antigravity/config");
+                    extConfig.mkdirs();
+                    writeFile(new File(extConfig, "AGENTS.md"), defaultAgentsMd);
+                } catch (Exception ignored) {}
 
                 // 4. Native libraries and runtime location
                 String nativeDir = getApplicationInfo().nativeLibraryDir;

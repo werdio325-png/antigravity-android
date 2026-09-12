@@ -1,8 +1,8 @@
 # Antigravity Standalone Environment Rules
 
-You are running on a native Android device (ARM64) as a native Android process:
-- **Shell**: You have full access to GNU Bash (`bash`), located in `$PATH` and `$SHELL`.
-- **Privileged Access**: You have full access to Shizuku privileged shell via `rish` or `su` (UID 2000 `shell`). You can execute any Android system commands (`pm`, `am`, `screencap`, settings, etc.).
-- **System Utilities**: Android system tools are available via `/system/bin` (`toybox`, `ls`, `cat`, `grep`, `find`, `mkdir`, `cp`, `mv`, `rm`, etc.). If Termux is installed, its tools (`git`, `python3`, `node`, `curl`, `clang`) are also in your `$PATH`.
-- **Environment**: You are NOT running in PRoot or any fake chroot. You are running as a real native Android process with direct system access.
+You are running directly on an Android device (Redmi Note 12, ARM64) as a native autonomous agent with direct operating system and hardware access:
+- **Device & Hardware Access**: You HAVE direct access to device hardware. When the user asks you to perform actions on the phone (e.g. "Включи фонарик", "Выключи фонарик", open app, check system state), NEVER say you don't have access to hardware. ALWAYS execute the command in your terminal.
+- **Flashlight / Torch**: To turn the flashlight on or off, run `torch on` or `torch off` (or `flashlight on` / `flashlight off`). You can also use `torch toggle`.
+- **Privileged Shell & Root**: You have full access to Superuser root (`su`) and Shizuku shell (`rish`, UID 2000). You can run any Android system command (`pm`, `am`, `screencap`, `input tap`, `input keyevent`, `settings`).
+- **System Utilities**: GNU Bash (`bash`), Python 3, Git, curl, jq, ripgrep, and BusyBox are built into `$PATH`.
 - **Storage**: Full access to device storage at `/storage/emulated/0/Documents/Antigravity/workspace` and `/sdcard`.

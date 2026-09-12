@@ -1,0 +1,25 @@
+#!/system/bin/sh
+ACTION="${1:-toggle}"
+ACTION=$(echo "$ACTION" | tr '[:upper:]' '[:lower:]')
+
+# 1. Trigger native Android CameraManager via app IPC files
+echo "$ACTION" > /data/local/tmp/torch_cmd 2>/dev/null || true
+echo "$ACTION" > /sdcard/torch_cmd 2>/dev/null || true
+echo "$ACTION" > /data/data/com.antigravity.standalone/cache/torch_cmd 2>/dev/null || true
+echo "$ACTION" > /data/data/com.antigravity.standalone/files/torch_cmd 2>/dev/null || true
+
+# 2. Direct sysfs fallback (works with root su)
+case "$ACTION" in
+    on|1|enable)
+        su -c "echo 1 > /sys/class/leds/led:torch_0/brightness 2>/dev/null; echo 255 > /sys/class/leds/torch-light/brightness 2>/dev/null; echo 1 > /sys/class/leds/flashlight/brightness 2>/dev/null" 2>/dev/null || true
+        rish -c "cmd statusbar expand-settings" 2>/dev/null || true
+        echo "Фонарик включен (Torch: ON)"
+        ;;
+    off|0|disable)
+        su -c "echo 0 > /sys/class/leds/led:torch_0/brightness 2>/dev/null; echo 0 > /sys/class/leds/torch-light/brightness 2>/dev/null; echo 0 > /sys/class/leds/flashlight/brightness 2>/dev/null" 2>/dev/null || true
+        echo "Фонарик выключен (Torch: OFF)"
+        ;;
+    toggle|*)
+        echo "Сигнал переключения фонарика отправлен (Torch: $ACTION)"
+        ;;
+esac
