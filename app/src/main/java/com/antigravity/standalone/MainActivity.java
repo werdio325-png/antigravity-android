@@ -18,11 +18,13 @@ import android.webkit.ConsoleMessage;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -31,6 +33,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -236,6 +239,27 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                if (request != null && request.getUrl() != null) {
+                    String path = request.getUrl().getPath();
+                    if (path != null && path.endsWith("/main.js")) {
+                        File patchedJs = getPatchedMainJs();
+                        if (patchedJs != null && patchedJs.exists() && patchedJs.length() > 5000000) {
+                            try {
+                                Map<String, String> headers = new HashMap<>();
+                                headers.put("Access-Control-Allow-Origin", "*");
+                                headers.put("Cache-Control", "no-cache");
+                                return new WebResourceResponse("application/javascript", "UTF-8", 200, "OK", headers, new FileInputStream(patchedJs));
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error serving patched main.js", e);
+                            }
+                        }
+                    }
+                }
+                return super.shouldInterceptRequest(view, request);
+            }
+
+            @Override
             public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
                 handler.proceed();
             }
@@ -252,6 +276,45 @@ public class MainActivity extends Activity {
                 }
             }
         });
+    }
+
+    private synchronized File getPatchedMainJs() {
+        File patched = new File(getFilesDir(), "main_mobile_patched.js");
+        if (patched.exists() && patched.length() > 5000000) {
+            return patched;
+        }
+        try {
+            java.net.URL url = new java.net.URL("http://127.0.0.1:" + PORT + "/main.js");
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            try (InputStream is = url.openStream()) {
+                byte[] buf = new byte[32768];
+                int r;
+                while ((r = is.read(buf)) != -1) {
+                    baos.write(buf, 0, r);
+                }
+            }
+            String content = new String(baos.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+            content = content.replace(
+                "!m||!t||t.size<2?p.push(r):n.has(m.base)||(n.add(m.base),p.push(r))",
+                "p.push(r)"
+            );
+            content = content.replace(
+                "rAb=(a,b)=>{if((a=L2(a))&&(b=b.get(a.base))&&!(b.size<2))return{base:a.base,efforts:qAb(b),byEffort:b}}",
+                "rAb=(a,b)=>void 0"
+            );
+            content = content.replace(
+                "baseUrl(){return`https://127.0.0.1:${this.port}`}",
+                "baseUrl(){return`http://127.0.0.1:${this.port}`}"
+            );
+            try (FileOutputStream fos = new FileOutputStream(patched)) {
+                fos.write(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+            Log.i(TAG, "Patched main.js successfully prepared for mobile touch screen!");
+            return patched;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to prepare patched main.js", e);
+            return null;
+        }
     }
 
     private void openInBrowser(String url) {
