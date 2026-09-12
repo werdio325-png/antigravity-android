@@ -448,23 +448,52 @@ public class MainActivity extends Activity {
                 // Start URL listener so xdg-open triggers external Android browser
                 startUrlRequestListener(tmpDir);
 
-                Log.i(TAG, "Starting NATIVE Antigravity engine (NO PROOT): loader=" + loaderLib.getAbsolutePath() + " server=" + serverBin.getAbsolutePath());
+                boolean lacksAtomics = isCpuLackingAtomics();
+                File qemuLib = new File(nativeDir, "libqemu.so");
+                if (!qemuLib.exists()) {
+                    qemuLib = new File(filesDir, "qemu-aarch64");
+                }
+                if (!qemuLib.exists()) {
+                    qemuLib = new File(binDir, "qemu-aarch64");
+                }
 
-                // 5. Start native engine process directly via glibc dynamic loader
-                ProcessBuilder pb = new ProcessBuilder(
-                        loaderLib.getAbsolutePath(),
-                        "--library-path", glibcDir.getAbsolutePath() + ":" + nativeDir + ":/system/lib64",
-                        serverBin.getAbsolutePath(),
-                        "--standalone",
-                        "--override_ide_name", "antigravity",
-                        "--subclient_type", "hub",
-                        "--override_ide_version", "2.11.0",
-                        "--override_user_agent_name", "antigravity",
-                        "--http_server_port", String.valueOf(PORT),
-                        "--csrf_token", "antigravity-standalone-token",
-                        "--app_data_dir", "antigravity",
-                        "--enable_sidecars"
-                );
+                // 5. Start engine process (via QEMU translator if CPU lacks LSE atomics, or bare-metal native if ARMv8.1+)
+                ProcessBuilder pb;
+                if (lacksAtomics && qemuLib.exists()) {
+                    Log.i(TAG, "ARMv8.0 CPU lacking LSE atomics detected. Starting Antigravity engine via universal translator: " + qemuLib.getAbsolutePath());
+                    pb = new ProcessBuilder(
+                            qemuLib.getAbsolutePath(),
+                            "-cpu", "max",
+                            loaderLib.getAbsolutePath(),
+                            "--library-path", glibcDir.getAbsolutePath() + ":" + nativeDir + ":/system/lib64",
+                            serverBin.getAbsolutePath(),
+                            "--standalone",
+                            "--override_ide_name", "antigravity",
+                            "--subclient_type", "hub",
+                            "--override_ide_version", "2.11.0",
+                            "--override_user_agent_name", "antigravity",
+                            "--http_server_port", String.valueOf(PORT),
+                            "--csrf_token", "antigravity-standalone-token",
+                            "--app_data_dir", "antigravity",
+                            "--enable_sidecars"
+                    );
+                } else {
+                    Log.i(TAG, "Starting NATIVE Antigravity engine (NO PROOT): loader=" + loaderLib.getAbsolutePath() + " server=" + serverBin.getAbsolutePath());
+                    pb = new ProcessBuilder(
+                            loaderLib.getAbsolutePath(),
+                            "--library-path", glibcDir.getAbsolutePath() + ":" + nativeDir + ":/system/lib64",
+                            serverBin.getAbsolutePath(),
+                            "--standalone",
+                            "--override_ide_name", "antigravity",
+                            "--subclient_type", "hub",
+                            "--override_ide_version", "2.11.0",
+                            "--override_user_agent_name", "antigravity",
+                            "--http_server_port", String.valueOf(PORT),
+                            "--csrf_token", "antigravity-standalone-token",
+                            "--app_data_dir", "antigravity",
+                            "--enable_sidecars"
+                    );
+                }
 
                 Map<String, String> env = pb.environment();
                 env.put("PATH", binDir.getAbsolutePath() + ":/system/bin:/system/xbin:/data/data/com.termux/files/usr/bin");
@@ -604,24 +633,25 @@ public class MainActivity extends Activity {
         return null;
     }
 
+    private boolean isCpuLackingAtomics() {
+        try (BufferedReader br = new BufferedReader(new FileReader("/proc/cpuinfo"))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (line.startsWith("Features")) {
+                    return !line.contains("atomics");
+                }
+            }
+        } catch (Exception ignored) {}
+        return false;
+    }
+
     private File ensureUniversalServerBin(File originalServerBin, File filesDir) {
         try {
             if (originalServerBin == null || !originalServerBin.exists()) {
                 return originalServerBin;
             }
 
-            boolean lacksAtomics = false;
-            try (BufferedReader br = new BufferedReader(new FileReader("/proc/cpuinfo"))) {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    if (line.startsWith("Features")) {
-                        if (!line.contains("atomics")) {
-                            lacksAtomics = true;
-                        }
-                        break;
-                    }
-                }
-            } catch (Exception ignored) {}
+            boolean lacksAtomics = isCpuLackingAtomics();
 
             File binDir = new File(filesDir, "bin");
             binDir.mkdirs();

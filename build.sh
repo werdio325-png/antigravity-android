@@ -64,6 +64,9 @@ server_so = '$server_bin'
 with zipfile.ZipFile(apk_path, 'a', zipfile.ZIP_DEFLATED) as z:
     z.write('$CORE_DIR/arm64-v8a/libandroid-shmem.so', 'lib/arm64-v8a/libandroid-shmem.so')
     z.write('$CORE_DIR/arm64-v8a/libldlinux.so', 'lib/arm64-v8a/libldlinux.so')
+    if os.path.exists('$CORE_DIR/arm64-v8a/libqemu.so'):
+        z.write('$CORE_DIR/arm64-v8a/libqemu.so', 'lib/arm64-v8a/libqemu.so')
+        print('  + Bundled libqemu.so (ARMv8.0 transparent LSE user-mode translator)')
     with open(server_so, 'rb') as sf:
         sdata = bytearray(sf.read())
     offset = 0x6b76bf0
