@@ -37,7 +37,7 @@ import java.util.zip.ZipInputStream;
 
 public class MainActivity extends Activity {
     private static final String TAG = "AntigravityStandalone";
-    private static final int PORT = 38695;
+    private static final int PORT = 38696;
     private static final String DESKTOP_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Antigravity/2.11.0";
 
     private WebView webView;
@@ -63,6 +63,7 @@ public class MainActivity extends Activity {
         webView.setBackgroundColor(Color.parseColor("#101010"));
 
         setupWebView();
+        startUrlRequestListener();
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             try {
                 if (checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -264,31 +265,47 @@ public class MainActivity extends Activity {
                 startActivity(intent);
             } catch (Exception e) {
                 Log.e(TAG, "Failed to launch browser intent for " + targetUrl, e);
+                try {
+                    android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    if (cm != null) {
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("Antigravity Login URL", targetUrl));
+                        android.widget.Toast.makeText(MainActivity.this, "Ссылка скопирована в буфер обмена: " + targetUrl, android.widget.Toast.LENGTH_LONG).show();
+                    }
+                } catch (Exception ignored) {}
             }
         });
     }
 
-    private void startUrlRequestListener(File tmpDir) {
+    private void startUrlRequestListener() {
         new Thread(() -> {
-            File reqFile = new File(tmpDir, "open_url_request");
+            File[] targets = new File[] {
+                new File(getCacheDir(), "open_url_request"),
+                new File(getFilesDir(), "open_url_request"),
+                new File(getApplicationInfo().dataDir, "open_url_request"),
+                new File("/data/local/tmp/open_url_request"),
+                new File("/sdcard/open_url_request")
+            };
             while (isRunning) {
-                if (reqFile.exists()) {
+                for (File reqFile : targets) {
                     try {
-                        String url = null;
-                        try (BufferedReader reader = new BufferedReader(new FileReader(reqFile))) {
-                            url = reader.readLine();
-                        }
-                        reqFile.delete();
-                        if (url != null && !url.trim().isEmpty()) {
-                            openInBrowser(url.trim());
+                        if (reqFile != null && reqFile.exists()) {
+                            String url = null;
+                            try (BufferedReader reader = new BufferedReader(new FileReader(reqFile))) {
+                                url = reader.readLine();
+                            }
+                            reqFile.delete();
+                            if (url != null && !url.trim().isEmpty()) {
+                                Log.i(TAG, "Captured open_url_request from " + reqFile.getAbsolutePath() + ": " + url.trim());
+                                openInBrowser(url.trim());
+                            }
                         }
                     } catch (Exception e) {
                         Log.e(TAG, "Error handling open_url_request", e);
-                        reqFile.delete();
+                        try { reqFile.delete(); } catch (Exception ignored) {}
                     }
                 }
                 try {
-                    Thread.sleep(150);
+                    Thread.sleep(100);
                 } catch (InterruptedException ignored) {}
             }
         }, "UrlRequestListener").start();
@@ -305,11 +322,10 @@ public class MainActivity extends Activity {
 
                 File filesDir = getFilesDir();
                 File rootfsDir = new File(filesDir, "rootfs");
-                File marker = new File(rootfsDir, ".installed_v15");
+                File marker = new File(rootfsDir, ".installed_v16");
                 if (!marker.exists()) {
-                    Log.i(TAG, "Extracting clean embedded rootfs v15 (with Python, Git, cURL, jq, rg, BusyBox)...");
+                    Log.i(TAG, "Extracting clean embedded rootfs v16 (with Python, Git, cURL, jq, rg, BusyBox)...");
                     deleteRecursively(rootfsDir);
-                    deleteRecursively(new File(filesDir, ".gemini"));
                     extractZipAsset("rootfs.zip", rootfsDir);
                     setExecutableRecursively(rootfsDir);
                     File rishDex = new File(rootfsDir, "bin/rish_shizuku.dex");
@@ -445,8 +461,27 @@ public class MainActivity extends Activity {
                 File tmpDir = getCacheDir();
                 tmpDir.mkdirs();
 
-                // Start URL listener so xdg-open triggers external Android browser
-                startUrlRequestListener(tmpDir);
+                // Ensure xdg-open and browser aliases exist in binDir
+                File xdgBin = new File(binDir, "xdg-open");
+                writeFile(xdgBin, "#!/system/bin/sh\nURL=\"$1\"\n[ -z \"$URL\" ] && shift && URL=\"$*\"\n[ -z \"$URL\" ] && exit 0\n" +
+                        "echo \"$URL\" > \"/data/local/tmp/open_url_request\" 2>/dev/null\n" +
+                        "echo \"$URL\" > \"" + new File(tmpDir, "open_url_request").getAbsolutePath() + "\" 2>/dev/null\n" +
+                        "echo \"$URL\" > \"" + new File(filesDir, "open_url_request").getAbsolutePath() + "\" 2>/dev/null\n" +
+                        "echo \"$URL\" > \"/sdcard/open_url_request\" 2>/dev/null\n" +
+                        "chmod 666 /data/local/tmp/open_url_request 2>/dev/null\n" +
+                        "chmod 666 /sdcard/open_url_request 2>/dev/null\n" +
+                        "am start -a android.intent.action.VIEW -d \"$URL\" 2>/dev/null\n" +
+                        "for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do\n" +
+                        "    if [ ! -f /data/local/tmp/open_url_request ] && [ ! -f \"" + new File(tmpDir, "open_url_request").getAbsolutePath() + "\" ]; then exit 0; fi\n" +
+                        "    sleep 0.2 2>/dev/null || sleep 1\n" +
+                        "done\nexit 0\n");
+                xdgBin.setReadable(true, false);
+                xdgBin.setExecutable(true, false);
+                for (String alias : new String[]{"x-www-browser", "sensible-browser", "google-chrome", "chromium", "firefox"}) {
+                    File aliasBin = new File(binDir, alias);
+                    copyFile(xdgBin, aliasBin);
+                    aliasBin.setExecutable(true, false);
+                }
 
                 boolean lacksAtomics = isCpuLackingAtomics();
                 File qemuLib = new File(nativeDir, "libqemu.so");
