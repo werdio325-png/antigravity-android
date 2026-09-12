@@ -88,10 +88,10 @@ print('  + Injected native libraries for ${var_title}')
 }
 
 case "$TARGET" in
-    patched)
-        build_variant "patched" "Patched"
-        cp -f "$DIST_DIR/Antigravity-v2.11.0-Patched.apk" "$DIST_DIR/Antigravity-v2.11.0.apk"
-        cp -f "$DIST_DIR/Antigravity-v2.11.0-Patched.apk" "/storage/emulated/0/Documents/Antigravity-Autonomous-v2.11.0.apk"
+    universal)
+        build_variant "patched" "Universal"
+        cp -f "$DIST_DIR/Antigravity-v2.11.0-Universal.apk" "$DIST_DIR/Antigravity-v2.11.0.apk"
+        cp -f "$DIST_DIR/Antigravity-v2.11.0-Universal.apk" "/storage/emulated/0/Documents/Antigravity-Autonomous-v2.11.0.apk"
         ;;
     vanilla)
         build_variant "vanilla" "Vanilla"
@@ -99,10 +99,10 @@ case "$TARGET" in
         cp -f "$DIST_DIR/Antigravity-v2.11.0-Vanilla.apk" "/storage/emulated/0/Documents/Antigravity-Autonomous-v2.11.0.apk"
         ;;
     all|*)
-        build_variant "patched" "Patched"
+        build_variant "patched" "Universal"
         build_variant "vanilla" "Vanilla"
-        cp -f "$DIST_DIR/Antigravity-v2.11.0-Patched.apk" "$DIST_DIR/Antigravity-v2.11.0.apk"
-        cp -f "$DIST_DIR/Antigravity-v2.11.0-Patched.apk" "/storage/emulated/0/Documents/Antigravity-Autonomous-v2.11.0.apk"
+        cp -f "$DIST_DIR/Antigravity-v2.11.0-Universal.apk" "$DIST_DIR/Antigravity-v2.11.0.apk"
+        cp -f "$DIST_DIR/Antigravity-v2.11.0-Universal.apk" "/storage/emulated/0/Documents/Antigravity-Autonomous-v2.11.0.apk"
         ;;
 esac
 
