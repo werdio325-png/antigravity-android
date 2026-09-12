@@ -53,6 +53,8 @@
 * Добавлен OAuth-мост `xdg-open` для автоматического открытия мобильного браузера при авторизации в аккаунте Google.
 * Оптимизировано мобильное меню выбора моделей: прямое переключение режимов Thinking (Low, Medium, High) в одно касание.
 * Добавлен автозапрос Root (`su`) и поддержка Shizuku (`rish`) прямо из рантайма.
+* Добавлено прямое аппаратное управление фонариком (Camera2 API + sysfs) через CLI-утилиты `torch` и `flashlight`.
+* Адаптивная мобильная шторка: правая панель больше не сжимает экран чата, открывается поверх как шторка с кнопкой `[ ✕ ]` и сворачиванием по тапу на активную вкладку.
 
 ---
 
@@ -211,6 +213,8 @@ Our project takes the leap from a terminal console utility to a **fully autonomo
 * Added native OAuth redirect bridge via `xdg-open` to automatically open the mobile browser for Google account sign-in.
 * Touch-optimized model selector: direct one-tap selection for all reasoning effort levels (Low, Medium, High).
 * Built-in automatic Superuser prompt (`su`) and Shizuku shell support (`rish`) directly from the runtime.
+* Direct hardware torch control (Camera2 API + sysfs fallback) via CLI tools `torch` and `flashlight`.
+* Responsive mobile drawer: auxiliary pane operates as a slide-over overlay with `[ ✕ ]` close button and one-tap tab collapse without squishing the chat.
 
 ---
 
