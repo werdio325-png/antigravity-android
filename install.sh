@@ -2,15 +2,15 @@
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MODE="${1:-patched}"
+MODE="${1:-universal}"
 
 if [ "$MODE" == "vanilla" ] || [ "$MODE" == "v" ]; then
     APK="$PROJECT_DIR/dist/Antigravity-v2.11.0-Vanilla.apk"
-    TITLE="Vanilla (чистая версия, для тех кому VPN не нужен по локации)"
+    TITLE="Vanilla (чистая версия, ARMv8.1+)"
 else
-    APK="$PROJECT_DIR/dist/Antigravity-v2.11.0-Patched.apk"
+    APK="$PROJECT_DIR/dist/Antigravity-v2.11.0-Universal.apk"
     [ -f "$APK" ] || APK="$PROJECT_DIR/dist/Antigravity-v2.11.0.apk"
-    TITLE="Patched (с патчем авторизации, для работы под VPN)"
+    TITLE="Universal (универсальная версия, ARMv8.0 и ARMv8.1+)"
 fi
 
 if [ ! -f "$APK" ]; then
