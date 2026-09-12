@@ -1,7 +1,12 @@
 #!/system/bin/sh
+for SU_PATH in /system/bin/su /system/xbin/su /sbin/su /data/adb/ksu/bin/su /data/adb/ap/bin/su; do
+    if [ -x "$SU_PATH" ]; then
+        exec "$SU_PATH" "$@"
+    fi
+done
 DIR="$(cd "$(dirname "$0")" && pwd)"
 if [ -x "$DIR/rish" ]; then
     exec "$DIR/rish" "$@"
-else
-    exec /system/bin/su "$@"
 fi
+exec su "$@"
+

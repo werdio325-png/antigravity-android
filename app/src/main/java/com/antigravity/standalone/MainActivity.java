@@ -67,6 +67,7 @@ public class MainActivity extends Activity {
 
         setupWebView();
         startUrlRequestListener();
+        requestRootPermission();
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             try {
                 if (checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -89,6 +90,23 @@ public class MainActivity extends Activity {
         } catch (Exception e) {
             Log.e(TAG, "Failed to start EngineService", e);
         }
+    }
+
+    private void requestRootPermission() {
+        new Thread(() -> {
+            String[] suPaths = new String[]{"/system/bin/su", "/system/xbin/su", "/sbin/su", "/data/adb/ksu/bin/su", "/data/adb/ap/bin/su", "su"};
+            for (String su : suPaths) {
+                try {
+                    Process p = new ProcessBuilder(su, "-c", "id").start();
+                    int exit = p.waitFor();
+                    if (exit == 0) {
+                        Log.i(TAG, "Root (Superuser) access granted via: " + su);
+                        return;
+                    }
+                } catch (Exception ignored) {}
+            }
+            Log.i(TAG, "Root check finished (no root manager prompt or device is unrooted)");
+        }, "RootRequester").start();
     }
 
     @Override
