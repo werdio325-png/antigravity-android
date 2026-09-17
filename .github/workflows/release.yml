@@ -52,7 +52,7 @@ jobs:
           echo "[*] Installing gdown..."
           pip install gdown
           echo "[*] Downloading core directly from Google Drive..."
-          gdown "https://drive.google.com/uc?id=1cZuRdGCBUNLoBHgnmXfQKHdgvJ8SlS_V" -O core/downloaded_file --fuzzy
+          gdown 1cZuRdGCBUNLoBHgnmXfQKHdgvJ8SlS_V -O core/downloaded_file
           ls -lh core/downloaded_file
           
           if gzip -t core/downloaded_file 2>/dev/null; then
