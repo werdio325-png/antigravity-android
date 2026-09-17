@@ -3,6 +3,7 @@ package com.antigravity.mobile;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
@@ -165,10 +166,10 @@ public class CoreServerService extends Service {
             env.put("SSL_CERT_FILE", caCert.getAbsolutePath());
             env.put("SSL_CERT_DIR", certsDir.getAbsolutePath());
             env.put("RESOLV_CONF", new File(filesDir, "etc/resolv.conf").getAbsolutePath());
-            File bashBinary = new File(nativeDir, "libbash.so");
+            File bashScript = new File(binDir, "bash");
             File bashrcFile = new File(etcDir, "bashrc");
             env.put("NATIVE_DIR", nativeDir.getAbsolutePath());
-            env.put("SHELL", bashBinary.getAbsolutePath());
+            env.put("SHELL", bashScript.getAbsolutePath());
             env.put("BASH_ENV", bashrcFile.getAbsolutePath());
             env.put("ENV", bashrcFile.getAbsolutePath());
             env.put("PYTHONHOME", pyDir.getAbsolutePath());
@@ -193,6 +194,16 @@ public class CoreServerService extends Service {
                         if (l.contains("ANTIGRAVITY_OPEN_URL:")) {
                             String authUrl = l.substring(l.indexOf("ANTIGRAVITY_OPEN_URL:") + 21).trim();
                             MainActivity.openCustomTab(getApplicationContext(), authUrl);
+                        } else if (l.contains("ANTIGRAVITY_NOTIFY:")) {
+                            String payload = l.substring(l.indexOf("ANTIGRAVITY_NOTIFY:") + 19).trim();
+                            String title = "Antigravity";
+                            String msg = payload;
+                            int sep = payload.indexOf("|");
+                            if (sep != -1) {
+                                title = payload.substring(0, sep).trim();
+                                msg = payload.substring(sep + 1).trim();
+                            }
+                            showUserNotification(title, msg);
                         }
                     }
                 } catch (Exception ignored) {}
@@ -205,6 +216,7 @@ public class CoreServerService extends Service {
                     s.connect(new InetSocketAddress("127.0.0.1", PORT), 300);
                     serverUrl = "https://127.0.0.1:" + PORT + "/?csrf_token=" + csrfToken;
                     Log.i(TAG, "Core server ready at: " + serverUrl);
+                    updateNotificationStatus("Готов к работе (Порт " + PORT + ")");
                     break;
                 } catch (Exception e) {
                     Thread.sleep(50);
@@ -293,19 +305,83 @@ public class CoreServerService extends Service {
         }
     }
 
+    public static final String CH_CORE = "core_channel";
+    public static final String CH_NOTIFY = "antigravity_notifications";
+
     private void startForegroundNotification() {
-        String chId = "core_channel";
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel ch = new NotificationChannel(chId, "Core", NotificationManager.IMPORTANCE_LOW);
-            getSystemService(NotificationManager.class).createNotificationChannel(ch);
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            NotificationChannel chCore = new NotificationChannel(CH_CORE, "Служба Antigravity", NotificationManager.IMPORTANCE_LOW);
+            chCore.setDescription("Фоновая служба ядра Antigravity");
+            nm.createNotificationChannel(chCore);
+
+            NotificationChannel chNotify = new NotificationChannel(CH_NOTIFY, "Уведомления Antigravity", NotificationManager.IMPORTANCE_HIGH);
+            chNotify.setDescription("Уведомления от ИИ-ассистента Antigravity");
+            chNotify.enableVibration(true);
+            nm.createNotificationChannel(chNotify);
         }
-        Notification.Builder b = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ?
-                new Notification.Builder(this, chId) : new Notification.Builder(this);
-        Notification n = b.setContentTitle("Antigravity Mobile").setContentText("Running").setSmallIcon(android.R.drawable.stat_notify_sync).build();
+
+        Notification n = buildServiceNotification("Запуск ядра...");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(1001, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
         } else {
             startForeground(1001, n);
+        }
+    }
+
+    private Notification buildServiceNotification(String status) {
+        Intent openApp = new Intent(this, MainActivity.class);
+        openApp.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent pi = PendingIntent.getActivity(this, 0, openApp,
+                PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0));
+
+        Notification.Builder b = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ?
+                new Notification.Builder(this, CH_CORE) : new Notification.Builder(this);
+
+        return b.setContentTitle("Antigravity Mobile")
+                .setContentText(status)
+                .setSmallIcon(android.R.drawable.stat_notify_sync)
+                .setContentIntent(pi)
+                .setOngoing(true)
+                .build();
+    }
+
+    private void updateNotificationStatus(String status) {
+        try {
+            NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.notify(1001, buildServiceNotification(status));
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void showUserNotification(String title, String message) {
+        try {
+            NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            if (nm == null) return;
+
+            Intent openApp = new Intent(this, MainActivity.class);
+            openApp.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            PendingIntent pi = PendingIntent.getActivity(this, (int) System.currentTimeMillis(), openApp,
+                    PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0));
+
+            Notification.Builder b = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ?
+                    new Notification.Builder(this, CH_NOTIFY) : new Notification.Builder(this);
+
+            Notification n = b.setContentTitle(title)
+                    .setContentText(message)
+                    .setStyle(new Notification.BigTextStyle().bigText(message))
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .setContentIntent(pi)
+                    .setAutoCancel(true)
+                    .setPriority(Notification.PRIORITY_HIGH)
+                    .setDefaults(Notification.DEFAULT_ALL)
+                    .build();
+
+            int notifyId = (int) (System.currentTimeMillis() % 100000) + 2000;
+            nm.notify(notifyId, n);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to show user notification", e);
         }
     }
 

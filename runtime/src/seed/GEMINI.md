@@ -45,3 +45,12 @@ Whenever ADB-level or system access is required, use `rish` (`$HOME/runtime/bin/
   - System logs: `rish -c "logcat -d | tail -n 50"`
   - Battery/Window stats: `rish -c "dumpsys battery"`, `rish -c "dumpsys window"`
   - Settings: `rish -c "settings get/put global/secure/system <key> <val>"`
+
+## 4. Android Push Notifications (`notify`)
+You can send native Android Heads-Up push notifications to the user with vibration and sound:
+- **Usage**: `notify "<Title>" "<Message>"` (or simply `notify "<Message>"`)
+- **When to use**:
+  - When long-running background tasks or builds complete.
+  - When you need to alert the user about important milestones or completion of steps while the app is in the background.
+  - Example: `notify "Build Complete" "Antigravity-Mobile.apk successfully built and signed!"`
+

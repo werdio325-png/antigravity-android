@@ -1,0 +1,11 @@
+#!/system/bin/sh
+# Tool to send Heads-Up Android push notifications from Antigravity Agent
+TITLE="${1:-Antigravity}"
+MSG="${2:-$1}"
+if [ "$#" -eq 1 ]; then
+  TITLE="Antigravity"
+  MSG="$1"
+fi
+
+# Print to stdout for CoreServerService stream reader hook
+echo "ANTIGRAVITY_NOTIFY:${TITLE}|${MSG}"

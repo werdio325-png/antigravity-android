@@ -57,3 +57,9 @@ fi
         /system/bin/sh "$RUNTIME_DIR/bin/rish" "$@"
     }
     export -f rish 2>/dev/null || true
+
+    notify() {
+        /system/bin/sh "$RUNTIME_DIR/bin/notify" "$@"
+    }
+    export -f notify 2>/dev/null || true
+
