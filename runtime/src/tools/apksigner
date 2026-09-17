@@ -1,0 +1,4 @@
+#!/system/bin/sh
+RUNTIME_DIR="${HOME:-/data/user/0/com.antigravity.mobile/files}/runtime"
+if [ ! -d "$RUNTIME_DIR" ]; then RUNTIME_DIR="/data/data/com.antigravity.mobile/files/runtime"; fi
+exec java -jar "$RUNTIME_DIR/bin/apksigner.jar" "$@"

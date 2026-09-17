@@ -1,0 +1,3 @@
+#!/system/bin/sh
+if [ -z "$NATIVE_DIR" ]; then NATIVE_DIR="/data/data/com.antigravity.mobile/lib"; fi
+exec "$NATIVE_DIR/libaapt.so" "$@"

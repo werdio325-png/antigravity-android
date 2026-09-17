@@ -1,0 +1,4 @@
+#!/system/bin/sh
+if [ -z "$NATIVE_DIR" ]; then NATIVE_DIR="/data/data/com.antigravity.mobile/lib"; fi
+export LD_LIBRARY_PATH="$NATIVE_DIR:/system/lib64:$LD_LIBRARY_PATH"
+exec "$NATIVE_DIR/ld-linux-aarch64.so.1" --library-path "$NATIVE_DIR:/system/lib64" "$NATIVE_DIR/libbash.so" "$@"

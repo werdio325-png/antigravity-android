@@ -1,0 +1,33 @@
+# Output APKs and build products
+output/
+*.apk
+*.idsig
+
+# Staging and compilation artifacts
+staging/
+*.o
+*.obj
+*.class
+*.dex
+
+# Large proprietary core binary (download or obtain separately, >100MB)
+core/language_server
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Sensitive credentials & tokens
+*-oauth-token
+*.token
+*.key
+.gitconfig
+
+# OS and editor artifacts
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~

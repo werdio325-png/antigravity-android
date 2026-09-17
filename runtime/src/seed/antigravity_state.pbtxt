@@ -1,0 +1,31 @@
+post_onboarding: {
+  completed_steps: POST_ONBOARDING_STEP_TYPE_MANAGER_WELCOME
+  completed_steps: POST_ONBOARDING_STEP_TYPE_USAGE_MODE
+  completed_steps: POST_ONBOARDING_STEP_TYPE_AGENT_CONFIGURATION
+  completed_steps: POST_ONBOARDING_STEP_TYPE_ADD_WORKSPACE
+}
+seen_nuxs: {
+  uids: 38
+  uids: 29
+  uids: 24
+  uids: 36
+  uids: 43
+  uids: 45
+}
+agent_onboarding_completed: AGENT_ONBOARDING_STATE_COMPLETED
+last_selected_agent_model: MODEL_PLACEHOLDER_M35
+migrate_convos_into_projects: MIGRATION_STATUS_COMPLETED
+installation_uuid: "5b21c18a-32a1-46bf-95f3-19a809c25df0"
+migrate_retroactive_projects: RETROACTIVE_MIGRATION_STATUS_COMPLETED_UNNECESSARY
+migrations: {
+  key: 3
+  value: MIGRATION_STATUS_COMPLETED
+}
+migrations: {
+  key: 4
+  value: MIGRATION_STATUS_COMPLETED
+}
+migrations: {
+  key: 5
+  value: MIGRATION_STATUS_COMPLETED
+}

@@ -1,0 +1,24 @@
+#!/system/bin/sh
+BASEDIR=$(dirname "$0")
+case "$BASEDIR" in
+  /*) ;;
+  *) BASEDIR="$(pwd)/$BASEDIR" ;;
+esac
+
+DEX="$BASEDIR/rish_shizuku.dex"
+
+if [ ! -f "$DEX" ]; then
+  for d in /data/data/com.antigravity.mobile/files/runtime/bin /data/user/0/com.antigravity.mobile/files/runtime/bin; do
+    if [ -f "$d/rish_shizuku.dex" ]; then DEX="$d/rish_shizuku.dex"; break; fi
+  done
+fi
+
+if [ ! -f "$DEX" ]; then
+  echo "Cannot find rish_shizuku.dex"
+  exit 1
+fi
+
+chmod 400 "$DEX" 2>/dev/null || true
+
+export RISH_APPLICATION_ID="moe.shizuku.privileged.api"
+exec /system/bin/app_process -Djava.class.path="$DEX" /system/bin --nice-name=rish rikka.shizuku.shell.ShizukuShellLoader "$@"

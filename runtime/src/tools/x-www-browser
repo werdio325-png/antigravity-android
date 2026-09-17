@@ -1,0 +1,6 @@
+#!/system/bin/sh
+URL="$1"
+if [ -n "$URL" ]; then
+    /system/bin/am start -a android.intent.action.VIEW -d "$URL" 2>/dev/null || true
+fi
+

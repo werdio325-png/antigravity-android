@@ -1,0 +1,166 @@
+#!/system/bin/sh
+# Antigravity 100% Native Package Manager (Zero PRoot / Zero Overhead)
+set -e
+
+if [ -z "$NATIVE_DIR" ]; then NATIVE_DIR="/data/data/com.antigravity.mobile/lib"; fi
+RUNTIME_DIR="${HOME:-/data/user/0/com.antigravity.mobile/files}/runtime"
+PREFIX="$RUNTIME_DIR/usr"
+BIN_DIR="$RUNTIME_DIR/bin"
+OPT_DIR="$RUNTIME_DIR/opt"
+
+# Установка нативного PIP
+install_pip() {
+  echo "[pkg] Установка нативного pip..."
+  curl -sSL https://bootstrap.pypa.io/get-pip.py -o "$RUNTIME_DIR/get-pip.py"
+  python3 "$RUNTIME_DIR/get-pip.py" --no-warn-script-location --prefix "$RUNTIME_DIR/python"
+  rm -f "$RUNTIME_DIR/get-pip.py"
+  
+  cat << 'PEOF' > "$BIN_DIR/pip"
+#!/system/bin/sh
+exec python3 -m pip "$@"
+PEOF
+  chmod +x "$BIN_DIR/pip" 2>/dev/null || true
+  ln -sf "$BIN_DIR/pip" "$BIN_DIR/pip3" 2>/dev/null || true
+  echo "[pkg] pip успешно установлен (100% Native)!"
+}
+
+# Установка нативного Node.js LTS
+install_node() {
+  echo "[pkg] Установка нативного Node.js LTS (ARM64)..."
+  mkdir -p "$OPT_DIR/node"
+  NODE_URL="https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-arm64.tar.xz"
+  curl -sSL "$NODE_URL" | tar -xJ -C "$OPT_DIR/node" --strip-components=1
+  
+  cat << 'PEOF' > "$BIN_DIR/node"
+#!/system/bin/sh
+if [ -z "$NATIVE_DIR" ]; then NATIVE_DIR="/data/data/com.antigravity.mobile/lib"; fi
+OPT_NODE="${HOME:-/data/user/0/com.antigravity.mobile/files}/runtime/opt/node"
+if [ ! -d "$OPT_NODE" ]; then OPT_NODE="/data/data/com.antigravity.mobile/files/runtime/opt/node"; fi
+exec "$NATIVE_DIR/ld-linux-aarch64.so.1" --library-path "$NATIVE_DIR:$OPT_NODE/lib" "$OPT_NODE/bin/node" "$@"
+PEOF
+  chmod +x "$BIN_DIR/node" 2>/dev/null || true
+
+  cat << 'PEOF' > "$BIN_DIR/npm"
+#!/system/bin/sh
+OPT_NODE="${HOME:-/data/user/0/com.antigravity.mobile/files}/runtime/opt/node"
+if [ ! -d "$OPT_NODE" ]; then OPT_NODE="/data/data/com.antigravity.mobile/files/runtime/opt/node"; fi
+exec node "$OPT_NODE/lib/node_modules/npm/bin/npm-cli.js" "$@"
+PEOF
+  chmod +x "$BIN_DIR/npm" 2>/dev/null || true
+
+  cat << 'PEOF' > "$BIN_DIR/npx"
+#!/system/bin/sh
+OPT_NODE="${HOME:-/data/user/0/com.antigravity.mobile/files}/runtime/opt/node"
+if [ ! -d "$OPT_NODE" ]; then OPT_NODE="/data/data/com.antigravity.mobile/files/runtime/opt/node"; fi
+exec node "$OPT_NODE/lib/node_modules/npm/bin/npx-cli.js" "$@"
+PEOF
+  chmod +x "$BIN_DIR/npx" 2>/dev/null || true
+  echo "[pkg] Node.js, npm, npx успешно установлены (100% Native)!"
+}
+
+# Установка нативных Termux ARM64 пакетов (.deb)
+install_deb_pkg() {
+  PKG_NAME="$1"
+  echo "[pkg] Поиск нативного пакета: $PKG_NAME..."
+  REPO_URL="https://packages.termux.dev/apt/termux-main"
+  
+  # Кэшируем Packages индекс
+  mkdir -p "$PREFIX/lib" "$PREFIX/bin" "$RUNTIME_DIR/cache"
+  INDEX="$RUNTIME_DIR/cache/Packages"
+  if [ ! -f "$INDEX" ] || [ $(find "$INDEX" -mmin +720 2>/dev/null) ]; then
+    echo "[pkg] Обновление списка репозитория..."
+    curl -sSL "$REPO_URL/dists/stable/main/binary-aarch64/Packages.gz" | gzip -d > "$INDEX"
+  fi
+
+  DEB_PATH=$(awk -v pkg="^$PKG_NAME\$" '$1 == "Package:" && $2 ~ pkg {flag=1} flag && $1 == "Filename:" {print $2; exit}' "$INDEX")
+  if [ -z "$DEB_PATH" ]; then
+    echo "[-] Ошибка: Пакет $PKG_NAME не найден в репозитории!"
+    return 1
+  fi
+
+  echo "[pkg] Скачивание $DEB_PATH..."
+  curl -sSL "$REPO_URL/$DEB_PATH" -o "$RUNTIME_DIR/cache/temp.deb"
+
+  echo "[pkg] Нативная распаковка..."
+  EXTRACT_TMP="$RUNTIME_DIR/cache/deb_extract"
+  rm -rf "$EXTRACT_TMP"
+  mkdir -p "$EXTRACT_TMP"
+  busybox dpkg-deb -x "$RUNTIME_DIR/cache/temp.deb" "$EXTRACT_TMP"
+  rm -f "$RUNTIME_DIR/cache/temp.deb"
+
+  if [ -d "$EXTRACT_TMP/data/data/com.termux/files/usr" ]; then
+    cp -rf "$EXTRACT_TMP/data/data/com.termux/files/usr/"* "$PREFIX/"
+  elif [ -d "$EXTRACT_TMP/usr" ]; then
+    cp -rf "$EXTRACT_TMP/usr/"* "$PREFIX/"
+  fi
+  rm -rf "$EXTRACT_TMP"
+
+  # Создание нативных обёрток через /system/bin/linker64
+  for f in "$PREFIX/bin/"*; do
+    if [ -f "$f" ]; then
+      bname="$(basename "$f")"
+      if [ ! -f "$BIN_DIR/$bname" ]; then
+        cat << PEOF > "$BIN_DIR/$bname"
+#!/system/bin/sh
+RUNTIME_DIR="\${HOME:-/data/user/0/com.antigravity.mobile/files}/runtime"
+if [ ! -d "\$RUNTIME_DIR" ]; then RUNTIME_DIR="/data/data/com.antigravity.mobile/files/runtime"; fi
+PREFIX="\$RUNTIME_DIR/usr"
+export LD_LIBRARY_PATH="\$PREFIX/lib:\$LD_LIBRARY_PATH"
+if [ -f "\$PREFIX/bin/$bname" ]; then
+  exec /system/bin/linker64 "\$PREFIX/bin/$bname" "\$@"
+else
+  exec "$f" "\$@"
+fi
+PEOF
+        chmod +x "$BIN_DIR/$bname" 2>/dev/null || true
+      fi
+    fi
+  done
+  echo "[+] Пакет $PKG_NAME установлен и доступен нативно!"
+}
+
+case "$1" in
+  pip)
+    install_pip
+    ;;
+  node|nodejs)
+    install_node
+    ;;
+  install|add)
+    shift
+    for item in "$@"; do
+      if [ "$item" = "pip" ] || [ "$item" = "py3-pip" ]; then
+        install_pip
+      elif [ "$item" = "node" ] || [ "$item" = "nodejs" ]; then
+        install_node
+      else
+        install_deb_pkg "$item"
+      fi
+    done
+    ;;
+  update)
+    mkdir -p "$RUNTIME_DIR/cache"
+    echo "[pkg] Обновление базы нативных пакетов..."
+    curl -sSL "https://packages.termux.dev/apt/termux-main/dists/stable/main/binary-aarch64/Packages.gz" | gzip -d > "$RUNTIME_DIR/cache/Packages"
+    echo "[pkg] Готово!"
+    ;;
+  search)
+    shift
+    INDEX="$RUNTIME_DIR/cache/Packages"
+    if [ ! -f "$INDEX" ]; then
+      pkg update
+    fi
+    awk -v q="$1" 'tolower($0) ~ tolower(q) && $1 == "Package:" {print $2}' "$INDEX" | sort -u | head -n 30
+    ;;
+  *)
+    echo "Antigravity 100% Native Package Manager"
+    echo "Использование: pkg <команда> [аргументы]"
+    echo ""
+    echo "Команды:"
+    echo "  pkg install pip          - установить нативный PIP"
+    echo "  pkg install node         - установить нативный Node.js v22 LTS & npm"
+    echo "  pkg install <termux-pkg> - установить любой нативный пакет (clang, make, ffmpeg, rust, etc.)"
+    echo "  pkg update               - обновить индекс пакетов"
+    echo "  pkg search <запрос>      - поиск нативного пакета"
+    ;;
+esac

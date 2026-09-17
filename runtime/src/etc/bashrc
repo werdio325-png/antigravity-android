@@ -1,0 +1,59 @@
+# Antigravity Mobile bash environment
+if [ -z "$NATIVE_DIR" ] || [ ! -d "$NATIVE_DIR" ]; then
+    for d in /data/app/*/com.antigravity.mobile*/lib/arm64 /data/app/~~*/com.antigravity.mobile*/lib/arm64 /data/data/com.antigravity.mobile/lib; do
+        if [ -f "$d/ld-linux-aarch64.so.1" ]; then NATIVE_DIR="$d"; break; fi
+    done
+fi
+
+RUNTIME_DIR="${HOME:-/data/user/0/com.antigravity.mobile/files}/runtime"
+if [ ! -d "$RUNTIME_DIR" ]; then RUNTIME_DIR="/data/data/com.antigravity.mobile/files/runtime"; fi
+export SSL_CERT_FILE="$RUNTIME_DIR/certs/ca-certificates.crt"
+export CURL_CA_BUNDLE="$RUNTIME_DIR/certs/ca-certificates.crt"
+export PYTHONHOME="$RUNTIME_DIR/python"
+export PYTHONPATH="$RUNTIME_DIR/python:$RUNTIME_DIR/python/lib-dynload"
+
+export LANG=C.UTF-8
+export LC_ALL=C
+
+if [ -n "$NATIVE_DIR" ] && [ -d "$NATIVE_DIR" ]; then
+    export LD_LIBRARY_PATH="$NATIVE_DIR:/system/lib64:$LD_LIBRARY_PATH"
+    
+    git() {
+        "$NATIVE_DIR/ld-linux-aarch64.so.1" --library-path "$NATIVE_DIR:/system/lib64" "$NATIVE_DIR/libgit.so" "$@"
+    }
+    export -f git 2>/dev/null || true
+
+    rg() {
+        "$NATIVE_DIR/ld-linux-aarch64.so.1" --library-path "$NATIVE_DIR:/system/lib64" "$NATIVE_DIR/librg.so" "$@"
+    }
+    export -f rg 2>/dev/null || true
+
+    curl() {
+        "$NATIVE_DIR/ld-linux-aarch64.so.1" --library-path "$NATIVE_DIR:/system/lib64" "$NATIVE_DIR/libcurl_bin.so" "$@"
+    }
+    export -f curl 2>/dev/null || true
+
+    python3() {
+        "$NATIVE_DIR/ld-linux-aarch64.so.1" --library-path "$NATIVE_DIR:/system/lib64" "$NATIVE_DIR/libpython3.so" "$@"
+    }
+    export -f python3 2>/dev/null || true
+
+    python() {
+        python3 "$@"
+    }
+    export -f python 2>/dev/null || true
+
+    busybox() {
+        if [ -f "$NATIVE_DIR/libbusybox.so" ]; then
+            "$NATIVE_DIR/ld-linux-aarch64.so.1" --library-path "$NATIVE_DIR:/system/lib64" --argv0 busybox "$NATIVE_DIR/libbusybox.so" "$@"
+        else
+            /system/bin/toybox "$@"
+        fi
+    }
+    export -f busybox 2>/dev/null || true
+fi
+
+    rish() {
+        /system/bin/sh "$RUNTIME_DIR/bin/rish" "$@"
+    }
+    export -f rish 2>/dev/null || true

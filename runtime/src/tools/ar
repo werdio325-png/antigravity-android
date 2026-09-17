@@ -1,0 +1,14 @@
+#!/system/bin/sh
+if [ -z "$NATIVE_DIR" ]; then NATIVE_DIR="/data/data/com.antigravity.mobile/lib"; fi
+APPLET="${0##*/}"
+
+if [ -f "$NATIVE_DIR/libbusybox.so" ]; then
+  exec "$NATIVE_DIR/ld-linux-aarch64.so.1" --library-path "$NATIVE_DIR:/system/lib64" --argv0 "$APPLET" "$NATIVE_DIR/libbusybox.so" "$@"
+else
+  if [ "$APPLET" = "busybox" ]; then
+    if [ -n "$1" ]; then exec /system/bin/toybox "$@"; else exec /system/bin/toybox; fi
+  else
+    exec /system/bin/toybox "$APPLET" "$@"
+  fi
+fi
+

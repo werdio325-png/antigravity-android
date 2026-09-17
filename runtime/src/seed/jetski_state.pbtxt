@@ -1,0 +1,20 @@
+post_onboarding:  {
+  completed_steps:  POST_ONBOARDING_STEP_TYPE_MANAGER_WELCOME
+  completed_steps:  POST_ONBOARDING_STEP_TYPE_USAGE_MODE
+  completed_steps:  POST_ONBOARDING_STEP_TYPE_AGENT_CONFIGURATION
+  completed_steps:  POST_ONBOARDING_STEP_TYPE_ADD_WORKSPACE
+}
+agent_onboarding_completed: AGENT_ONBOARDING_STATE_COMPLETED
+installation_uuid:  "c822d265-8f1f-451b-8d71-c067c9cad81a"
+migrations:  {
+  key:  3
+  value:  MIGRATION_STATUS_COMPLETED
+}
+migrations:  {
+  key:  4
+  value:  MIGRATION_STATUS_COMPLETED
+}
+migrations:  {
+  key:  5
+  value:  MIGRATION_STATUS_COMPLETED
+}
