@@ -1,191 +1,195 @@
-# Antigravity Mobile
+<h1 align="center">Antigravity Mobile (Android)</h1>
 
-Полностью автономный, нативный дистрибутив **Google Antigravity** в виде единого компактного Android APK без использования Termux, PRoot и виртуализации.
+<p align="center">
+  <b>Полностью автономный, 100% нативный ARM64 дистрибутив Google Antigravity в виде единого компактного Android APK без Termux, PRoot и виртуализации.</b>
+</p>
 
----
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
+  <img src="https://img.shields.io/badge/Arch-ARM64--v8a-blue.svg" alt="Arch: ARM64">
+  <img src="https://img.shields.io/badge/Platform-Android%207.0%2B-green.svg" alt="Platform: Android 7.0+">
+  <img src="https://img.shields.io/badge/Engine-2.13.0-orange.svg" alt="Engine: 2.13.0">
+  <img src="https://img.shields.io/badge/Status-Active-brightgreen.svg" alt="Status: Active">
+</p>
 
-## 1. Главные принципы архитектуры
-
-1. **Модульность и лёгкость обновления:**
-   - Оригинальный бинарник `language_server` кладётся в папку `core/` и **никогда не модифицируется напрямую**.
-   - Сборка копирует файлы в `staging/`, где детерминированно применяются патчи с проверкой контрольных сумм.
-   - Обновление ядра: заменяем файл в `core/` и запускаем `./build.sh`.
-2. **Максимальная производительность (100% Native ARM64):**
-   - Никаких прослоек эмуляции syscall'ов (`ptrace`), замедляющих диск и запуск процессов в 3–5 раз.
-   - Ядро пакуется как `liblanguage_server.so` в `nativeLibraryDir` приложения, что полностью удовлетворяет политике Android W^X (SELinux).
-3. **Мгновенный старт UI (Zero-Wait UI):**
-   - WebView открывается сразу при клике на иконку (показывая плавный локальный лоадер).
-   - Ядро стартует параллельно в `ForegroundService`. Как только порт открыт — WebView плавно переключается на рабочий стол Antigravity.
-4. **Бесшовный Google OAuth вход:**
-   - Веб-интерфейс крутится внутри полноэкранного системного WebView.
-   - При нажатии на кнопку входа Google ссылка перехватывается и открывается в доверенном системном браузере (Chrome / Custom Tabs), обходя запрет Google на авторизацию в WebViews.
-   - В рантайм встроены корневые сертификаты (`ca-certificates.crt`), исключающие ошибку `Failed to fetch`.
-5. **Полная автономность агента:**
-   - Внутри APK зашит минимальный автономный набор CLI-утилит: `git`, `curl`, `ripgrep`, `node`, `toybox/busybox`.
-   - Встроен прямой мост к **Shizuku** (`rish` / `adb-sh`) для управления Android-устройством без root-прав (установка APK, логирование, эмуляция сенсорного ввода).
+<p align="center">
+  <a href="#russian">🇷🇺 <b>Русский</b></a> &nbsp;|&nbsp; <a href="#english">🇬🇧 <b>English</b></a>
+</p>
 
 ---
 
-## 2. Схема конвейера сборки (Build & Patch Pipeline)
+<a id="russian"></a>
+## 🇷🇺 Описание проекта (Русский)
+
+**Antigravity Mobile** — это открытый проект, упаковывающий полнофункциональный сервер **Google Antigravity Language Server** в единое нативное Android-приложение (APK). Больше не нужны сторонние эмуляторы терминалов (Termux), контейнеры PRoot или виртуализация: приложение устанавливается как обычный APK и работает прямо на железе вашего смартфона или планшета.
+
+### 🌟 Ключевые возможности
+
+- **100% Native ARM64 (Без просадок производительности):**
+  - Никакой эмуляции системных вызовов (`ptrace`), замедляющей файловые операции и запуск процессов.
+  - Нативное ядро пакуется как `liblanguage_server.so` в каталог `nativeLibraryDir`, строго соблюдая политики безопасности Android W^X (SELinux).
+- **Мгновенный старт UI (Zero-Wait UI):**
+  - При запуске моментально открывается чистый системный WebView с анимированным лоадером.
+  - Ядро параллельно поднимается в защищённом `ForegroundService` с `WakeLock`. Как только локальный порт открыт — экран плавно переключается на рабочий стол Antigravity.
+- **Бесшовный Google OAuth через Chrome Custom Tabs:**
+  - Вход в Google-аккаунт перехватывается на лету и открывается в доверенном системном браузере (Chrome / Custom Tabs), полностью обходя запрет Google на авторизацию внутри WebViews.
+  - После успешного входа Deep Link `antigravity://auth-success` мгновенно возвращает пользователя в приложение.
+- **Встроенная автономная экосистема утилит:**
+  - В APK зашит полный набор CLI-инструментов: `git`, `curl`, `ripgrep`, `python 3.14+`, `node`, `busybox`, `aapt`, `d8`, `apksigner`.
+  - Встроен пакетный менеджер `pkg` для прямой загрузки пакетов без root и контейнеров.
+- **Глубокая интеграция с Android через Shizuku (`rish`):**
+  - Возможность управления системой без root-прав через Shizuku: установка и удаление пакетов (`pm`), снятие скриншотов (`screencap`), симуляция кликов и текста (`input tap / text`), чтение `logcat` и системных свойств.
+- **Гибкий конвейер патчинга (Build & Patch Pipeline):**
+  - Поддержка снятия региональных ограничений по флагу (`--bypass-region`).
+  - Поддержка старых процессоров без инструкций LSE по флагу (`--armv8.0`).
+  - Обход seccomp-фильтров ядра Android (`faccessat2` / `fchmodat2`).
+
+---
+
+### 🛠 Архитектура
 
 ```mermaid
 graph TD
-    subgraph SOURCES["1. Исходный слой (Чистые файлы)"]
-        Core["core/language_server<br/>(Оригинал Google ARM64)"]
-        RuntimeSrc["runtime/src/<br/>• certs (ca-certificates.crt)<br/>• tools (git, curl, node, toybox)<br/>• glibc (libc.so.6, ld-linux...)<br/>• seed (antigravity_state.pbtxt)"]
-        Patches["patches/<br/>• patch_gates.py (снятие блокировок)<br/>• patch_armv80.py (LSE -> ARMv8.0)<br/>• patch_paths.py (SSL & shell paths)"]
+    subgraph APP["Android Application (com.antigravity.mobile)"]
+        UI["MainActivity.java<br/>• Fullscreen WebView<br/>• Animated Splash & Loader<br/>• OAuth Custom Tab Bridge"]
+        SVC["CoreServerService.java (Foreground Service)<br/>• WakeLock & Notification<br/>• Dynamic Linker (ld-linux-aarch64.so.1)<br/>• DNS Config Generator (etc//resolv.conf)"]
+        UI <-->|Localhost HTTPS :48999| SVC
     end
 
-    subgraph STAGING["2. Промежуточный слой (Staging - изолированная сборка)"]
-        CopyCore["Копирование core -> staging/"]
-        PatchStep["Применение патчей с валидацией<br/>Input Check -> Patch -> Verify Hash"]
-        GenManifest["Генерация runtime/manifest.json<br/>(SHA256, версии, флаги сборки)"]
-        
-        CopyCore --> PatchStep --> GenManifest
-    end
-
-    subgraph APK_BUILD["3. Сборка Android APK"]
-        AAPT["aapt2 compile & link (Ресурсы, Manifest)"]
-        KOTLIN["kotlinc / javac -> d8 (DEX байткод)"]
-        PACK["Упаковка в APK:<br/>• lib/arm64-v8a/liblanguage_server.so<br/>• assets/runtime.tar.gz<br/>• classes.dex"]
-        SIGN["zipalign + apksigner (Подпись ключом)"]
-        
-        AAPT --> PACK
-        KOTLIN --> PACK
-        PACK --> SIGN
-    end
-
-    subgraph OUTPUT["4. Результат"]
-        FinalAPK["output/Antigravity-Mobile.apk"]
-        SIGN --> FinalAPK
-    end
-
-    Core --> CopyCore
-    Patches --> PatchStep
-    RuntimeSrc --> GenManifest
-    GenManifest --> PACK
-```
-
----
-
-## 3. Схема работы Android-приложения (Kotlin Runtime)
-
-```mermaid
-graph TD
-    subgraph APP_LAUNCH["Запуск приложения"]
-        UserClick(("Пользователь открыл иконку"))
-        MainActivity["MainActivity.kt<br/>(Lifecycle & Container)"]
-        UserClick --> MainActivity
-    end
-
-    subgraph UI_PARALLEL["Параллельный поток 1: Интерфейс (0 мс задержки)"]
-        WebViewHost["WebViewHost.kt<br/>(Настройки WebView, touch/IME, WebSocket)"]
-        LocalSplash["Локальный экран ожидания:<br/>'Antigravity запускается...'"]
-        OAuthManager["OAuthManager.kt<br/>(Перехват accounts.google.com -> Chrome)"]
-        
-        MainActivity --> WebViewHost
-        WebViewHost --> LocalSplash
-        WebViewHost --> OAuthManager
-    end
-
-    subgraph CORE_PARALLEL["Параллельный поток 2: Backend Ядро"]
-        CoreService["CoreServerService.kt<br/>(Foreground Service + WakeLock)"]
-        RuntimeManager["RuntimeManager.kt<br/>(Проверка manifest.json, распаковка certs/tools)"]
-        CoreProcess["ProcessBuilder<br/>(nativeLibraryDir/liblanguage_server.so)"]
-        CoreStatus["CoreStatus.kt<br/>(StateFlow: Starting -> Running -> Ready)"]
-        
-        MainActivity --> CoreService
-        CoreService --> RuntimeManager
-        RuntimeManager --> CoreProcess
-        CoreProcess --> CoreStatus
-    end
-
-    subgraph SYNC["Точка синхронизации"]
-        CoreStatus -->|Статус: READY (порт открыт)| WebViewHost
-        WebViewHost -->|Переключение с заставки на| LiveUI["https://127.0.0.1:45157/?csrf_token=...<br/>(Полноценный интерфейс Antigravity)"]
-    end
-
-    subgraph DEVICE_ACCESS["Мост к системе Android"]
-        ShizukuBridge["ShizukuBridge.kt<br/>(Вызовы ADB shell / rish / pm / input / screencap)"]
-        CoreProcess <-->|PATH: adb-sh / rish| ShizukuBridge
+    subgraph RUNTIME["Autonomous Native Environment"]
+        Core["liblanguage_server.so (Google ARM64)"]
+        Glibc["Glibc & Dependencies (libc, libcurl, git, python3)"]
+        Bridge["Shizuku Bridge (rish) & Android Shell"]
+        SVC --> Core
+        SVC --> Glibc
+        Core <--> Bridge
     end
 ```
 
 ---
 
-## 4. Структура проекта
+### 📦 Структура репозитория
 
 ```text
 antigravity-mobile/
-├── core/                                   # 1. Оригинальные файлы (не изменяются)
-│   └── language_server                     # Исходный бинарник Google ARM64
-│
-├── staging/                                # 2. Рабочая папка сборки (изолированная)
-│   ├── build/
-│   └── patched_core/
-│
-├── patches/                                # 3. Модули патчинга
-│   ├── patch_gates.py                      # Снятие региональных ограничений (опционально: --bypass-region)
-│   ├── patch_armv80.py                     # Замена LSE инструкций на пары ldaxr/stlxr (опционально: --armv8.0)
-│   ├── patch_resolv.py                     # DNS resolver патч
-│   ├── patch_syscalls.py                   # Seccomp bypass (faccessat2/fchmodat2)
-│   ├── patch_auth.py                       # Перехват OAuth и Deep Link
-│   └── patch_runner.py                     # Оркестратор проверки и наложения патчей
-│
-├── runtime/                                # 4. Автономное окружение для ИИ
-│   └── src/
-│       ├── certs/ca-certificates.crt       # SSL сертификаты для доступа в Google Cloud
-│       ├── etc/                            # Конфигурация shell (bashrc) и resolv.conf
-│       ├── glibc/                          # Нативные библиотеки ARM64 (glibc, libcurl, git, node...)
-│       ├── python/                         # Стандартная библиотека Python
-│       ├── seed/                           # Начальное состояние онбординга и настройки
-│       └── tools/                          # CLI инструменты (git, curl, rg, busybox, rish, sdk)
-│
-├── app/                                    # 5. Исходный код Android APK (Java)
-│   ├── AndroidManifest.xml                 # Разрешения W^X, ForegroundService (dataSync), Deep Links
+├── app/                                    # Исходный код Android APK (Java)
+│   ├── AndroidManifest.xml                 # Манифест (ForegroundService dataSync, Deep Links)
 │   ├── src/main/java/com/antigravity/mobile/
-│   │   ├── MainActivity.java               # Жизненный цикл, WebView UI, перехват OAuth в Custom Tabs
-│   │   └── CoreServerService.java          # Фоновый сервис ядра, WakeLock, запуск linker и proc
-│   └── res/
-│       ├── drawable/                       # Ресурсы и иконка приложения
-│       └── xml/network_security_config.xml # Разрешение локального loopback сетевого взаимодействия
+│   │   ├── MainActivity.java               # Жизненный цикл UI, перехват OAuth, WebView
+│   │   └── CoreServerService.java          # Фоновый сервис ядра, запуск линковщика и proc
+│   └── res/                                # Иконки, темы и network security config
 │
-├── build.sh                                # 6. Единый скрипт сборки «в один клик»
-├── README.md                               # 7. Документация архитектуры проекта
-└── output/                                 # 8. Каталог готовой продукции
-    └── Antigravity-Mobile.apk
+├── patches/                                # Модули бинарного патчинга ядра
+│   ├── patch_gates.py                      # Снятие региональных проверок (--bypass-region)
+│   ├── patch_armv80.py                     # Эмуляция LSE-атомиков для ARMv8.0 (--armv8.0)
+│   ├── patch_resolv.py                     # Патч DNS resolver (etc//resolv.conf)
+│   ├── patch_syscalls.py                   # Seccomp bypass (faccessat2 / fchmodat2)
+│   ├── patch_auth.py                       # Перехват Google OAuth и возврат через Deep Link
+│   └── patch_runner.py                     # Оркестратор конвейера патчинга с SHA-256
+│
+├── runtime/                                # Нативный рантайм, пакуемый в assets
+│   └── src/
+│       ├── certs/ca-certificates.crt       # SSL корневые сертификаты
+│       ├── etc/bashrc                      # Окружение Bash и алиасы вызовов через linker
+│       ├── glibc/                          # Нативные ELF библиотеки ARM64
+│       ├── python/stdlib.zip               # Стандартная библиотека Python
+│       ├── seed/                           # Начальные настройки и конфигурации
+│       └── tools/                          # CLI инструменты (git, curl, rg, rish, busybox)
+│
+├── tools/                                  # Инструменты сборки (android.jar, r8.jar, keystore)
+├── build.sh                                # Главный скрипт сборки в один клик
+└── README.md                               # Документация проекта
 ```
 
 ---
 
-## 5. Инструкция по сборке
+### 🚀 Инструкция по сборке
 
-1. Поместите оригинальный ARM64 бинарник `language_server` в каталог `core/`.
-2. Запустите сборку:
-   ```bash
-   ./build.sh
-   ```
-   *Опциональные флаги сборки:*
-   - `./build.sh --bypass-region` — включить патч снятия региональных ограничений Google (eligibility / region gates).
-   - `./build.sh --armv8.0` — включить патч совместимости со старыми процессорами ARMv8.0 (Snapdragon 660/820, Exynos 8890, Cortex-A53/A72/A73 без LSE).
-   - Можно комбинировать: `./build.sh --bypass-region --armv8.0`
-3. Готовый подписанный пакет появится в:
-   `output/Antigravity-Mobile.apk`.
+#### Требования:
+Для сборки прямо на Android (или в Linux ARM64) необходимы: `aapt`, `javac`, `java`, `zip`, `zipalign`, `apksigner`, `python3`. Все они уже включены в рантайм проекта.
+
+#### 1. Подготовка ядра
+Поместите оригинальный 64-битный бинарник Google Antigravity `language_server` в каталог `core/`:
+```bash
+mkdir -p core
+# Скопируйте language_server в core/language_server
+```
+
+#### 2. Запуск сборки
+```bash
+# Стандартная чистая сборка:
+./build.sh
+
+# Снятие региональных экранов доступности (eligibility gates):
+./build.sh --bypass-region
+
+# Сборка для старых процессоров (ARMv8.0 без LSE):
+./build.sh --armv8.0
+
+# Комбинированная сборка со всеми оптимизациями:
+./build.sh --bypass-region --armv8.0
+```
+
+Готовый подписанный файл появится по пути: `output/Antigravity-Mobile.apk`.
 
 ---
 
-## 6. Ключевые компоненты и патчи
+<a id="english"></a>
+## 🇬🇧 Project Description (English)
 
-1. **Бинарные патчи ядра (`patches/`):**
-   - `patch_runner.py` — оркестратор конвейера патчинга с проверкой SHA-256.
-   - `patch_gates.py` (флаг `--bypass-region`) — снятие региональных экранов проверки доступности и CLI gate.
-   - `patch_resolv.py` — перенаправление путей DNS resolver (`/etc/resolv.conf` -> `etc//resolv.conf` в контексте `filesDir`).
-   - `patch_syscalls.py` — обход seccomp-фильтров ядра Android (замена заблокированных `faccessat2` / `fchmodat2` на стандартные системные вызовы).
-   - `patch_auth.py` — перехват `auth-success` и трансляция в Deep Link `antigravity://auth-success` для мгновенного закрытия Custom Tab браузера.
-   - `patch_armv80.py` (флаг `--armv8.0`) — замена LSE-атомиков на пары LL/SC и обход Google fail-fast проверок.
+**Antigravity Mobile** is an open-source project packaging the complete **Google Antigravity Language Server** into a single, native Android APK. It eliminates the need for terminal emulators (Termux), PRoot containers, or virtualization: install the APK and run Antigravity directly on your smartphone or tablet hardware.
 
-2. **Мобильное Android-приложение (`app/`):**
-   - Написано на Java/Android API без тяжелых зависимостей.
-   - Запускает ядро в `CoreServerService` (`ForegroundService`) с независимым `WakeLock`.
-   - Полноэкранный `WebView` с бесшовным открытием интерфейса и перехватом Google OAuth в Chrome Custom Tabs.
-   - Полная интеграция с Shizuku (`rish`) для системного управления Android.
+### 🌟 Key Highlights
+
+- **100% Native ARM64 (Zero Performance Penalty):**
+  - No slow `ptrace` syscall emulation layers.
+  - The core is packaged as `liblanguage_server.so` in `nativeLibraryDir`, fully compliant with Android W^X and SELinux policies.
+- **Zero-Wait UI Launch:**
+  - System WebView opens instantly with an animated loader upon launch.
+  - Backend core initializes in a background `ForegroundService` with `WakeLock`. Once the localhost port is ready, the view smoothly cross-fades into the full Antigravity desktop.
+- **Seamless Google OAuth via Chrome Custom Tabs:**
+  - Google sign-in prompts are intercepted and redirected to the system browser (Chrome / Custom Tabs), bypassing Google's restrictions on in-WebView authentication.
+  - Deep Link `antigravity://auth-success` automatically returns the user back to the application upon success.
+- **Embedded Autonomous CLI Suite:**
+  - Bundled with: `git`, `curl`, `ripgrep`, `python 3.14+`, `node`, `busybox`, `aapt`, `d8`, `apksigner`.
+  - Built-in `pkg` tool for installing additional packages without root.
+- **Android System Integration via Shizuku (`rish`):**
+  - Shell access without root: manage packages (`pm`), capture screenshots (`screencap`), simulate input events (`input tap / text`), inspect logs (`logcat`).
+- **Configurable Patch Pipeline:**
+  - Optional regional eligibility bypass flag (`--bypass-region`).
+  - Optional legacy CPU compatibility flag for chips lacking LSE atomics (`--armv8.0`).
+  - Kernel seccomp filter bypass (`faccessat2` / `fchmodat2`).
+
+---
+
+### 🚀 Build Instructions
+
+#### 1. Place Core Binary
+Place your original Google Antigravity ARM64 binary into `core/`:
+```bash
+mkdir -p core
+# Copy language_server into core/language_server
+```
+
+#### 2. Run the Build Script
+```bash
+# Standard clean build:
+./build.sh
+
+# Bypass Google regional eligibility gates:
+./build.sh --bypass-region
+
+# Build for older ARMv8.0 chipsets (Snapdragon 660/820, Exynos 8890, Cortex-A53/A72):
+./build.sh --armv8.0
+
+# Combined build:
+./build.sh --bypass-region --armv8.0
+```
+
+The resulting signed APK will be output to: `output/Antigravity-Mobile.apk`.
+
+---
+
+## 📜 License
+
+Distributed under the **Apache License 2.0**. See [`LICENSE`](LICENSE) for more information.
