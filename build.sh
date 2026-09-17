@@ -86,9 +86,9 @@ aapt package -f \
     -F "$BUILD_DIR/unaligned.apk" \
     "$BUILD_DIR/apk"
 
-# Добавляем lib/arm64-v8a внутрь zip
+# Добавляем lib/arm64-v8a, classes.dex и assets внутрь zip
 cd "$BUILD_DIR/apk"
-zip -ur "$BUILD_DIR/unaligned.apk" lib/
+zip -ur "$BUILD_DIR/unaligned.apk" lib/ classes.dex assets/
 cd "$PROJECT_ROOT"
 
 zipalign -f -p 4 "$BUILD_DIR/unaligned.apk" "$BUILD_DIR/aligned.apk"

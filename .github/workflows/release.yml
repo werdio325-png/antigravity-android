@@ -35,7 +35,7 @@ jobs:
       - name: Install Android Build Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y aapt zipalign apksigner zip curl
+          sudo apt-get install -y aapt zipalign apksigner zip curl unzip
 
       - name: Determine Release Tag
         id: vars
