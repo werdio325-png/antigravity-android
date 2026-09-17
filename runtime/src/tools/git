@@ -4,6 +4,11 @@ RUNTIME_DIR="${HOME:-/data/user/0/com.antigravity.mobile/files}/runtime"
 if [ ! -d "$RUNTIME_DIR" ]; then RUNTIME_DIR="/data/data/com.antigravity.mobile/files/runtime"; fi
 export SSL_CERT_FILE="$RUNTIME_DIR/certs/ca-certificates.crt"
 export CURL_CA_BUNDLE="$RUNTIME_DIR/certs/ca-certificates.crt"
-export LD_LIBRARY_PATH="$NATIVE_DIR:/system/lib64:$LD_LIBRARY_PATH"
+export GIT_SSL_CAINFO="$RUNTIME_DIR/certs/ca-certificates.crt"
+export GIT_CONFIG_NOSYSTEM=1
+if [ -d "$RUNTIME_DIR/usr/libexec/git-core" ]; then
+    export GIT_EXEC_PATH="$RUNTIME_DIR/usr/libexec/git-core"
+fi
+export LD_LIBRARY_PATH="$RUNTIME_DIR/usr/lib:$NATIVE_DIR:/system/lib64:$LD_LIBRARY_PATH"
 
-exec "$NATIVE_DIR/ld-linux-aarch64.so.1" --library-path "$NATIVE_DIR:/system/lib64" "$NATIVE_DIR/libgit.so" "$@"
+exec "$NATIVE_DIR/ld-linux-aarch64.so.1" --library-path "$RUNTIME_DIR/usr/lib:$NATIVE_DIR:/system/lib64" "$NATIVE_DIR/libgit.so" "$@"

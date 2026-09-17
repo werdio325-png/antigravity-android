@@ -19,7 +19,16 @@ echo "    Antigravity Mobile Build Pipeline   "
 echo "========================================"
 
 if [ ! -f "$CORE_SRC" ]; then
+    ARCHIVE=$(ls "$PROJECT_ROOT/core/"*.tar.gz 2>/dev/null | head -n 1 || true)
+    if [ -n "$ARCHIVE" ] && [ -f "$ARCHIVE" ]; then
+        echo "[*] Обнаружен сжатый архив ядра: $ARCHIVE. Распаковка..."
+        tar -xzf "$ARCHIVE" -C "$PROJECT_ROOT/core"
+    fi
+fi
+
+if [ ! -f "$CORE_SRC" ]; then
     echo "[-] Ошибка: Ядро не найдено: $CORE_SRC"
+    echo "    Поместите core/language_server или core/antigravity-core-arm64.tar.gz"
     exit 1
 fi
 

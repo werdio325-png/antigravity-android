@@ -1,0 +1,95 @@
+name: Build & Release Antigravity Mobile APKs
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag (e.g. v2.13.1)'
+        required: true
+        default: 'v2.13.1'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Android Build Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y aapt zipalign apksigner zip curl
+
+      - name: Determine Release Tag
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Obtain Antigravity Core
+        run: |
+          mkdir -p core
+          if [ ! -f core/language_server ]; then
+            echo "[*] Downloading core binary from release v2.11.0 in GitHub datacenter..."
+            gh release download v2.11.0 --repo werdio325-png/antigravity-android --pattern "antigravity-cores-arm64-v2.11.0.tar.gz" --dir core/ || true
+            if [ -f core/antigravity-cores-arm64-v2.11.0.tar.gz ]; then
+              tar -xzf core/antigravity-cores-arm64-v2.11.0.tar.gz -C core/
+            fi
+            if [ ! -f core/language_server ]; then
+              echo "[*] Falling back to extracting liblanguage_server.so from v2.11.0 APK..."
+              gh release download v2.11.0 --repo werdio325-png/antigravity-android --pattern "Antigravity-v2.11.0-Vanilla.apk" --dir core/
+              unzip -p core/Antigravity-v2.11.0-Vanilla.apk lib/arm64-v8a/liblanguage_server.so > core/language_server
+            fi
+            chmod +x core/language_server
+          fi
+          echo "[+] Core binary ready: $(ls -lh core/language_server)"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Antigravity-BypassRegion APK
+        run: |
+          OUTPUT_APK="Antigravity-${{ steps.vars.outputs.tag }}-BypassRegion.apk" bash build.sh
+
+      - name: Build Antigravity-Vanilla APK
+        run: |
+          OUTPUT_APK="Antigravity-${{ steps.vars.outputs.tag }}-Vanilla.apk" bash build.sh --no-bypass-region
+
+      - name: Package Core Binary Archive
+        run: |
+          mkdir -p output
+          tar -czf output/antigravity-core-arm64-${{ steps.vars.outputs.tag }}.tar.gz -C core language_server
+          ls -lh output/
+
+      - name: Create GitHub Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.tag }}
+          name: "Google Antigravity Mobile ${{ steps.vars.outputs.tag }} (Universal ARM64)"
+          draft: false
+          prerelease: false
+          files: |
+            output/Antigravity-${{ steps.vars.outputs.tag }}-BypassRegion.apk
+            output/Antigravity-${{ steps.vars.outputs.tag }}-Vanilla.apk
+            output/antigravity-core-arm64-${{ steps.vars.outputs.tag }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

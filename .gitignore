@@ -12,6 +12,9 @@ staging/
 
 # Large proprietary core binary (download or obtain separately, >100MB)
 core/language_server
+core/*.tar.gz
+core/*.tar
+core/*.so
 
 # Python bytecode and caches
 __pycache__/
