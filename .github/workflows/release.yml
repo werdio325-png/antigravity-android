@@ -49,23 +49,35 @@ jobs:
       - name: Obtain Antigravity Core
         run: |
           mkdir -p core
-          if [ ! -f core/language_server ]; then
-            echo "[*] Downloading core archive from release v2.11.0..."
-            curl -fL --retry 3 "https://github.com/werdio325-png/antigravity-android/releases/download/v2.11.0/antigravity-cores-arm64-v2.11.0.tar.gz" -o core/core.tar.gz
-            tar -xzf core/core.tar.gz -C core/
-            rm -f core/core.tar.gz
-            if [ -f core/libserver-patched.so ]; then
-              mv -f core/libserver-patched.so core/language_server
-            fi
-            if [ ! -f core/language_server ]; then
-              BIG_FILE=$(find core/ -maxdepth 2 -type f -size +50M | head -n 1)
-              if [ -n "$BIG_FILE" ]; then
-                mv -f "$BIG_FILE" core/language_server
-              fi
-            fi
-            chmod +x core/language_server
+          echo "[*] Installing gdown..."
+          pip install gdown
+          echo "[*] Downloading core directly from Google Drive..."
+          gdown "https://drive.google.com/uc?id=1cZuRdGCBUNLoBHgnmXfQKHdgvJ8SlS_V" -O core/downloaded_file --fuzzy
+          ls -lh core/downloaded_file
+          
+          if gzip -t core/downloaded_file 2>/dev/null; then
+            echo "[*] Detected gzip archive. Unpacking..."
+            tar -xzf core/downloaded_file -C core/
+          elif unzip -tq core/downloaded_file 2>/dev/null; then
+            echo "[*] Detected zip archive. Unpacking..."
+            unzip -o core/downloaded_file -d core/
+          else
+            echo "[*] Treating directly as binary executable..."
+            cp -f core/downloaded_file core/language_server
           fi
-          echo "[+] Core binary ready: $(ls -lh core/language_server)"
+          
+          if [ ! -f core/language_server ]; then
+            BIG_FILE=$(find core/ -maxdepth 2 -type f -size +50M ! -name "downloaded_file" | head -n 1)
+            if [ -n "$BIG_FILE" ]; then
+              echo "[*] Located extracted core binary: $BIG_FILE"
+              mv -f "$BIG_FILE" core/language_server
+            fi
+          fi
+          
+          chmod +x core/language_server
+          echo "[+] Core ready! Details:"
+          ls -lh core/language_server
+          sha256sum core/language_server
 
       - name: Build Antigravity-BypassRegion APK
         run: |
