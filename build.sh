@@ -84,18 +84,19 @@ cd "$PROJECT_ROOT"
 
 zipalign -f -p 4 "$BUILD_DIR/unaligned.apk" "$BUILD_DIR/aligned.apk"
 
+TARGET_APK_NAME="${OUTPUT_APK:-Antigravity-Mobile.apk}"
 apksigner sign \
     --ks "$KEYSTORE" \
     --ks-key-alias androiddebugkey \
     --ks-pass pass:android \
     --key-pass pass:android \
-    --out "$OUTPUT_DIR/Antigravity-Mobile.apk" \
+    --out "$OUTPUT_DIR/$TARGET_APK_NAME" \
     "$BUILD_DIR/aligned.apk"
 
-apksigner verify "$OUTPUT_DIR/Antigravity-Mobile.apk"
+apksigner verify "$OUTPUT_DIR/$TARGET_APK_NAME"
 
 echo "========================================"
 echo "[+] СБОРКА УСПЕШНО ЗАВЕРШЕНА!"
-echo "Готовый APK: $OUTPUT_DIR/Antigravity-Mobile.apk"
-ls -lh "$OUTPUT_DIR/Antigravity-Mobile.apk"
+echo "Готовый APK: $OUTPUT_DIR/$TARGET_APK_NAME"
+ls -lh "$OUTPUT_DIR/$TARGET_APK_NAME"
 echo "========================================"
