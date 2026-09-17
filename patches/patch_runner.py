@@ -57,10 +57,10 @@ if __name__ == "__main__":
     if len(sys.argv) < 2 or "--help" in sys.argv or "-h" in sys.argv:
         print("Usage: python3 patch_runner.py <staging_binary_path> [options]")
         print("Options:")
-        print("  --bypass-region    Apply patch to bypass Google regional eligibility gates")
-        print("  --armv8.0          Apply compatibility patch for ARMv8.0 CPUs without LSE")
+        print("  --no-bypass-region Disable Google regional eligibility patch")
+        print("  --no-armv8.0       Disable ARMv8.0 compatibility patch")
         sys.exit(0 if ("--help" in sys.argv or "-h" in sys.argv) else 1)
     target = sys.argv[1]
-    is_armv80 = "--armv8.0" in sys.argv
-    is_bypass_region = ("--bypass-region" in sys.argv) or ("--unblock-region" in sys.argv)
+    is_armv80 = "--no-armv8.0" not in sys.argv
+    is_bypass_region = "--no-bypass-region" not in sys.argv
     run_pipeline(target, enable_armv80=is_armv80, enable_bypass_region=is_bypass_region)

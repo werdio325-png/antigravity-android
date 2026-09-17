@@ -95,6 +95,11 @@ apksigner sign \
 
 apksigner verify "$OUTPUT_DIR/$TARGET_APK_NAME"
 
+if [ "$TARGET_APK_NAME" = "Antigravity-Mobile.apk" ]; then
+    cp -f "$OUTPUT_DIR/$TARGET_APK_NAME" "$OUTPUT_DIR/Antigravity-v2.13.0-Universal.apk"
+    cp -f "$OUTPUT_DIR/$TARGET_APK_NAME.idsig" "$OUTPUT_DIR/Antigravity-v2.13.0-Universal.apk.idsig" 2>/dev/null || true
+fi
+
 echo "========================================"
 echo "[+] СБОРКА УСПЕШНО ЗАВЕРШЕНА!"
 echo "Готовый APK: $OUTPUT_DIR/$TARGET_APK_NAME"

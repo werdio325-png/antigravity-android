@@ -6,6 +6,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
+  <a href="https://github.com/werdio325-png/antigravity-android/releases/latest"><img src="https://img.shields.io/github/v/release/werdio325-png/antigravity-android?color=orange&label=Release" alt="Latest Release"></a>
   <img src="https://img.shields.io/badge/Arch-ARM64--v8a-blue.svg" alt="Arch: ARM64">
   <img src="https://img.shields.io/badge/Platform-Android%207.0%2B-green.svg" alt="Platform: Android 7.0+">
   <img src="https://img.shields.io/badge/Engine-2.13.0-orange.svg" alt="Engine: 2.13.0">
@@ -23,9 +24,20 @@
 
 **Antigravity Mobile** — это открытый проект, упаковывающий полнофункциональный сервер **Google Antigravity Language Server** в единое нативное Android-приложение (APK). Больше не нужны сторонние эмуляторы терминалов (Termux), контейнеры PRoot или виртуализация: приложение устанавливается как обычный APK и работает прямо на железе вашего смартфона или планшета.
 
+### 📥 Загрузка готовых APK (Releases v2.13.0)
+
+Готовые установочные пакеты и нативные бинарники доступны в разделе [**GitHub Releases v2.13.0**](https://github.com/werdio325-png/antigravity-android/releases/latest):
+
+* **[Antigravity-v2.13.0-BypassRegion.apk](https://github.com/werdio325-png/antigravity-android/releases/download/v2.13.0/Antigravity-v2.13.0-BypassRegion.apk)** — **Рекомендуемая версия**: снятие региональных экранов проверки Google (`--bypass-region`), автоматическая поддержка как новых процессоров (ARMv8.1+), так и старых чипов (ARMv8.0) с динамическим подключением эмулятора атомиков через `/proc/cpuinfo`, Shizuku (`rish`) и автономный рантайм.
+* **[Antigravity-v2.13.0-Vanilla.apk](https://github.com/werdio325-png/antigravity-android/releases/download/v2.13.0/Antigravity-v2.13.0-Vanilla.apk)** — чистая оригинальная версия со стандартными региональными проверками Google и универсальной поддержкой любых ARM64 процессоров.
+* **[antigravity-core-arm64-v2.13.0.tar.gz](https://github.com/werdio325-png/antigravity-android/releases/download/v2.13.0/antigravity-core-arm64-v2.13.0.tar.gz)** — сжатый архив оригинального ARM64-ядра `language_server` (48 МБ) для сборки из исходников.
+
+---
+
 ### 🌟 Ключевые возможности
 
-- **100% Native ARM64 (Без просадок производительности):**
+- **100% Native ARM64 (Универсальная поддержка всех чипов):**
+  - Полная поддержка современных чипов (ARMv8.1+) и старых процессоров (ARMv8.0) из коробки. Сервис приложения на лету проверяет флаги `/proc/cpuinfo` (`atomics`) и подключает LSE-эмулятор только тогда, когда это действительно необходимо.
   - Никакой эмуляции системных вызовов (`ptrace`), замедляющей файловые операции и запуск процессов.
   - Нативное ядро пакуется как `liblanguage_server.so` в каталог `nativeLibraryDir`, строго соблюдая политики безопасности Android W^X (SELinux).
 - **Мгновенный старт UI (Zero-Wait UI):**
@@ -40,8 +52,8 @@
 - **Глубокая интеграция с Android через Shizuku (`rish`):**
   - Возможность управления системой без root-прав через Shizuku: установка и удаление пакетов (`pm`), снятие скриншотов (`screencap`), симуляция кликов и текста (`input tap / text`), чтение `logcat` и системных свойств.
 - **Гибкий конвейер патчинга (Build & Patch Pipeline):**
-  - Поддержка снятия региональных ограничений по флагу (`--bypass-region`).
-  - Поддержка старых процессоров без инструкций LSE по флагу (`--armv8.0`).
+  - Патчи ARMv8.0 включены по умолчанию и оптимизированы для стабильной работы на всех поколениях ядер.
+  - Управление региональным патчем (`--no-bypass-region` для отключения).
   - Обход seccomp-фильтров ядра Android (`faccessat2` / `fchmodat2`).
 
 ---
@@ -52,7 +64,7 @@
 graph TD
     subgraph APP["Android Application (com.antigravity.mobile)"]
         UI["MainActivity.java<br/>• Fullscreen WebView<br/>• Animated Splash & Loader<br/>• OAuth Custom Tab Bridge"]
-        SVC["CoreServerService.java (Foreground Service)<br/>• WakeLock & Notification<br/>• Dynamic Linker (ld-linux-aarch64.so.1)<br/>• DNS Config Generator (etc//resolv.conf)"]
+        SVC["CoreServerService.java (Foreground Service)<br/>• WakeLock & Notification<br/>• Dynamic Linker (ld-linux-aarch64.so.1)<br/>• Dynamic /proc/cpuinfo atomics detector<br/>• DNS Config Generator (etc//resolv.conf)"]
         UI <-->|Localhost HTTPS :48999| SVC
     end
 
@@ -76,12 +88,12 @@ antigravity-mobile/
 │   ├── AndroidManifest.xml                 # Манифест (ForegroundService dataSync, Deep Links)
 │   ├── src/main/java/com/antigravity/mobile/
 │   │   ├── MainActivity.java               # Жизненный цикл UI, перехват OAuth, WebView
-│   │   └── CoreServerService.java          # Фоновый сервис ядра, запуск линковщика и proc
+│   │   └── CoreServerService.java          # Фоновый сервис ядра, автоопределение CPU, запуск
 │   └── res/                                # Иконки, темы и network security config
 │
 ├── patches/                                # Модули бинарного патчинга ядра
-│   ├── patch_gates.py                      # Снятие региональных проверок (--bypass-region)
-│   ├── patch_armv80.py                     # Эмуляция LSE-атомиков для ARMv8.0 (--armv8.0)
+│   ├── patch_gates.py                      # Снятие региональных проверок
+│   ├── patch_armv80.py                     # Безопасная эмуляция LSE-атомиков в .text
 │   ├── patch_resolv.py                     # Патч DNS resolver (etc//resolv.conf)
 │   ├── patch_syscalls.py                   # Seccomp bypass (faccessat2 / fchmodat2)
 │   ├── patch_auth.py                       # Перехват Google OAuth и возврат через Deep Link
@@ -105,9 +117,6 @@ antigravity-mobile/
 
 ### 🚀 Инструкция по сборке
 
-#### Требования:
-Для сборки прямо на Android (или в Linux ARM64) необходимы: `aapt`, `javac`, `java`, `zip`, `zipalign`, `apksigner`, `python3`. Все они уже включены в рантайм проекта.
-
 #### 1. Подготовка ядра
 Поместите оригинальный 64-битный бинарник Google Antigravity `language_server` в каталог `core/`:
 ```bash
@@ -117,17 +126,11 @@ mkdir -p core
 
 #### 2. Запуск сборки
 ```bash
-# Стандартная чистая сборка:
+# Сборка универсальной версии со снятием региональных ограничений (BypassRegion):
 ./build.sh
 
-# Снятие региональных экранов доступности (eligibility gates):
-./build.sh --bypass-region
-
-# Сборка для старых процессоров (ARMv8.0 без LSE):
-./build.sh --armv8.0
-
-# Комбинированная сборка со всеми оптимизациями:
-./build.sh --bypass-region --armv8.0
+# Сборка чистой Vanilla-версии со стандартными региональными проверками:
+./build.sh --no-bypass-region
 ```
 
 Готовый подписанный файл появится по пути: `output/Antigravity-Mobile.apk`.
@@ -139,11 +142,20 @@ mkdir -p core
 
 **Antigravity Mobile** is an open-source project packaging the complete **Google Antigravity Language Server** into a single, native Android APK. It eliminates the need for terminal emulators (Termux), PRoot containers, or virtualization: install the APK and run Antigravity directly on your smartphone or tablet hardware.
 
+### 📥 Download Prebuilt APKs (Releases v2.13.0)
+
+Prebuilt binaries are available in [**GitHub Releases v2.13.0**](https://github.com/werdio325-png/antigravity-android/releases/latest):
+
+* **[Antigravity-v2.13.0-BypassRegion.apk](https://github.com/werdio325-png/antigravity-android/releases/download/v2.13.0/Antigravity-v2.13.0-BypassRegion.apk)** — **Recommended**: bypasses Google regional eligibility checks, supports all ARM64 generations (dynamic CPU detection for ARMv8.0 and ARMv8.1+), Shizuku (`rish`), and standalone CLI suite.
+* **[Antigravity-v2.13.0-Vanilla.apk](https://github.com/werdio325-png/antigravity-android/releases/download/v2.13.0/Antigravity-v2.13.0-Vanilla.apk)** — Clean build with standard Google regional checks and universal CPU support.
+* **[antigravity-core-arm64-v2.13.0.tar.gz](https://github.com/werdio325-png/antigravity-android/releases/download/v2.13.0/antigravity-core-arm64-v2.13.0.tar.gz)** — Core `language_server` binary archive (48 MB).
+
+---
+
 ### 🌟 Key Highlights
 
-- **100% Native ARM64 (Zero Performance Penalty):**
-  - No slow `ptrace` syscall emulation layers.
-  - The core is packaged as `liblanguage_server.so` in `nativeLibraryDir`, fully compliant with Android W^X and SELinux policies.
+- **Universal ARM64 Compatibility:**
+  - Full support for modern ARMv8.1+ processors and legacy ARMv8.0 chips out of the box. Automatically detects CPU hardware atomics in `/proc/cpuinfo` and loads the LSE fallback emulator only when necessary.
 - **Zero-Wait UI Launch:**
   - System WebView opens instantly with an animated loader upon launch.
   - Backend core initializes in a background `ForegroundService` with `WakeLock`. Once the localhost port is ready, the view smoothly cross-fades into the full Antigravity desktop.
@@ -155,10 +167,6 @@ mkdir -p core
   - Built-in `pkg` tool for installing additional packages without root.
 - **Android System Integration via Shizuku (`rish`):**
   - Shell access without root: manage packages (`pm`), capture screenshots (`screencap`), simulate input events (`input tap / text`), inspect logs (`logcat`).
-- **Configurable Patch Pipeline:**
-  - Optional regional eligibility bypass flag (`--bypass-region`).
-  - Optional legacy CPU compatibility flag for chips lacking LSE atomics (`--armv8.0`).
-  - Kernel seccomp filter bypass (`faccessat2` / `fchmodat2`).
 
 ---
 
@@ -173,17 +181,11 @@ mkdir -p core
 
 #### 2. Run the Build Script
 ```bash
-# Standard clean build:
+# Build BypassRegion APK:
 ./build.sh
 
-# Bypass Google regional eligibility gates:
-./build.sh --bypass-region
-
-# Build for older ARMv8.0 chipsets (Snapdragon 660/820, Exynos 8890, Cortex-A53/A72):
-./build.sh --armv8.0
-
-# Combined build:
-./build.sh --bypass-region --armv8.0
+# Build Vanilla APK:
+./build.sh --no-bypass-region
 ```
 
 The resulting signed APK will be output to: `output/Antigravity-Mobile.apk`.

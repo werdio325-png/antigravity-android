@@ -107,7 +107,7 @@ def patch_armv80(target_path):
     else:
         print("[patch_armv80] [6/7] LDAPR instructions already converted.")
 
-    # 7. Защита SIGILL от перехвата Go runtime во всех копиях runtime.rt_sigaction
+    # 7. Защита SIGILL от перехвата Go runtime во всех копиях runtime.rt_sigaction в секции .text
     ORIG_RTSIG = bytes.fromhex(
         "e00740f9e10b40f9e20f40f9e31340f9"
         "c81080d2010000d4e02b00b9c0035fd6"
@@ -116,21 +116,22 @@ def patch_armv80(target_path):
         "e08740a91f1000f180000054e28f41a9"
         "c81080d2010000d4ff2b00b9c0035fd6"
     )
-    rtsig_idx = 0
+    rtsig_idx = 0x046e2000
+    rtsig_end = min(len(data), 0x06ef0f30)
     rtsig_count = 0
     while True:
-        rtsig_idx = data.find(ORIG_RTSIG, rtsig_idx)
+        rtsig_idx = data.find(ORIG_RTSIG, rtsig_idx, rtsig_end)
         if rtsig_idx == -1:
             break
         data[rtsig_idx:rtsig_idx + len(PATCH_RTSIG)] = PATCH_RTSIG
         rtsig_count += 1
         patches_applied += 1
-        print(f"[patch_armv80] [7/7] Protected SIGILL in runtime.rt_sigaction at 0x{rtsig_idx:x}")
+        print(f"[patch_armv80] [7/8] Protected SIGILL in runtime.rt_sigaction at 0x{rtsig_idx:x}")
         rtsig_idx += len(PATCH_RTSIG)
 
     if rtsig_count == 0:
-        if data.find(PATCH_RTSIG) != -1:
-            print("[patch_armv80] [7/8] runtime.rt_sigaction instances already patched.")
+        if data.find(PATCH_RTSIG, 0x046e2000, rtsig_end) != -1:
+            print("[patch_armv80] [7/8] runtime.rt_sigaction in .text already patched.")
 
     # 8. Защита SIGILL от перехвата через runtime.sigaction (CGO / _cgo_sigaction)
     # Встраиваем 12-байтовый фильтр (cmp w0, #4; b.ne 0x46faaf0; ret) в неиспользуемое выравнивание 0x46faae4

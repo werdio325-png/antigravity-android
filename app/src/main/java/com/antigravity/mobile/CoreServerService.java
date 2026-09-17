@@ -121,12 +121,15 @@ public class CoreServerService extends Service {
             File binary = new File(nativeDir, "liblanguage_server.so");
             File linker = new File(nativeDir, "ld-linux-aarch64.so.1");
             File lseEmulator = new File(nativeDir, "liblse_emulator.so");
+            boolean hardwareAtomics = hasHardwareAtomics();
+            boolean useEmulator = !hardwareAtomics && lseEmulator.exists();
+            Log.i(TAG, "CPU hardware atomics: " + hardwareAtomics + ", useEmulator: " + useEmulator);
 
             java.util.List<String> cmdList = new java.util.ArrayList<>();
             cmdList.add(linker.getAbsolutePath());
             cmdList.add("--library-path");
             cmdList.add(nativeDir.getAbsolutePath() + ":/system/lib64");
-            if (lseEmulator.exists()) {
+            if (useEmulator) {
                 cmdList.add("--preload");
                 cmdList.add(lseEmulator.getAbsolutePath());
             }
@@ -172,7 +175,7 @@ public class CoreServerService extends Service {
             env.put("PYTHONPATH", pyDir.getAbsolutePath() + ":" + new File(pyDir, "lib-dynload").getAbsolutePath());
             env.put("PATH", nativeDir.getAbsolutePath() + ":" + binDir.getAbsolutePath() + ":/system/bin:/system/xbin");
             env.put("LD_LIBRARY_PATH", nativeDir.getAbsolutePath() + ":/system/lib64");
-            if (lseEmulator.exists()) {
+            if (useEmulator) {
                 env.put("LD_PRELOAD", lseEmulator.getAbsolutePath());
             }
             env.put("ANTIGRAVITY_VSCODE_HOST", "1");
@@ -311,6 +314,24 @@ public class CoreServerService extends Service {
         if (process != null) process.destroy();
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         super.onDestroy();
+    }
+
+    private boolean hasHardwareAtomics() {
+        try (BufferedReader reader = new BufferedReader(new java.io.FileReader("/proc/cpuinfo"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.startsWith("Features")) {
+                    for (String feat : line.split("\\s+")) {
+                        if ("atomics".equalsIgnoreCase(feat)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to read /proc/cpuinfo: " + e.getMessage());
+        }
+        return false;
     }
 
     @Override
