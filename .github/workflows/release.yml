@@ -50,21 +50,22 @@ jobs:
         run: |
           mkdir -p core
           if [ ! -f core/language_server ]; then
-            echo "[*] Downloading core binary from release v2.11.0 in GitHub datacenter..."
-            gh release download v2.11.0 --repo werdio325-png/antigravity-android --pattern "antigravity-cores-arm64-v2.11.0.tar.gz" --dir core/ || true
-            if [ -f core/antigravity-cores-arm64-v2.11.0.tar.gz ]; then
-              tar -xzf core/antigravity-cores-arm64-v2.11.0.tar.gz -C core/
+            echo "[*] Downloading core archive from release v2.11.0..."
+            curl -fL --retry 3 "https://github.com/werdio325-png/antigravity-android/releases/download/v2.11.0/antigravity-cores-arm64-v2.11.0.tar.gz" -o core/core.tar.gz
+            tar -xzf core/core.tar.gz -C core/
+            rm -f core/core.tar.gz
+            if [ -f core/libserver-patched.so ]; then
+              mv -f core/libserver-patched.so core/language_server
             fi
             if [ ! -f core/language_server ]; then
-              echo "[*] Falling back to extracting liblanguage_server.so from v2.11.0 APK..."
-              gh release download v2.11.0 --repo werdio325-png/antigravity-android --pattern "Antigravity-v2.11.0-Vanilla.apk" --dir core/
-              unzip -p core/Antigravity-v2.11.0-Vanilla.apk lib/arm64-v8a/liblanguage_server.so > core/language_server
+              BIG_FILE=$(find core/ -maxdepth 2 -type f -size +50M | head -n 1)
+              if [ -n "$BIG_FILE" ]; then
+                mv -f "$BIG_FILE" core/language_server
+              fi
             fi
             chmod +x core/language_server
           fi
           echo "[+] Core binary ready: $(ls -lh core/language_server)"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Antigravity-BypassRegion APK
         run: |
