@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_dark">#090D16</color>
+    <color name="card_bg">#131924</color>
+    <color name="card_stroke">#242D3D</color>
+    <color name="accent_blue">#38BDF8</color>
+    <color name="accent_purple">#8B5CF6</color>
+    <color name="accent_indigo">#6366F1</color>
+    <color name="text_primary">#F0F6FC</color>
+    <color name="text_secondary">#8B949E</color>
+    <color name="status_green">#10B981</color>
+    <color name="btn_bg">#1B2433</color>
+    <color name="btn_stroke">#2F3B4E</color>
+</resources>

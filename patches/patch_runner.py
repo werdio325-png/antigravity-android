@@ -10,7 +10,7 @@ def sha256(filepath):
             h.update(chunk)
     return h.hexdigest()
 
-def run_pipeline(staging_core_path, enable_armv80=False, enable_bypass_region=False):
+def run_pipeline(staging_core_path, enable_armv80=False, enable_bypass_region=False, web_dir=None):
     print(f"=== [Patch Pipeline] Starting on: {staging_core_path} ===")
     if not os.path.exists(staging_core_path):
         print(f"Error: {staging_core_path} not found!")
@@ -48,6 +48,12 @@ def run_pipeline(staging_core_path, enable_armv80=False, enable_bypass_region=Fa
         from patch_armv80 import patch_armv80
         patch_armv80(staging_core_path)
 
+    # 6. Опциональный патч Web UI
+    if web_dir and os.path.isdir(web_dir):
+        print(f"[Pipeline] 6. Applying Web UI patch from: {web_dir}...")
+        from patch_web import patch_web
+        patch_web(staging_core_path, web_dir)
+
     final_hash = sha256(staging_core_path)
     print(f"[Pipeline] Final SHA256: {final_hash}")
     print("=== [Patch Pipeline] Completed successfully! ===")
@@ -59,8 +65,19 @@ if __name__ == "__main__":
         print("Options:")
         print("  --no-bypass-region Disable Google regional eligibility patch")
         print("  --no-armv8.0       Disable ARMv8.0 compatibility patch")
+        print("  --patch-web        Enable repacking web interface from web_ui/")
+        print("  --web-dir <dir>    Custom web directory to repack into core")
         sys.exit(0 if ("--help" in sys.argv or "-h" in sys.argv) else 1)
     target = sys.argv[1]
     is_armv80 = "--no-armv8.0" not in sys.argv
     is_bypass_region = "--no-bypass-region" not in sys.argv
-    run_pipeline(target, enable_armv80=is_armv80, enable_bypass_region=is_bypass_region)
+    
+    web_directory = None
+    if "--patch-web" in sys.argv:
+        web_directory = "web_ui"
+    for i, arg in enumerate(sys.argv):
+        if arg == "--web-dir" and i + 1 < len(sys.argv):
+            web_directory = sys.argv[i + 1]
+            break
+
+    run_pipeline(target, enable_armv80=is_armv80, enable_bypass_region=is_bypass_region, web_dir=web_directory)

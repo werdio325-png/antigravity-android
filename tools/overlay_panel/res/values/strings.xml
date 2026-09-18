@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Dev Overlay Panel</string>
+    <string name="input_hint">Введите запрос или команду...</string>
+    <string name="model_name">Gemini 3.8 Flash</string>
+    <string name="model_variant">Medium</string>
+    <string name="local_env">Local</string>
+    <string name="btn_start_service">Включить оверлей</string>
+    <string name="btn_stop_service">Выключить оверлей</string>
+    <string name="grant_permission">Дать разрешение поверх окон</string>
+    <string name="permission_granted">Разрешение предоставлено</string>
+    <string name="permission_needed">Требуется разрешение поверх окон</string>
+</resources>

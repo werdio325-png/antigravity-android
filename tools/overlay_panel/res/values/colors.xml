@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_panel">#1e2025</color>
+    <color name="bg_panel_stroke">#32353f</color>
+    <color name="bg_chip">#272a33</color>
+    <color name="bg_chip_stroke">#383b46</color>
+    <color name="text_primary">#e6e9f0</color>
+    <color name="text_secondary">#949ba8</color>
+    <color name="text_muted">#686f7d</color>
+    <color name="accent_purple">#c084fc</color>
+    <color name="accent_purple_dark">#a855f7</color>
+    <color name="icon_tint">#9da5b4</color>
+    <color name="window_dark">#121316</color>
+    <color name="color_black">#000000</color>
+    <color name="color_white">#ffffff</color>
+    <color name="status_green">#22c55e</color>
+</resources>

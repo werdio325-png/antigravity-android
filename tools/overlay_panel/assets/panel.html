@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    body {
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 4px 8px;
+      overflow: hidden;
+    }
+    .panel-outer {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      border-radius: 18px;
+      background: #2e2e32;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+      border: 1px solid #383a42;
+      transition: border-color 0.2s;
+    }
+    .panel-outer:focus-within {
+      border-color: #52525e;
+    }
+    .panel-inner {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      border-radius: 17px;
+      background: #1c1d21;
+      padding: 6px 10px 8px 10px;
+    }
+    .drag-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 18px;
+      cursor: grab;
+      padding: 0 4px;
+    }
+    .drag-pill {
+      width: 36px;
+      height: 4px;
+      border-radius: 2px;
+      background: #424550;
+      margin: 0 auto;
+    }
+    .btn-close {
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      color: #71717a;
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      font-size: 14px;
+      line-height: 1;
+    }
+    .btn-close:active {
+      color: #fff;
+    }
+    .input-wrapper {
+      position: relative;
+      width: 100%;
+      padding: 4px 4px 2px 4px;
+    }
+    textarea {
+      width: 100%;
+      min-height: 38px;
+      max-height: 200px;
+      resize: none;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #ececec;
+      font-size: 14px;
+      line-height: 1.45;
+      font-family: inherit;
+      user-select: text;
+    }
+    textarea::placeholder {
+      color: #73737d;
+    }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 4px 2px 2px 2px;
+    }
+    .toolbar-left, .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tool-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      color: #9da3af;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+    }
+    .tool-btn:active {
+      background: #2a2b32;
+      color: #fff;
+    }
+    .model-chip {
+      display: flex;
+      align-items: center;
+      height: 26px;
+      gap: 4px;
+      border-radius: 8px;
+      padding: 0 8px;
+      font-size: 11.5px;
+      color: #a1a1aa;
+      background: transparent;
+      border: 1px solid transparent;
+      cursor: pointer;
+    }
+    .model-chip:active {
+      background: #282930;
+      color: #fff;
+    }
+    .model-name {
+      font-weight: 600;
+      color: #e4e4e7;
+    }
+    .model-variant {
+      color: #828590;
+      font-size: 10.5px;
+    }
+    .chevron-icon {
+      width: 12px;
+      height: 12px;
+      opacity: 0.6;
+    }
+    .btn-send {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #27272a;
+      color: #52525b;
+      border: none;
+      cursor: not-allowed;
+      transition: all 0.15s ease;
+    }
+    .btn-send.active {
+      background: #c084fc;
+      color: #121316;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(192, 132, 252, 0.4);
+    }
+    .btn-send.active:active {
+      background: #a855f7;
+    }
+    .local-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 4px 0 4px;
+      font-size: 10.5px;
+      color: #636674;
+      cursor: pointer;
+      width: fit-content;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="panel-outer" id="panelContainer">
+    <div class="panel-inner">
+      
+      <!-- Drag Header -->
+      <div class="drag-header" id="dragHeader">
+        <div style="width: 18px;"></div>
+        <div class="drag-pill"></div>
+        <button class="btn-close" id="btnClose" title="Свернуть">&#x2715;</button>
+      </div>
+
+      <!-- Textarea -->
+      <div class="input-wrapper">
+        <textarea
+          id="promptInput"
+          rows="1"
+          placeholder="Спросите что-нибудь, @ для контекста, / для действий"
+        ></textarea>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <!-- Left tools -->
+        <div class="toolbar-left">
+          <button class="tool-btn" id="btnAddContext" title="Добавить контекст">
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+          </button>
+
+          <button class="model-chip" id="btnModelSelect">
+            <span class="model-name" id="lblModelName">Gemini 3.8 Flash</span>
+            <span class="model-variant" id="lblModelVariant">Medium</span>
+            <svg class="chevron-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Right tools -->
+        <div class="toolbar-right">
+          <button class="tool-btn" id="btnMic" title="Голосовой ввод">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v6a3 3 0 0 0 3 3Z" />
+            </svg>
+          </button>
+
+          <button class="btn-send" id="btnSend" disabled title="Отправить">
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Local mode badge -->
+      <div class="local-row" id="btnLocalMode">
+        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0H3" />
+        </svg>
+        <span>Local</span>
+        <svg style="width:8px; height:8px; opacity:0.6;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+        </svg>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const input = document.getElementById('promptInput');
+    const btnSend = document.getElementById('btnSend');
+    const dragHeader = document.getElementById('dragHeader');
+    const btnClose = document.getElementById('btnClose');
+    const btnModel = document.getElementById('btnModelSelect');
+    const lblModelName = document.getElementById('lblModelName');
+    const lblModelVariant = document.getElementById('lblModelVariant');
+    const btnAddContext = document.getElementById('btnAddContext');
+    const btnMic = document.getElementById('btnMic');
+    const btnLocal = document.getElementById('btnLocalMode');
+
+    const models = [
+      { name: 'Gemini 3.8 Flash', variant: 'Medium' },
+      { name: 'Gemini 3.8 Pro', variant: 'High' },
+      { name: 'Claude 3.5 Sonnet', variant: 'Standard' },
+      { name: 'GPT-4o', variant: 'Omni' },
+      { name: 'DeepSeek R1', variant: 'Reasoning' }
+    ];
+    let modelIdx = 0;
+
+    function notifyHeight() {
+      const h = document.getElementById('panelContainer').offsetHeight + 16;
+      if (window.AndroidBridge && window.AndroidBridge.onContentHeightChanged) {
+        window.AndroidBridge.onContentHeightChanged(h);
+      }
+    }
+
+    input.addEventListener('input', () => {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 200) + 'px';
+      
+      const hasText = input.value.trim().length > 0;
+      if (hasText) {
+        btnSend.disabled = false;
+        btnSend.classList.add('active');
+      } else {
+        btnSend.disabled = true;
+        btnSend.classList.remove('active');
+      }
+      notifyHeight();
+    });
+
+    input.addEventListener('focus', () => {
+      if (window.AndroidBridge && window.AndroidBridge.onRequestFocus) {
+        window.AndroidBridge.onRequestFocus();
+      }
+    });
+
+    input.addEventListener('blur', () => {
+      if (window.AndroidBridge && window.AndroidBridge.onReleaseFocus) {
+        window.AndroidBridge.onReleaseFocus();
+      }
+    });
+
+    function doSend() {
+      const text = input.value.trim();
+      if (!text) return;
+      if (window.AndroidBridge && window.AndroidBridge.onSubmit) {
+        window.AndroidBridge.onSubmit(text, models[modelIdx].name);
+      }
+      input.value = '';
+      input.dispatchEvent(new Event('input'));
+      input.blur();
+    }
+
+    btnSend.addEventListener('click', doSend);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        doSend();
+      }
+    });
+
+    btnModel.addEventListener('click', () => {
+      modelIdx = (modelIdx + 1) % models.length;
+      lblModelName.textContent = models[modelIdx].name;
+      lblModelVariant.textContent = models[modelIdx].variant;
+      if (window.AndroidBridge && window.AndroidBridge.toast) {
+        window.AndroidBridge.toast('Модель: ' + models[modelIdx].name);
+      }
+    });
+
+    btnAddContext.addEventListener('click', () => {
+      if (window.AndroidBridge && window.AndroidBridge.toast) {
+        window.AndroidBridge.toast('Добавить контекст: снимки, файлы, логкат');
+      }
+    });
+
+    btnMic.addEventListener('click', () => {
+      if (window.AndroidBridge && window.AndroidBridge.toast) {
+        window.AndroidBridge.toast('Голосовой ввод');
+      }
+    });
+
+    btnLocal.addEventListener('click', () => {
+      if (window.AndroidBridge && window.AndroidBridge.toast) {
+        window.AndroidBridge.toast('Среда: Local Device (Direct CLI)');
+      }
+    });
+
+    btnClose.addEventListener('click', () => {
+      if (window.AndroidBridge && window.AndroidBridge.minimize) {
+        window.AndroidBridge.minimize();
+      }
+    });
+
+    window.addEventListener('load', () => {
+      setTimeout(notifyHeight, 100);
+    });
+  </script>
+</body>
+</html>

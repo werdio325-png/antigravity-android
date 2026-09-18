@@ -5,10 +5,16 @@ output/
 
 # Staging and compilation artifacts
 staging/
+build/
+**/build/
 *.o
 *.obj
 *.class
 *.dex
+!runtime/src/tools/rish_shizuku.dex
+
+# Extracted Web UI assets (regenerated via patches/patch_web.py)
+web_ui/
 
 # Large proprietary core binary (download or obtain separately, >100MB)
 core/language_server

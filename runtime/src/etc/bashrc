@@ -1,12 +1,12 @@
 # Antigravity Mobile bash environment
 if [ -z "$NATIVE_DIR" ] || [ ! -d "$NATIVE_DIR" ]; then
-    for d in /data/app/*/com.antigravity.mobile*/lib/arm64 /data/app/~~*/com.antigravity.mobile*/lib/arm64 /data/data/com.antigravity.mobile/lib; do
+    for d in /data/app/*/com.antigravity.mobile.dev*/lib/arm64 /data/app/~~*/com.antigravity.mobile.dev*/lib/arm64 /data/data/com.antigravity.mobile.dev/lib /data/app/*/com.antigravity.mobile*/lib/arm64 /data/app/~~*/com.antigravity.mobile*/lib/arm64; do
         if [ -f "$d/ld-linux-aarch64.so.1" ]; then NATIVE_DIR="$d"; break; fi
     done
 fi
 
-RUNTIME_DIR="${HOME:-/data/user/0/com.antigravity.mobile/files}/runtime"
-if [ ! -d "$RUNTIME_DIR" ]; then RUNTIME_DIR="/data/data/com.antigravity.mobile/files/runtime"; fi
+RUNTIME_DIR="${HOME:-/data/user/0/com.antigravity.mobile.dev/files}/runtime"
+if [ ! -d "$RUNTIME_DIR" ]; then RUNTIME_DIR="/data/data/com.antigravity.mobile.dev/files/runtime"; fi
 export SSL_CERT_FILE="$RUNTIME_DIR/certs/ca-certificates.crt"
 export CURL_CA_BUNDLE="$RUNTIME_DIR/certs/ca-certificates.crt"
 export PYTHONHOME="$RUNTIME_DIR/python"
@@ -53,13 +53,12 @@ if [ -n "$NATIVE_DIR" ] && [ -d "$NATIVE_DIR" ]; then
     export -f busybox 2>/dev/null || true
 fi
 
-    rish() {
-        /system/bin/sh "$RUNTIME_DIR/bin/rish" "$@"
-    }
-    export -f rish 2>/dev/null || true
+rish() {
+    /system/bin/sh "$RUNTIME_DIR/bin/rish" "$@"
+}
+export -f rish 2>/dev/null || true
 
-    notify() {
-        /system/bin/sh "$RUNTIME_DIR/bin/notify" "$@"
-    }
-    export -f notify 2>/dev/null || true
-
+notify() {
+    /system/bin/sh "$RUNTIME_DIR/bin/notify" "$@"
+}
+export -f notify 2>/dev/null || true

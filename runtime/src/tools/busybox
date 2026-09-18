@@ -1,5 +1,5 @@
 #!/system/bin/sh
-if [ -z "$NATIVE_DIR" ]; then NATIVE_DIR="/data/data/com.antigravity.mobile/lib"; fi
+if [ -z "$NATIVE_DIR" ]; then NATIVE_DIR="/data/data/com.antigravity.mobile.dev/lib"; fi
 APPLET="${0##*/}"
 
 if [ -f "$NATIVE_DIR/libbusybox.so" ]; then

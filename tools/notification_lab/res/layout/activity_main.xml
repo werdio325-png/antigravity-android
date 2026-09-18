@@ -1,0 +1,366 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_dark"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Header: Antigravity branding -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="20dp"
+            android:paddingTop="8dp">
+
+            <ImageView
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:src="@drawable/ic_antigravity_logo"
+                android:layout_marginEnd="12dp" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ANTIGRAVITY"
+                    android:textColor="@color/text_primary"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.05" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="NOTIFICATION STUDIO // LAB"
+                    android:textColor="@color/accent_blue"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.08" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="● ONLINE"
+                android:textColor="@color/status_green"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:background="@drawable/badge_online"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp" />
+        </LinearLayout>
+
+        <!-- CARD 1: ПРЕСЕТЫ УВЕДОМЛЕНИЙ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⚡ ГОТОВЫЕ ШАБЛОНЫ (PRESETS)"
+                android:textColor="@color/accent_blue"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.06"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Тестирование стилей и поведения уведомлений"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:layout_marginBottom="14dp" />
+
+            <Button
+                android:id="@+id/btn_preset_headsup"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="⚡  Heads-Up Баннер (Срочное внимание)"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:background="@drawable/bg_button"
+                android:gravity="start|center_vertical"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btn_preset_actions"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="🔘  Интерактивные кнопки («Открыть», «Стоп»)"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:background="@drawable/bg_button"
+                android:gravity="start|center_vertical"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btn_preset_bigtext"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="📜  Разворачиваемый отчет ИИ (BigTextStyle)"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:background="@drawable/bg_button"
+                android:gravity="start|center_vertical"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btn_preset_progress"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="⏳  Шкала прогресса (0% → 100%)"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:background="@drawable/bg_button"
+                android:gravity="start|center_vertical"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btn_preset_ongoing"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="🛡  Служба ядра (Ongoing Foreground)"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:background="@drawable/bg_button"
+                android:gravity="start|center_vertical"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp" />
+        </LinearLayout>
+
+        <!-- CARD 2: КОНСТРУКТОР -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🛠 КОНСТРУКТОР СИГНАЛОВ (CUSTOM)"
+                android:textColor="@color/accent_purple"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.06"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ЗАГОЛОВОК"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
+
+            <EditText
+                android:id="@+id/et_title"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:hint="Antigravity Mobile"
+                android:textColor="@color/text_primary"
+                android:textColorHint="#444D56"
+                android:textSize="13sp"
+                android:background="@drawable/bg_input"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ТЕКСТ СООБЩЕНИЯ"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
+
+            <EditText
+                android:id="@+id/et_message"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Текст оповещения..."
+                android:textColor="@color/text_primary"
+                android:textColorHint="#444D56"
+                android:textSize="13sp"
+                android:background="@drawable/bg_input"
+                android:padding="12dp"
+                android:minLines="2"
+                android:layout_marginBottom="14dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="РИТМ ВИБРАЦИИ"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="6dp" />
+
+            <RadioGroup
+                android:id="@+id/rg_vibration"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp">
+
+                <RadioButton
+                    android:id="@+id/rb_vib_default"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Двойной"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp"
+                    android:checked="true"
+                    android:layout_marginEnd="8dp" />
+
+                <RadioButton
+                    android:id="@+id/rb_vib_sos"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="SOS"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp"
+                    android:layout_marginEnd="8dp" />
+
+                <RadioButton
+                    android:id="@+id/rb_vib_short"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Клик"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp"
+                    android:layout_marginEnd="8dp" />
+
+                <RadioButton
+                    android:id="@+id/rb_vib_none"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Без вибро"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp" />
+            </RadioGroup>
+
+            <Button
+                android:id="@+id/btn_send_custom"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="🚀  ОТПРАВИТЬ СИГНАЛ"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.04"
+                android:background="@drawable/bg_button_primary" />
+        </LinearLayout>
+
+        <!-- CARD 3: IPC CLI МОСТ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💻 ТЕРМИНАЛЬНЫЙ МОСТ (IPC BRIDGE)"
+                android:textColor="@color/status_green"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.06"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Команда для отправки прямо из терминала bash"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:id="@+id/tv_cli_cmd"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_terminal"
+                android:textColor="@color/accent_blue"
+                android:padding="12dp"
+                android:fontFamily="monospace"
+                android:textSize="12sp"
+                android:textIsSelectable="true"
+                android:text="am broadcast -a com.antigravity.notify.lab.SEND --es title 'Antigravity' --es message 'Готово'"
+                android:layout_marginBottom="12dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btn_copy_cmd"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:text="📋  Скопировать"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp"
+                    android:background="@drawable/bg_button"
+                    android:layout_marginEnd="8dp" />
+
+                <Button
+                    android:id="@+id/btn_clear_all"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:text="✕  Очистить"
+                    android:textColor="#F87171"
+                    android:textSize="12sp"
+                    android:background="@drawable/bg_button" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Antigravity Mobile Project • DeepMind Coding Suite"
+            android:textColor="#374151"
+            android:textSize="11sp"
+            android:gravity="center"
+            android:paddingBottom="12dp" />
+
+    </LinearLayout>
+</ScrollView>

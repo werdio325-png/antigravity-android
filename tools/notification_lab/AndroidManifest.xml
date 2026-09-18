@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.antigravity.notify.lab"
+    android:versionCode="1"
+    android:versionName="1.0.0">
+
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <application
+        android:label="@string/app_name"
+        android:icon="@drawable/ic_notify"
+        android:theme="@style/AppTheme"
+        android:allowBackup="false">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize"
+            android:label="Notify Lab">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".NotificationReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.antigravity.notify.lab.SEND" />
+                <action android:name="com.antigravity.notify.lab.ACTION_OPEN" />
+                <action android:name="com.antigravity.notify.lab.ACTION_STOP" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+</manifest>

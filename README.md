@@ -97,6 +97,7 @@ antigravity-mobile/
 │   ├── patch_resolv.py                     # Патч DNS resolver (etc//resolv.conf)
 │   ├── patch_syscalls.py                   # Seccomp bypass (faccessat2 / fchmodat2)
 │   ├── patch_auth.py                       # Перехват Google OAuth и возврат через Deep Link
+│   ├── patch_web.py                        # Экстрактор и сборщик Web UI (main.js, styles)
 │   └── patch_runner.py                     # Оркестратор конвейера патчинга с SHA-256
 │
 ├── runtime/                                # Нативный рантайм, пакуемый в assets
@@ -108,8 +109,14 @@ antigravity-mobile/
 │       ├── seed/                           # Начальные настройки и конфигурации
 │       └── tools/                          # CLI инструменты (git, curl, rg, rish, busybox)
 │
-├── tools/                                  # Инструменты сборки (android.jar, r8.jar, keystore)
-├── build.sh                                # Главный скрипт сборки в один клик
+├── tools/                                  # Модули и утилиты экосистемы
+│   ├── android.jar, r8.jar, debug.keystore # Базовые инструменты автономной сборки
+│   ├── lse_emulator.s, liblse_emulator.so  # Динамический эмулятор ARM LSE атомиков
+│   ├── agent_panel/                        # Реплика компонента AgentInputBox и дампы
+│   ├── notification_lab/                   # Лаборатория кастомных Android-уведомлений
+│   └── overlay_panel/                      # Прототип плавающего Dev Overlay окна
+│
+├── build.sh                                # Главный скрипт сборки и очистки проекта
 └── README.md                               # Документация проекта
 ```
 
@@ -121,16 +128,22 @@ antigravity-mobile/
 Поместите оригинальный 64-битный бинарник Google Antigravity `language_server` в каталог `core/`:
 ```bash
 mkdir -p core
-# Скопируйте language_server в core/language_server
+# Скопируйте language_server в core/language_server или архив antigravity-core-arm64.tar.gz
 ```
 
 #### 2. Запуск сборки
 ```bash
 # Сборка универсальной версии со снятием региональных ограничений (BypassRegion):
-./build.sh
+bash build.sh
 
 # Сборка чистой Vanilla-версии со стандартными региональными проверками:
-./build.sh --no-bypass-region
+bash build.sh --no-bypass-region
+
+# Сборка с перепаковкой модифицированного Web UI:
+bash build.sh --patch-web
+
+# Очистка всех промежуточных файлов сборки и освобождение диска:
+bash build.sh clean
 ```
 
 Готовый подписанный файл появится по пути: `output/Antigravity-Mobile.apk`.

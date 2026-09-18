@@ -1,3 +1,3 @@
 #!/system/bin/sh
-if [ -z "$NATIVE_DIR" ]; then NATIVE_DIR="/data/data/com.antigravity.mobile/lib"; fi
+if [ -z "$NATIVE_DIR" ]; then NATIVE_DIR="/data/data/com.antigravity.mobile.dev/lib"; fi
 exec "$NATIVE_DIR/libzipalign.so" "$@"

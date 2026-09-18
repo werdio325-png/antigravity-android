@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="#0D1117"
+    android:padding="14dp"
+    android:orientation="vertical">
+
+    <!-- Top bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="10dp">
+
+        <ImageView
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_antigravity_logo"
+            android:layout_marginEnd="8dp" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="ANTIGRAVITY // ENGINE"
+            android:textColor="#38BDF8"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.08" />
+
+        <TextView
+            android:id="@+id/notif_exp_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="● 48999 ONLINE"
+            android:textColor="#10B981"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            android:background="@drawable/badge_online"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp" />
+    </LinearLayout>
+
+    <!-- Main Message Card -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/bg_card"
+        android:padding="12dp"
+        android:layout_marginBottom="10dp">
+
+        <TextView
+            android:id="@+id/notif_exp_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Задача #104: Одобрение изменений"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/notif_exp_body"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Агент подготовил план правок для проекта. Требуется подтверждение для запуска."
+            android:textColor="#C9D1D9"
+            android:textSize="12sp"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Monospace details box -->
+        <TextView
+            android:id="@+id/notif_exp_code"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="$ build.sh --output Antigravity-v2.14.0.apk\n[+] Status: Verified (code 0)"
+            android:textColor="#38BDF8"
+            android:background="@drawable/bg_terminal"
+            android:padding="8dp"
+            android:fontFamily="monospace"
+            android:textSize="11sp" />
+
+        <!-- Progress Bar (hidden by default or shown for progress) -->
+        <ProgressBar
+            android:id="@+id/notif_exp_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="6dp"
+            android:progress="65"
+            android:max="100"
+            android:layout_marginTop="8dp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- Interactive Actions Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/notif_btn_open"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:text="💬 Чат"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_button"
+            android:layout_marginEnd="6dp" />
+
+        <Button
+            android:id="@+id/notif_btn_approve"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:text="✓ Одобрить"
+            android:textColor="#38BDF8"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_button"
+            android:layout_marginEnd="6dp" />
+
+        <Button
+            android:id="@+id/notif_btn_stop"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:text="⏹ Стоп"
+            android:textColor="#F87171"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_button" />
+    </LinearLayout>
+
+</LinearLayout>

@@ -1,4 +1,4 @@
-package com.antigravity.mobile;
+package com.antigravity.mobile.dev;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -26,9 +26,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.URL;
 import java.util.Map;
 import java.util.UUID;
 import java.util.zip.ZipEntry;
@@ -36,7 +38,9 @@ import java.util.zip.ZipInputStream;
 
 public class CoreServerService extends Service {
     private static final String TAG = "CoreServer";
-    public static final int PORT = 48999;
+    public static final String ENGINE_VERSION = "2.13.0";
+    public static final int PORT = 49000;
+    public static volatile String csrfToken = null;
     public static volatile String serverUrl = null;
 
     private Process process;
@@ -49,12 +53,17 @@ public class CoreServerService extends Service {
         try {
             PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
             if (pm != null) {
-                wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Antigravity::WakeLock");
+                wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AntigravityDev::WakeLock");
                 wakeLock.acquire();
             }
         } catch (Exception ignored) {}
 
         new Thread(this::runServer, "CoreServerThread").start();
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        return START_STICKY;
     }
 
     private void runServer() {
@@ -118,7 +127,7 @@ public class CoreServerService extends Service {
             writeString(new File(filesDir, "etc/resolv.conf"), getDnsConfig());
 
             // 3. Command execution
-            String csrfToken = UUID.randomUUID().toString();
+            csrfToken = UUID.randomUUID().toString();
             File binary = new File(nativeDir, "liblanguage_server.so");
             File linker = new File(nativeDir, "ld-linux-aarch64.so.1");
             File lseEmulator = new File(nativeDir, "liblse_emulator.so");
@@ -141,7 +150,7 @@ public class CoreServerService extends Service {
             cmdList.add("--subclient_type");
             cmdList.add("hub");
             cmdList.add("--override_ide_version");
-            cmdList.add("2.13.0");
+            cmdList.add(ENGINE_VERSION);
             cmdList.add("--override_user_agent_name");
             cmdList.add("antigravity");
             cmdList.add("--https_server_port");
@@ -153,7 +162,9 @@ public class CoreServerService extends Service {
             cmdList.add("--api_server_url");
             cmdList.add("https://generativelanguage.googleapis.com");
             cmdList.add("--cloud_code_endpoint");
-            cmdList.add("https://daily-cloudcode-pa.googleapis.com");
+            cmdList.add("https://cloudcode-pa.googleapis.com");
+            cmdList.add("--use_ls_chrome_devtools_mcp=false");
+            cmdList.add("--disable_telemetry=true");
 
             String[] cmd = cmdList.toArray(new String[0]);
 
@@ -183,7 +194,9 @@ public class CoreServerService extends Service {
             env.put("LANG", "C.UTF-8");
             env.put("LC_ALL", "C.UTF-8");
 
+            PerfLogger.log("CoreService: starting language_server process");
             process = pb.start();
+            PerfLogger.log("CoreService: pb.start() completed");
 
             // Unified stream reader
             new Thread(() -> {
@@ -191,12 +204,13 @@ public class CoreServerService extends Service {
                     String l;
                     while ((l = r.readLine()) != null) {
                         Log.d(TAG, l);
+                        PerfLogger.log("LS: " + l);
                         if (l.contains("ANTIGRAVITY_OPEN_URL:")) {
                             String authUrl = l.substring(l.indexOf("ANTIGRAVITY_OPEN_URL:") + 21).trim();
-                            MainActivity.openCustomTab(getApplicationContext(), authUrl);
+                            UrlRouter.openCustomTab(getApplicationContext(), authUrl);
                         } else if (l.contains("ANTIGRAVITY_NOTIFY:")) {
                             String payload = l.substring(l.indexOf("ANTIGRAVITY_NOTIFY:") + 19).trim();
-                            String title = "Antigravity";
+                            String title = "Antigravity Dev";
                             String msg = payload;
                             int sep = payload.indexOf("|");
                             if (sep != -1) {
@@ -209,17 +223,18 @@ public class CoreServerService extends Service {
                 } catch (Exception ignored) {}
             }, "ProcessOutput").start();
 
-            // 4. Poll readiness
+            // 4. Poll HTTPS server readiness via local loopback socket
             long start = System.currentTimeMillis();
             while (System.currentTimeMillis() - start < 25000) {
                 try (Socket s = new Socket()) {
-                    s.connect(new InetSocketAddress("127.0.0.1", PORT), 300);
+                    s.connect(new InetSocketAddress("127.0.0.1", PORT), 200);
                     serverUrl = "https://127.0.0.1:" + PORT + "/?csrf_token=" + csrfToken;
+                    PerfLogger.log("CoreService: Socket ready! serverUrl set: " + serverUrl);
                     Log.i(TAG, "Core server ready at: " + serverUrl);
                     updateNotificationStatus("Готов к работе (Порт " + PORT + ")");
                     break;
-                } catch (Exception e) {
-                    Thread.sleep(50);
+                } catch (Exception ignored) {
+                    try { Thread.sleep(40); } catch (Exception ignored2) {}
                 }
             }
         } catch (Exception e) {
@@ -237,22 +252,27 @@ public class CoreServerService extends Service {
                     LinkProperties lp = cm.getLinkProperties(net);
                     if (lp != null) {
                         for (InetAddress a : lp.getDnsServers()) {
-                            if (a.getHostAddress() != null) sb.append("nameserver ").append(a.getHostAddress()).append("\n");
+                            if (a instanceof java.net.Inet4Address && a.getHostAddress() != null) {
+                                sb.append("nameserver ").append(a.getHostAddress()).append("\n");
+                            }
                         }
                     }
                 }
             }
         } catch (Exception ignored) {}
-        sb.append("nameserver 8.8.8.8\nnameserver 1.1.1.1\noptions timeout:2 attempts:3\n");
+        sb.append("nameserver 8.8.8.8\nnameserver 1.1.1.1\noptions timeout:1 attempts:2\n");
         return sb.toString();
     }
 
     private void copyAsset(String asset, File dst) {
-        dst.getParentFile().mkdirs();
+        File parent = dst.getParentFile();
+        if (parent != null) parent.mkdirs();
         try (InputStream in = getAssets().open(asset); FileOutputStream out = new FileOutputStream(dst)) {
             byte[] b = new byte[65536]; int n;
             while ((n = in.read(b)) > 0) out.write(b, 0, n);
-            dst.setExecutable(true, false);
+            if (asset.startsWith("runtime/tools") || (dst.getParentFile() != null && dst.getParentFile().getName().equals("bin"))) {
+                dst.setExecutable(true, false);
+            }
         } catch (Exception ignored) {}
     }
 
@@ -280,8 +300,11 @@ public class CoreServerService extends Service {
     }
 
     private void writeString(File f, String s) {
-        f.getParentFile().mkdirs();
-        try (FileOutputStream out = new FileOutputStream(f)) { out.write(s.getBytes()); } catch (Exception ignored) {}
+        File parent = f.getParentFile();
+        if (parent != null) parent.mkdirs();
+        try (FileOutputStream out = new FileOutputStream(f)) {
+            out.write(s.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception ignored) {}
     }
 
     private void extractZip(File zipFile, File targetDir) throws IOException {
@@ -305,23 +328,23 @@ public class CoreServerService extends Service {
         }
     }
 
-    public static final String CH_CORE = "core_channel";
-    public static final String CH_NOTIFY = "antigravity_notifications";
+    public static final String CH_CORE = "core_channel_dev";
+    public static final String CH_NOTIFY = "antigravity_notifications_dev";
 
     private void startForegroundNotification() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationManager nm = getSystemService(NotificationManager.class);
-            NotificationChannel chCore = new NotificationChannel(CH_CORE, "Служба Antigravity", NotificationManager.IMPORTANCE_LOW);
-            chCore.setDescription("Фоновая служба ядра Antigravity");
+            NotificationChannel chCore = new NotificationChannel(CH_CORE, "Служба Antigravity Dev", NotificationManager.IMPORTANCE_LOW);
+            chCore.setDescription("Фоновая служба ядра Antigravity Dev");
             nm.createNotificationChannel(chCore);
 
-            NotificationChannel chNotify = new NotificationChannel(CH_NOTIFY, "Уведомления Antigravity", NotificationManager.IMPORTANCE_HIGH);
-            chNotify.setDescription("Уведомления от ИИ-ассистента Antigravity");
+            NotificationChannel chNotify = new NotificationChannel(CH_NOTIFY, "Уведомления Antigravity Dev", NotificationManager.IMPORTANCE_HIGH);
+            chNotify.setDescription("Уведомления от ИИ-ассистента Antigravity Dev");
             chNotify.enableVibration(true);
             nm.createNotificationChannel(chNotify);
         }
 
-        Notification n = buildServiceNotification("Запуск ядра...");
+        Notification n = buildServiceNotification("Запуск ядра Dev...");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(1001, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
         } else {
@@ -338,7 +361,7 @@ public class CoreServerService extends Service {
         Notification.Builder b = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ?
                 new Notification.Builder(this, CH_CORE) : new Notification.Builder(this);
 
-        return b.setContentTitle("Antigravity Mobile")
+        return b.setContentTitle("Antigravity Mobile Dev")
                 .setContentText(status)
                 .setSmallIcon(android.R.drawable.stat_notify_sync)
                 .setContentIntent(pi)
@@ -387,8 +410,21 @@ public class CoreServerService extends Service {
 
     @Override
     public void onDestroy() {
-        if (process != null) process.destroy();
-        if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+        if (process != null) {
+            process.destroy();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                try {
+                    if (!process.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)) {
+                        process.destroyForcibly();
+                    }
+                } catch (Exception ignored) {
+                    process.destroyForcibly();
+                }
+            }
+        }
+        if (wakeLock != null && wakeLock.isHeld()) {
+            try { wakeLock.release(); } catch (Exception ignored) {}
+        }
         super.onDestroy();
     }
 
