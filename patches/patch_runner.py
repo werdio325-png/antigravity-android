@@ -42,6 +42,21 @@ def run_pipeline(staging_core_path, enable_armv80=False, enable_bypass_region=Fa
     from patch_auth import patch_auth_success
     patch_auth_success(staging_core_path)
 
+    # 4.1 Token storage fast path patch (bypass D-Bus hangs unconditionally)
+    print("[Pipeline] 4.1 Applying token storage instant bypass patch...")
+    from patch_storage import patch_token_storage
+    patch_token_storage(staging_core_path)
+
+    # 4.2 Touch UI & model effort selector patch
+    print("[Pipeline] 4.2 Applying touch UI & model effort selector patch...")
+    from patch_touch import patch_touch_ui
+    patch_touch_ui(web_dir=web_dir, core_binary_path=staging_core_path)
+
+    # 4.3 Offline projects & discussions cache patch
+    print("[Pipeline] 4.3 Applying offline cache & conversations persistence patch...")
+    from patch_cache import patch_cache_pipeline
+    patch_cache_pipeline(web_dir=web_dir)
+
     # 5. Опциональный патч ARMv8.0
     if enable_armv80:
         print("[Pipeline] 5. Applying ARMv8.0 compatibility patch (--armv8.0)...")

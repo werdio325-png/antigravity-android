@@ -34,7 +34,7 @@ def patch_resolv_conf(target_path):
     with open(target_path, "wb") as f:
         f.write(data)
 
-    print(f"[patch_resolv] Replaced {count} occurrences with {repr(new_target)}")
+    print(f"[patch_resolv] Replaced {count} resolv.conf occurrences with {repr(new_target)}")
     return True
 
 if __name__ == "__main__":
