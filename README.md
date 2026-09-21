@@ -18,13 +18,13 @@
 </p>
 
 <p align="center">
-  <a href="#russian">🇷🇺 <b>Русский</b></a> &nbsp;|&nbsp; <a href="#english">🇬🇧 <b>English</b></a>
+  <a href="#russian"><b>Русский</b></a> &nbsp;|&nbsp; <a href="#english"><b>English</b></a>
 </p>
 
 ---
 
 <a id="russian"></a>
-## 🇷🇺 Документация (Русский)
+## Документация (Русский)
 
 ### Загрузка готовых APK (Releases)
 
@@ -182,7 +182,7 @@ Google Antigravity является торговой маркой Google LLC. Д
 ---
 
 <a id="english"></a>
-## 🇬🇧 Documentation (English)
+## Documentation (English)
 
 ### Download Prebuilt APKs (Releases)
 
