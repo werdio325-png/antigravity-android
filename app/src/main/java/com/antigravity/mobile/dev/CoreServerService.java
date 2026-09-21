@@ -39,7 +39,7 @@ import java.util.zip.ZipInputStream;
 public class CoreServerService extends Service {
     private static final String TAG = "CoreServer";
     public static final String ENGINE_VERSION = "2.13.0";
-    public static final int PORT = 49000;
+    public static int PORT = 49000;
     public static volatile String csrfToken = null;
     public static volatile String serverUrl = null;
 
@@ -49,6 +49,9 @@ public class CoreServerService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        if (!"com.antigravity.mobile.dev".equals(getPackageName())) {
+            PORT = 48000;
+        }
         startForegroundNotification();
         try {
             PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
@@ -125,6 +128,13 @@ public class CoreServerService extends Service {
 
             // 2. DNS config: patched language_server reads etc//resolv.conf in CWD (filesDir)
             writeString(new File(filesDir, "etc/resolv.conf"), getDnsConfig());
+
+            // Pre-create D-Bus keyring bypass marker
+            try {
+                File cacheDir = new File(filesDir, ".gemini/cache");
+                cacheDir.mkdirs();
+                new File(cacheDir, "antigravity-keyring-unavailable").createNewFile();
+            } catch (Exception ignored) {}
 
             // 3. Command execution
             csrfToken = UUID.randomUUID().toString();
@@ -207,7 +217,21 @@ public class CoreServerService extends Service {
                         PerfLogger.log("LS: " + l);
                         if (l.contains("ANTIGRAVITY_OPEN_URL:")) {
                             String authUrl = l.substring(l.indexOf("ANTIGRAVITY_OPEN_URL:") + 21).trim();
+                            Log.i(TAG, "[Auth] Captured OAuth URL from core: " + authUrl);
+                            PerfLogger.log("[Auth] Captured OAuth URL from core: " + authUrl);
                             UrlRouter.openCustomTab(getApplicationContext(), authUrl);
+                        } else if (l.contains("Auth succeeded")) {
+                            Log.i(TAG, "[Auth] Core authentication succeeded! Features & managers refreshing.");
+                            PerfLogger.log("[Auth] Core authentication succeeded! Features & managers refreshing.");
+                        } else if (l.contains("loadCodeAssist")) {
+                            Log.i(TAG, "[Auth] CodeAssist loaded: " + l);
+                            PerfLogger.log("[Auth] CodeAssist loaded: " + l);
+                        } else if (l.contains("fetchAvailableModels")) {
+                            Log.i(TAG, "[Models] Language server fetched available models: " + l);
+                            PerfLogger.log("[Models] Language server fetched available models: " + l);
+                        } else if (l.contains("projects_migration.go") || l.contains("Projects migration")) {
+                            Log.i(TAG, "[Projects] Migration event: " + l);
+                            PerfLogger.log("[Projects] Migration event: " + l);
                         } else if (l.contains("ANTIGRAVITY_NOTIFY:")) {
                             String payload = l.substring(l.indexOf("ANTIGRAVITY_NOTIFY:") + 19).trim();
                             String title = "Antigravity Dev";
@@ -226,6 +250,11 @@ public class CoreServerService extends Service {
             // 4. Poll HTTPS server readiness via local loopback socket
             long start = System.currentTimeMillis();
             while (System.currentTimeMillis() - start < 25000) {
+                if (process != null && !process.isAlive()) {
+                    Log.e(TAG, "CoreServer process exited prematurely with code: " + process.exitValue());
+                    PerfLogger.log("CoreService: process died with exit code: " + process.exitValue());
+                    break;
+                }
                 try (Socket s = new Socket()) {
                     s.connect(new InetSocketAddress("127.0.0.1", PORT), 200);
                     serverUrl = "https://127.0.0.1:" + PORT + "/?csrf_token=" + csrfToken;
@@ -244,6 +273,7 @@ public class CoreServerService extends Service {
 
     private String getDnsConfig() {
         StringBuilder sb = new StringBuilder();
+        boolean hasActiveDns = false;
         try {
             ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
             if (cm != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -254,12 +284,14 @@ public class CoreServerService extends Service {
                         for (InetAddress a : lp.getDnsServers()) {
                             if (a instanceof java.net.Inet4Address && a.getHostAddress() != null) {
                                 sb.append("nameserver ").append(a.getHostAddress()).append("\n");
+                                hasActiveDns = true;
                             }
                         }
                     }
                 }
             }
         } catch (Exception ignored) {}
+        // Public fallback resolvers
         sb.append("nameserver 8.8.8.8\nnameserver 1.1.1.1\noptions timeout:1 attempts:2\n");
         return sb.toString();
     }

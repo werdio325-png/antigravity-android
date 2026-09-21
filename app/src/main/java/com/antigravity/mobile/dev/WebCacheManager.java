@@ -46,17 +46,96 @@ public class WebCacheManager {
         }, "SSLPrewarm").start();
     }
 
+    private static volatile String cachedIndexHtmlTemplate = null;
+
+    private String getIndexHtmlTemplate() {
+        File override = new File(context.getFilesDir(), "web/index.html");
+        if (override.exists()) {
+            try (InputStream in = new FileInputStream(override)) {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                byte[] buf = new byte[8192];
+                int r;
+                while ((r = in.read(buf)) != -1) {
+                    baos.write(buf, 0, r);
+                }
+                return new String(baos.toByteArray(), StandardCharsets.UTF_8);
+            } catch (Exception e) {
+                Log.e("WebCacheManager", "Failed to load override index.html", e);
+            }
+        }
+        if (cachedIndexHtmlTemplate != null) {
+            return cachedIndexHtmlTemplate;
+        }
+        try (InputStream in = context.getAssets().open("web/index.html")) {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int r;
+            while ((r = in.read(buf)) != -1) {
+                baos.write(buf, 0, r);
+            }
+            String raw = new String(baos.toByteArray(), StandardCharsets.UTF_8);
+            String themeStyle = "<style id=\"native-theme-init\">html,body{background-color:#101010!important;color-scheme:dark!important;margin:0;}#root{min-height:100vh;background-color:#101010;}</style>\n";
+            String configTag = "<script>window.__APP_CONFIG__ = {\"productName\":\"antigravity\",\"csrfToken\":\"%CSRF_TOKEN%\",\"appVersion\":\"%APP_VERSION%\",\"devMode\":false};</script>\n";
+            String bridgeTag = "<script>\n" +
+                "  (function() {\n" +
+                "    var notified = false;\n" +
+                "    function checkMounted() {\n" +
+                "      if (notified) return;\n" +
+                "      var root = document.getElementById('root');\n" +
+                "      var hasInput = document.querySelector('textarea, [contenteditable=\"true\"], input, [role=\"textbox\"]');\n" +
+                "      var hasContent = root && root.firstElementChild && (root.children.length > 0 || (root.innerText || '').trim().length > 0);\n" +
+                "      if (hasInput || hasContent) {\n" +
+                "        notified = true;\n" +
+                "        requestAnimationFrame(function() {\n" +
+                "          requestAnimationFrame(function() {\n" +
+                "            console.log('[PERF] React UI fully mounted and drawn into GPU! Notifying native bridge.');\n" +
+                "            if (window.AntigravityNative && window.AntigravityNative.onInterfaceRendered) {\n" +
+                "              window.AntigravityNative.onInterfaceRendered();\n" +
+                "            }\n" +
+                "          });\n" +
+                "        });\n" +
+                "      }\n" +
+                "    }\n" +
+                "    var obs = new MutationObserver(checkMounted);\n" +
+                "    obs.observe(document.documentElement, { childList: true, subtree: true, characterData: true });\n" +
+                "    setInterval(checkMounted, 40);\n" +
+                "  })();\n" +
+                "</script>\n";
+
+            // Enforce dark class and dark style from the very first frame to prevent theme flicker
+            if (!raw.contains("class=\"dark\"")) {
+                raw = raw.replace("<html lang=\"en\">", "<html lang=\"en\" class=\"dark\" style=\"background-color:#101010;color-scheme:dark;\">");
+            }
+            if (!raw.contains("native-theme-init")) {
+                raw = raw.replace("<head>", "<head>\n    " + themeStyle);
+            }
+            if (!raw.contains("window.__APP_CONFIG__ =")) {
+                raw = raw.replace("<head>", "<head>\n    " + configTag);
+            }
+            if (!raw.contains("AntigravityNative")) {
+                raw = raw.replace("</body>", "  " + bridgeTag + "  </body>");
+            }
+            cachedIndexHtmlTemplate = raw;
+            return cachedIndexHtmlTemplate;
+        } catch (Exception e) {
+            Log.e("WebCacheManager", "Failed to load index.html from assets", e);
+            return null;
+        }
+    }
+
     public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
         if (req != null && req.getUrl() != null) {
             Uri uri = req.getUrl();
             String host = uri.getHost();
             if (host != null && (host.contains("fonts.googleapis.com") || host.contains("fonts.gstatic.com"))) {
-                // Eliminate network timeout on blocked/slow networks by immediately returning empty stylesheet
                 return new WebResourceResponse("text/css", "UTF-8", new ByteArrayInputStream(new byte[0]));
             }
             if (("127.0.0.1".equals(host) || "localhost".equals(host)) && "GET".equalsIgnoreCase(req.getMethod())) {
                 String path = uri.getPath();
-                if (isStaticAsset(path)) {
+                if (path == null || path.isEmpty() || "/".equals(path) || "/index.html".equals(path)) {
+                    WebResourceResponse indexResp = handleIndexHtml(uri);
+                    if (indexResp != null) return indexResp;
+                } else if (isStaticAsset(path)) {
                     WebResourceResponse assetResp = handleCachedAsset(uri);
                     if (assetResp != null) return assetResp;
                 }
@@ -65,10 +144,56 @@ public class WebCacheManager {
         return null;
     }
 
+    public WebResourceResponse handleIndexHtml(Uri uri) {
+        try {
+            String template = getIndexHtmlTemplate();
+            if (template == null) return null;
+
+            String csrf = uri.getQueryParameter("csrf_token");
+            if (csrf == null || csrf.isEmpty()) {
+                csrf = CoreServerService.csrfToken;
+            }
+            if (csrf == null) csrf = "";
+
+            String html = template
+                .replace("%CSRF_TOKEN%", csrf)
+                .replace("%APP_VERSION%", CoreServerService.ENGINE_VERSION);
+            byte[] bytes = html.getBytes(StandardCharsets.UTF_8);
+
+            Map<String, String> headers = new HashMap<>();
+            headers.put("Content-Type", "text/html; charset=UTF-8");
+            headers.put("Cache-Control", "no-cache, no-store, must-revalidate");
+            headers.put("Access-Control-Allow-Origin", "*");
+            headers.put("Content-Length", String.valueOf(bytes.length));
+            PerfLogger.log("handleIndexHtml: served root index.html from assets (0 ms)");
+            return new WebResourceResponse("text/html", "UTF-8", 200, "OK", headers, new ByteArrayInputStream(bytes));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public WebResourceResponse handleCachedAsset(Uri uri) {
         try {
             String path = uri.getPath();
             if (path == null) return null;
+
+            String mimeType = getMimeType(path);
+            String encoding = getEncoding(mimeType);
+
+            // 1. First check APK assets directly (Zero disk writes, zero network delay)
+            String assetPath = "web" + (path.startsWith("/") ? path : "/" + path);
+            try {
+                InputStream assetStream = context.getAssets().open(assetPath);
+                Map<String, String> headers = new HashMap<>();
+                headers.put("Cache-Control", "public, max-age=31536000, immutable");
+                headers.put("Access-Control-Allow-Origin", "*");
+                PerfLogger.log("handleCachedAsset [asset]: " + path);
+                return new WebResourceResponse(mimeType, encoding, 200, "OK", headers, assetStream);
+            } catch (Exception ignored) {
+                // Not found in APK assets, fallback to loopback disk cache
+            }
+
+            // 2. Loopback server disk cache
             File cacheDir = new File(context.getFilesDir(), "web_cache/" + CoreServerService.ENGINE_VERSION);
             if (!cacheDir.exists()) {
                 cacheDir.mkdirs();
@@ -79,8 +204,6 @@ public class WebCacheManager {
                 cacheKey = cacheKey.substring(0, 80);
             }
             File cacheFile = new File(cacheDir, cacheKey);
-            String mimeType = getMimeType(path);
-            String encoding = getEncoding(mimeType);
 
             if (!cacheFile.exists() || cacheFile.length() == 0) {
                 String urlStr = "https://127.0.0.1:" + CoreServerService.PORT + path;
@@ -122,7 +245,7 @@ public class WebCacheManager {
             headers.put("Content-Length", String.valueOf(cacheFile.length()));
             headers.put("ETag", "\"" + cacheFile.lastModified() + "\"");
             headers.put("Last-Modified", "Tue, 01 Jan 1980 00:00:00 GMT");
-            PerfLogger.log("handleCachedAsset: " + path + " (" + (cacheFile.length() / 1024) + " KB)");
+            PerfLogger.log("handleCachedAsset [network-cache]: " + path + " (" + (cacheFile.length() / 1024) + " KB)");
             return new WebResourceResponse(mimeType, encoding, 200, "OK", headers, new BufferedInputStream(new FileInputStream(cacheFile), 65536));
         } catch (Exception e) {
             return null;

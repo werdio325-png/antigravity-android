@@ -13,6 +13,15 @@ public final class UrlRouter {
 
     public static void openCustomTab(Context context, String url) {
         if (url == null || url.trim().isEmpty()) return;
+        if (url.contains("accounts.google.com/o/oauth2/auth")) {
+            if (url.contains("prompt=consent")) {
+                url = url.replace("prompt=consent", "prompt=select_account%20consent");
+            } else if (!url.contains("prompt=")) {
+                url = url + "&prompt=select_account%20consent";
+            }
+            PerfLogger.log("[Auth] Opening Google OAuth with forced account chooser: " + url);
+            android.util.Log.i("UrlRouter", "[Auth] Opening Google OAuth with forced account chooser: " + url);
+        }
         try {
             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -38,7 +47,7 @@ public final class UrlRouter {
             url.startsWith("https://localhost") || url.startsWith("http://localhost")) {
             return false;
         }
-        if (url.startsWith("antigravity://")) {
+        if (url.startsWith("antigravity://") || url.startsWith("antigravity-dev://")) {
             try {
                 Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                 activity.startActivity(intent);
