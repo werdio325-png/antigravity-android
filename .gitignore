@@ -40,3 +40,15 @@ Thumbs.db
 .vscode/
 *.swp
 *~
+
+# Logs, UI dumps, and debug screenshots
+*.log
+boot_perf*.log
+screen*.png
+window*.png
+current_screen.png
+uidump*.xml
+*.dump
+
+# Whitelist documentation images and screenshots
+!docs/screenshots/*

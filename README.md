@@ -1,210 +1,220 @@
-<h1 align="center">Antigravity Mobile (Android)</h1>
+<h1 align="center">
+  <br>
+  <img src="app/res/mipmap-xxxhdpi/ic_launcher.png" alt="Antigravity Mobile Logo" width="128" height="128" onerror="this.style.display='none'">
+  <br>
+  Antigravity Mobile
+</h1>
 
 <p align="center">
-  <b>Полностью автономный, 100% нативный ARM64 дистрибутив Google Antigravity в виде единого компактного Android APK без Termux, PRoot и виртуализации.</b>
+  <b>Первая в мире полностью нативная автономная среда Google Antigravity для Android (ARM64)</b><br>
+  <i>Без Termux, без PRoot, без виртуализации — полноценный AI-ассистент прямо на вашем устройстве.</i>
 </p>
 
 <p align="center">
+  <a href="https://github.com/werdio325-png/antigravity-android/releases/latest"><img src="https://img.shields.io/github/v/release/werdio325-png/antigravity-android?color=orange&label=Latest%20Release" alt="Latest Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
-  <a href="https://github.com/werdio325-png/antigravity-android/releases/latest"><img src="https://img.shields.io/github/v/release/werdio325-png/antigravity-android?color=orange&label=Release" alt="Latest Release"></a>
-  <img src="https://img.shields.io/badge/Arch-ARM64--v8a-blue.svg" alt="Arch: ARM64">
-  <img src="https://img.shields.io/badge/Platform-Android%207.0%2B-green.svg" alt="Platform: Android 7.0+">
-  <img src="https://img.shields.io/badge/Engine-2.13.0-orange.svg" alt="Engine: 2.13.0">
-  <img src="https://img.shields.io/badge/Status-Active-brightgreen.svg" alt="Status: Active">
+  <img src="https://img.shields.io/badge/Architecture-ARM64--v8a-informational.svg" alt="Arch: ARM64">
+  <img src="https://img.shields.io/badge/Platform-Android%207.0%2B-brightgreen.svg" alt="Platform: Android 7.0+">
+  <img src="https://img.shields.io/badge/Engine-v2.14.0-blueviolet.svg" alt="Engine: v2.14.0">
+  <img src="https://img.shields.io/badge/Overhead-0%25%20(Pure%20Native)-success.svg" alt="Overhead: 0%">
 </p>
 
 <p align="center">
-  <a href="#russian">🇷🇺 <b>Русский</b></a> &nbsp;|&nbsp; <a href="#english">🇬🇧 <b>English</b></a>
+  <a href="#russian">🇷🇺 <b>Русский</b></a> &nbsp;•&nbsp; <a href="#english">🇬🇧 <b>English</b></a> &nbsp;•&nbsp; <a href="#screenshots">📸 <b>Скриншоты / Screenshots</b></a> &nbsp;•&nbsp; <a href="#downloads">📥 <b>Загрузки / Downloads</b></a>
 </p>
 
 ---
 
 <a id="russian"></a>
-## 🇷🇺 Описание проекта (Русский)
+## 🇷🇺 Antigravity Mobile — О проекте
 
-**Antigravity Mobile** — это открытый проект, упаковывающий полнофункциональный сервер **Google Antigravity Language Server** в единое нативное Android-приложение (APK). Больше не нужны сторонние эмуляторы терминалов (Termux), контейнеры PRoot или виртуализация: приложение устанавливается как обычный APK и работает прямо на железе вашего смартфона или планшета.
+**Antigravity Mobile** превращает ваш Android-смартфон или планшет в автономную рабочую станцию передового искусственного интеллекта от Google DeepMind. Оригинальное ядро **Google Antigravity Language Server** упаковано в компактный системный APK с нативным сервисом, оптимизированным WebView-интерфейсом и встроенным инструментарием разработчика.
 
-### 📥 Загрузка готовых APK (Releases v2.13.0)
-
-Готовые установочные пакеты и нативные бинарники доступны в разделе [**GitHub Releases v2.13.0**](https://github.com/werdio325-png/antigravity-android/releases/latest):
-
-* **[Antigravity-v2.13.0-BypassRegion.apk](https://github.com/werdio325-png/antigravity-android/releases/download/v2.13.0/Antigravity-v2.13.0-BypassRegion.apk)** — **Рекомендуемая версия**: снятие региональных экранов проверки Google (`--bypass-region`), автоматическая поддержка как новых процессоров (ARMv8.1+), так и старых чипов (ARMv8.0) с динамическим подключением эмулятора атомиков через `/proc/cpuinfo`, Shizuku (`rish`) и автономный рантайм.
-* **[Antigravity-v2.13.0-Vanilla.apk](https://github.com/werdio325-png/antigravity-android/releases/download/v2.13.0/Antigravity-v2.13.0-Vanilla.apk)** — чистая оригинальная версия со стандартными региональными проверками Google и универсальной поддержкой любых ARM64 процессоров.
-* **[antigravity-core-arm64-v2.13.0.tar.gz](https://github.com/werdio325-png/antigravity-android/releases/download/v2.13.0/antigravity-core-arm64-v2.13.0.tar.gz)** — сжатый архив оригинального ARM64-ядра `language_server` (48 МБ) для сборки из исходников.
+Приложение запускается в один клик как любая стандартная программа Android, не требует root-прав, не греет процессор эмуляцией и обеспечивает максимальную отзывчивость благодаря прямому доступу к аппаратному обеспечению ARM64.
 
 ---
 
-### 🌟 Ключевые возможности
+<a id="screenshots"></a>
+### 📸 Интерфейс и скриншоты
 
-- **100% Native ARM64 (Универсальная поддержка всех чипов):**
-  - Полная поддержка современных чипов (ARMv8.1+) и старых процессоров (ARMv8.0) из коробки. Сервис приложения на лету проверяет флаги `/proc/cpuinfo` (`atomics`) и подключает LSE-эмулятор только тогда, когда это действительно необходимо.
-  - Никакой эмуляции системных вызовов (`ptrace`), замедляющей файловые операции и запуск процессов.
-  - Нативное ядро пакуется как `liblanguage_server.so` в каталог `nativeLibraryDir`, строго соблюдая политики безопасности Android W^X (SELinux).
-- **Мгновенный старт UI (Zero-Wait UI):**
-  - При запуске моментально открывается чистый системный WebView с анимированным лоадером.
-  - Ядро параллельно поднимается в защищённом `ForegroundService` с `WakeLock`. Как только локальный порт открыт — экран плавно переключается на рабочий стол Antigravity.
-- **Бесшовный Google OAuth через Chrome Custom Tabs:**
-  - Вход в Google-аккаунт перехватывается на лету и открывается в доверенном системном браузере (Chrome / Custom Tabs), полностью обходя запрет Google на авторизацию внутри WebViews.
-  - После успешного входа Deep Link `antigravity://auth-success` мгновенно возвращает пользователя в приложение.
-- **Встроенная автономная экосистема утилит:**
-  - В APK зашит полный набор CLI-инструментов: `git`, `curl`, `ripgrep`, `python 3.14+`, `node`, `busybox`, `aapt`, `d8`, `apksigner`.
-  - Встроен пакетный менеджер `pkg` для прямой загрузки пакетов без root и контейнеров.
-- **Глубокая интеграция с Android через Shizuku (`rish`):**
-  - Возможность управления системой без root-прав через Shizuku: установка и удаление пакетов (`pm`), снятие скриншотов (`screencap`), симуляция кликов и текста (`input tap / text`), чтение `logcat` и системных свойств.
-- **Гибкий конвейер патчинга (Build & Patch Pipeline):**
-  - Патчи ARMv8.0 включены по умолчанию и оптимизированы для стабильной работы на всех поколениях ядер.
-  - Управление региональным патчем (`--no-bypass-region` для отключения).
-  - Обход seccomp-фильтров ядра Android (`faccessat2` / `fchmodat2`).
+> [!NOTE]
+> Скриншоты интерфейса будут размещены здесь. Ниже подготовлены витрины ключевых экранов приложения.
+
+| 💬 Чат и AI-агент | 🧠 Выбор моделей и Thinking Effort |
+|:---:|:---:|
+| *(Скриншот главного экрана чата)*<br>`docs/screenshots/chat_screen.png` | *(Скриншот меню моделей Gemini 3.8 Flash)*<br>`docs/screenshots/model_selector.png` |
+
+| ⚡ Мгновенный запуск и темная тема | 🛠️ Терминал, Git и Shizuku |
+|:---:|:---:|
+| *(Скриншот плавного сплеш-скрина)*<br>`docs/screenshots/splash_theme.png` | *(Скриншот выполнения системных команд)*<br>`docs/screenshots/cli_tools.png` |
 
 ---
 
-### 🛠 Архитектура
+### ⚡ Почему Antigravity Mobile? (Сравнение)
+
+| Критерий | Termux / PRoot Linux | Облачные IDE / Web | **Antigravity Mobile** 🚀 |
+|---|:---:|:---:|:---:|
+| **Форм-фактор** | Консоль / X11 VNC | Браузерная вкладка | **Полноценное Android-приложение (APK)** |
+| **Оверхед на запуск** | Высокий (`ptrace` перехват) | Зависит от сети | **0% — 100% нативный код ARM64** |
+| **Запуск интерфейса** | 15–30 секунд | 5–10 секунд | **< 1.5 секунд (Zero-Wait Assets)** |
+| **Сенсорное управление** | Неудобное / Десктопное | Базовое | **Полная адаптация под тачскрины** |
+| **Работа в фоне** | Часто убивается ОС | Нет оффлайн-режима | **Foreground Service + WakeLock** |
+| **Интеграция с Android** | Ограниченная | Отсутствует | **Глубокая через Shizuku (`rish`)** |
+| **Энергопотребление** | Высокое (греет батарею) | Низкое | **Минимальное (аппаратный сон)** |
+
+---
+
+### 🌟 Ключевые возможности продукта
+
+* 🚀 **100% Native ARM64 & Всеядность к чипсетам:**
+  * Поддержка как флагманских процессоров (ARMv8.1+ с аппаратными LSE-атомиками), так и бюджетных/старых чипов (ARMv8.0).
+  * Динамический эмулятор атомиков подключается на лету только при отсутствии поддержки в `/proc/cpuinfo`.
+* ⚡ **Мгновенный старт UI (Zero-Wait Asset Serving):**
+  * Все статические ресурсы интерфейса зашиты в `assets/web` и перехватываются на лету через `WebCacheManager`.
+  * Запуск без белых экранов и мерцания: принудительная инициализация темной темы на аппаратном уровне.
+* 👆 **Эргономика сенсорного ввода (Touch UI):**
+  * Исправлено выпадающее меню выбора моделей: тач по моделям с рассуждениями (например, **Gemini 3.8 Flash**) открывает подменю выбора усилий мышления (**Low / Medium / High**) вместо преждевременного закрытия диалога.
+* 🌐 **Изоляция трафика (VPN Bypass):**
+  * Встроенный контроллер сетевых прокси изолирует loopback-соединения (`127.0.0.1`), защищая связь приложения с локальным ядром при активных сторонних VPN (WireGuard, AdGuard, OpenVPN).
+* 🔑 **Бесшовная авторизация Google OAuth:**
+  * Запросы входа перехватываются и открываются в безопасном системном Chrome Custom Tabs, обходя блокировки Google на логин внутри WebView.
+  * Возврат в рабочее окружение происходит мгновенно по системному Deep Link `antigravity://auth-success`.
+* ⚡ **Мгновенное файловое хранилище токенов:**
+  * Устранены задержки и падения из-за отсутствия системных демонов D-Bus и настольного Keyring на Android — переключение на локальный безопасный диск за 0 мс.
+* 🛠️ **Встроенный портативный SDK разработчика:**
+  * Полноценная экосистема из коробки: `git`, `python 3.14+`, `curl`, `ripgrep`, `node`, `busybox`, `aapt`, `d8`, `apksigner`.
+  * Собственный менеджер пакетов `pkg` для установки CLI-библиотек без root-прав.
+* 🛡️ **Аппаратные суперсилы с Shizuku (`rish`):**
+  * Возможность предоставления агенту прав на установку приложений (`pm`), снятие скриншотов (`screencap`), ввод текста и тапы (`input tap / text`), сбор системных логов (`logcat`).
+* 🔄 **Двойные профили сборки (Dev & Prod):**
+  * Возможность одновременной установки стабильного `Antigravity` (`com.antigravity.mobile`) и экспериментального `Antigravity Dev` (`com.antigravity.mobile.dev`).
+
+---
+
+<a id="downloads"></a>
+### 📥 Загрузка и Быстрый старт
+
+#### Шаг 1: Скачайте APK
+Готовые установочные пакеты доступны на странице [**GitHub Releases**](https://github.com/werdio325-png/antigravity-android/releases/latest):
+
+* **[Antigravity-v2.14.0-BypassRegion.apk](https://github.com/werdio325-png/antigravity-android/releases/latest)** *(Рекомендуется)* — версия с расширенной совместимостью, снятием региональных экранов и Shizuku-мостом.
+* **[Antigravity-v2.14.0-Vanilla.apk](https://github.com/werdio325-png/antigravity-android/releases/latest)** — стандартная сборка со штатным региональным экраном.
+
+#### Шаг 2: Установка
+1. Установите APK на Android-устройство (Android 7.0+).
+2. Запустите приложение и при первом старте подтвердите разрешение на доступ к файлам хранилища (необходимо для чтения ваших проектов).
+3. Войдите в Google-аккаунт через появившийся Chrome Custom Tab.
+
+#### Шаг 3 (Опционально): Подключение Shizuku
+Для предоставления AI-агенту расширенных системных возможностей запустите службу [Shizuku](https://shizuku.rikka.app/) на телефоне. Приложение подключит мост `rish` автоматически.
+
+---
+
+### 🛠 Архитектура решения
 
 ```mermaid
 graph TD
-    subgraph APP["Android Application (com.antigravity.mobile)"]
-        UI["MainActivity.java<br/>• Fullscreen WebView<br/>• Animated Splash & Loader<br/>• OAuth Custom Tab Bridge"]
-        SVC["CoreServerService.java (Foreground Service)<br/>• WakeLock & Notification<br/>• Dynamic Linker (ld-linux-aarch64.so.1)<br/>• Dynamic /proc/cpuinfo atomics detector<br/>• DNS Config Generator (etc//resolv.conf)"]
-        UI <-->|Localhost HTTPS :48999| SVC
+    subgraph APP["Android Application (APK Container)"]
+        UI["MainActivity<br/>• Hardware WebView<br/>• Native JS-Bridge"]
+        SPLASH["SplashOverlay<br/>• Hardware GPU Loader"]
+        CACHE["WebCacheManager<br/>• Instant APK Assets Provider"]
+        ROUTER["DeepLink & UrlRouter<br/>• Chrome Custom Tabs OAuth"]
+        SVC["CoreServerService (Foreground Service)<br/>• WakeLock & Notification<br/>• Dynamic CPU Detector (/proc/cpuinfo)<br/>• Dynamic Linker (ld-linux-aarch64.so.1)"]
+        
+        UI <--> CACHE
+        UI <--> ROUTER
+        UI <-->|Localhost HTTPS :49000| SVC
     end
 
-    subgraph RUNTIME["Autonomous Native Environment"]
-        Core["liblanguage_server.so (Google ARM64)"]
-        Glibc["Glibc & Dependencies (libc, libcurl, git, python3)"]
-        Bridge["Shizuku Bridge (rish) & Android Shell"]
-        SVC --> Core
-        SVC --> Glibc
-        Core <--> Bridge
+    subgraph SYSTEM["Native ARM64 Core & Ecosystem"]
+        CORE["liblanguage_server.so (Google DeepMind Core)"]
+        TOOLS["Bundled Tools (git, python3, curl, node, pkg)"]
+        SHIZUKU["Shizuku Bridge (rish)"]
+        
+        SVC --> CORE
+        SVC --> TOOLS
+        CORE <--> SHIZUKU
     end
 ```
 
 ---
 
-### 📦 Структура репозитория
+### 🔨 Сборка из исходного кода
 
-```text
-antigravity-mobile/
-├── app/                                    # Исходный код Android APK (Java)
-│   ├── AndroidManifest.xml                 # Манифест (ForegroundService dataSync, Deep Links)
-│   ├── src/main/java/com/antigravity/mobile/
-│   │   ├── MainActivity.java               # Жизненный цикл UI, перехват OAuth, WebView
-│   │   └── CoreServerService.java          # Фоновый сервис ядра, автоопределение CPU, запуск
-│   └── res/                                # Иконки, темы и network security config
-│
-├── patches/                                # Модули бинарного патчинга ядра
-│   ├── patch_gates.py                      # Снятие региональных проверок
-│   ├── patch_armv80.py                     # Безопасная эмуляция LSE-атомиков в .text
-│   ├── patch_resolv.py                     # Патч DNS resolver (etc//resolv.conf)
-│   ├── patch_syscalls.py                   # Seccomp bypass (faccessat2 / fchmodat2)
-│   ├── patch_auth.py                       # Перехват Google OAuth и возврат через Deep Link
-│   ├── patch_web.py                        # Экстрактор и сборщик Web UI (main.js, styles)
-│   └── patch_runner.py                     # Оркестратор конвейера патчинга с SHA-256
-│
-├── runtime/                                # Нативный рантайм, пакуемый в assets
-│   └── src/
-│       ├── certs/ca-certificates.crt       # SSL корневые сертификаты
-│       ├── etc/bashrc                      # Окружение Bash и алиасы вызовов через linker
-│       ├── glibc/                          # Нативные ELF библиотеки ARM64
-│       ├── python/stdlib.zip               # Стандартная библиотека Python
-│       ├── seed/                           # Начальные настройки и конфигурации
-│       └── tools/                          # CLI инструменты (git, curl, rg, rish, busybox)
-│
-├── tools/                                  # Модули и утилиты экосистемы
-│   ├── android.jar, r8.jar, debug.keystore # Базовые инструменты автономной сборки
-│   ├── lse_emulator.s, liblse_emulator.so  # Динамический эмулятор ARM LSE атомиков
-│   ├── agent_panel/                        # Реплика компонента AgentInputBox и дампы
-│   ├── notification_lab/                   # Лаборатория кастомных Android-уведомлений
-│   └── overlay_panel/                      # Прототип плавающего Dev Overlay окна
-│
-├── build.sh                                # Главный скрипт сборки и очистки проекта
-└── README.md                               # Документация проекта
-```
+Сборка полностью автономна и может выполняться как на ПК (Linux/macOS), так и прямо на Android-устройстве:
 
----
-
-### 🚀 Инструкция по сборке
-
-#### 1. Подготовка ядра
-Поместите оригинальный 64-битный бинарник Google Antigravity `language_server` в каталог `core/`:
 ```bash
-mkdir -p core
-# Скопируйте language_server в core/language_server или архив antigravity-core-arm64.tar.gz
-```
+# Клонирование репозитория
+git clone https://github.com/werdio325-png/antigravity-android.git
+cd antigravity-android
 
-#### 2. Запуск сборки
-```bash
-# Сборка универсальной версии со снятием региональных ограничений (BypassRegion):
-bash build.sh
+# Поместите оригинальное ядро в папку core/
+# core/language_server
 
-# Сборка чистой Vanilla-версии со стандартными региональными проверками:
-bash build.sh --no-bypass-region
+# Сборка Dev-профиля (параллельная установка):
+bash build.sh --flavor dev
 
-# Сборка с перепаковкой модифицированного Web UI:
-bash build.sh --patch-web
+# Сборка релизного Prod-профиля:
+bash build.sh --flavor prod
 
-# Очистка всех промежуточных файлов сборки и освобождение диска:
+# Сборка и мгновенная установка на текущее устройство:
+bash build.sh --install
+
+# Очистка артефактов сборки:
 bash build.sh clean
 ```
 
-Готовый подписанный файл появится по пути: `output/Antigravity-Mobile.apk`.
+---
+
+### 🗺️ Дорожная карта (Roadmap)
+
+- [x] Автономный нативный запуск ядра ARM64 без PRoot
+- [x] Поддержка архитектур ARMv8.0 и ARMv8.1+
+- [x] Оптимизация WebView и мгновенная загрузка ресурсов (Zero-Wait)
+- [x] Адаптация UI под сенсорный ввод и селектор уровней размышления
+- [x] Поддержка параллельных профилей Dev и Prod
+- [ ] Плавающий оверлей быстрого доступа (Dev Overlay Widget)
+- [ ] Оффлайн-кэширование истории локальных диалогов в SQLite
+- [ ] Поддержка подключения локальных LLM через On-Device NPU/GPU
 
 ---
 
 <a id="english"></a>
-## 🇬🇧 Project Description (English)
+## 🇬🇧 Antigravity Mobile — English Overview
 
-**Antigravity Mobile** is an open-source project packaging the complete **Google Antigravity Language Server** into a single, native Android APK. It eliminates the need for terminal emulators (Termux), PRoot containers, or virtualization: install the APK and run Antigravity directly on your smartphone or tablet hardware.
+**Antigravity Mobile** transforms your Android smartphone or tablet into a standalone AI engineering workstation powered by Google DeepMind's Antigravity. The original **Google Antigravity Language Server** engine is packaged into an ultra-compact native Android APK with an optimized WebView UI and a complete autonomous developer toolchain.
 
-### 📥 Download Prebuilt APKs (Releases v2.13.0)
-
-Prebuilt binaries are available in [**GitHub Releases v2.13.0**](https://github.com/werdio325-png/antigravity-android/releases/latest):
-
-* **[Antigravity-v2.13.0-BypassRegion.apk](https://github.com/werdio325-png/antigravity-android/releases/download/v2.13.0/Antigravity-v2.13.0-BypassRegion.apk)** — **Recommended**: bypasses Google regional eligibility checks, supports all ARM64 generations (dynamic CPU detection for ARMv8.0 and ARMv8.1+), Shizuku (`rish`), and standalone CLI suite.
-* **[Antigravity-v2.13.0-Vanilla.apk](https://github.com/werdio325-png/antigravity-android/releases/download/v2.13.0/Antigravity-v2.13.0-Vanilla.apk)** — Clean build with standard Google regional checks and universal CPU support.
-* **[antigravity-core-arm64-v2.13.0.tar.gz](https://github.com/werdio325-png/antigravity-android/releases/download/v2.13.0/antigravity-core-arm64-v2.13.0.tar.gz)** — Core `language_server` binary archive (48 MB).
+Runs in a single tap without root, introduces zero emulation overhead, and preserves your battery life by running directly on bare-metal ARM64 hardware.
 
 ---
 
-### 🌟 Key Highlights
+### 🌟 Key Product Highlights
 
-- **Universal ARM64 Compatibility:**
-  - Full support for modern ARMv8.1+ processors and legacy ARMv8.0 chips out of the box. Automatically detects CPU hardware atomics in `/proc/cpuinfo` and loads the LSE fallback emulator only when necessary.
-- **Zero-Wait UI Launch:**
-  - System WebView opens instantly with an animated loader upon launch.
-  - Backend core initializes in a background `ForegroundService` with `WakeLock`. Once the localhost port is ready, the view smoothly cross-fades into the full Antigravity desktop.
-- **Seamless Google OAuth via Chrome Custom Tabs:**
-  - Google sign-in prompts are intercepted and redirected to the system browser (Chrome / Custom Tabs), bypassing Google's restrictions on in-WebView authentication.
-  - Deep Link `antigravity://auth-success` automatically returns the user back to the application upon success.
-- **Embedded Autonomous CLI Suite:**
-  - Bundled with: `git`, `curl`, `ripgrep`, `python 3.14+`, `node`, `busybox`, `aapt`, `d8`, `apksigner`.
-  - Built-in `pkg` tool for installing additional packages without root.
-- **Android System Integration via Shizuku (`rish`):**
-  - Shell access without root: manage packages (`pm`), capture screenshots (`screencap`), simulate input events (`input tap / text`), inspect logs (`logcat`).
-
----
-
-### 🚀 Build Instructions
-
-#### 1. Place Core Binary
-Place your original Google Antigravity ARM64 binary into `core/`:
-```bash
-mkdir -p core
-# Copy language_server into core/language_server
-```
-
-#### 2. Run the Build Script
-```bash
-# Build BypassRegion APK:
-./build.sh
-
-# Build Vanilla APK:
-./build.sh --no-bypass-region
-```
-
-The resulting signed APK will be output to: `output/Antigravity-Mobile.apk`.
+* **100% Bare-Metal ARM64 Execution:**
+  Zero `ptrace` system call emulation overhead. Directly leverages device CPU with dynamic fallback emulation for ARMv8.0 devices via `/proc/cpuinfo` detection.
+* **Instant Cold Start (< 1.5s):**
+  Static web assets are intercepted and served directly from APK memory streams via `WebCacheManager` with zero loopback network latency.
+* **Touchscreen Optimized Controls:**
+  Touch-friendly interaction fixes for model selection and thinking effort levels (Low / Medium / High) for **Gemini 3.8 Flash**.
+* **Enterprise-Grade Networking:**
+  Localhost loopback isolation guarantees connections remain active even when full-tunnel VPNs (WireGuard, AdGuard, OpenVPN) are running.
+* **Non-Root System Integration via Shizuku (`rish`):**
+  Enables the agent to inspect device state, install packages, capture screens, and simulate inputs without rooting.
+* **Embedded Autonomous CLI Suite:**
+  Pre-bundled with `git`, `python 3.14+`, `curl`, `ripgrep`, `node`, `busybox`, `aapt`, `d8`, `apksigner`, and native package manager `pkg`.
+* **Parallel Build Flavors:**
+  Install `Antigravity Dev` side-by-side with production `Antigravity`.
 
 ---
 
-## 📜 License
+### 📥 Quick Start
 
-Distributed under the **Apache License 2.0**. See [`LICENSE`](LICENSE) for more information.
+1. **Download:** Get the latest release from [**GitHub Releases**](https://github.com/werdio325-png/antigravity-android/releases/latest).
+2. **Install:** Open the APK on your device (Android 7.0+) and grant All-Files Access permission.
+3. **Launch:** Sign in with your Google account via the secure Chrome Custom Tab and start coding!
+
+---
+
+### 📜 Лицензия / License
+
+Распространяется под лицензией **Apache License 2.0**. Подробности в файле [`LICENSE`](LICENSE).

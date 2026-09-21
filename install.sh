@@ -2,11 +2,21 @@
 set -e
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APK_PATH="$PROJECT_ROOT/output/Antigravity-Mobile-Dev.apk"
+APK_PATH="${1:-}"
+
+if [ -z "$APK_PATH" ]; then
+    if [ -f "$PROJECT_ROOT/output/Antigravity-Mobile-Dev.apk" ]; then
+        APK_PATH="$PROJECT_ROOT/output/Antigravity-Mobile-Dev.apk"
+    elif [ -f "$PROJECT_ROOT/output/Antigravity-Mobile.apk" ]; then
+        APK_PATH="$PROJECT_ROOT/output/Antigravity-Mobile.apk"
+    else
+        APK_PATH="$PROJECT_ROOT/output/Antigravity-Mobile-Dev.apk"
+    fi
+fi
 
 if [ ! -f "$APK_PATH" ]; then
-    echo "[*] APK не найден, запускаем сборку..."
-    "$PROJECT_ROOT/build.sh"
+    echo "[*] APK не найден ($APK_PATH), запускаем сборку..."
+    bash "$PROJECT_ROOT/build.sh"
 fi
 
 if [ ! -f "$APK_PATH" ]; then
@@ -15,15 +25,15 @@ if [ ! -f "$APK_PATH" ]; then
 fi
 
 echo "========================================="
-echo " Установка Antigravity Mobile Dev"
-echo " Package: com.antigravity.mobile.dev"
+echo " Установка Antigravity Mobile"
 echo " APK: $APK_PATH"
 echo "========================================="
 
 # Способ 1: Shizuku (rish)
 if command -v rish >/dev/null 2>&1 && rish -c "id" >/dev/null 2>&1; then
     echo "[*] Установка через Shizuku (rish)..."
-    rish -c "pm install -r '$APK_PATH'"
+    TMP_APK="/data/local/tmp/antigravity_install.apk"
+    rish -c "cp '$APK_PATH' '$TMP_APK' && chmod 644 '$TMP_APK' && pm install -r '$TMP_APK' && rm -f '$TMP_APK'"
     echo "[+] Установка успешно завершена через Shizuku!"
     exit 0
 fi
