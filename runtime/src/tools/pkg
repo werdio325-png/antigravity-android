@@ -2,8 +2,20 @@
 # Antigravity 100% Native Package Manager (Zero PRoot / Zero Overhead)
 set -e
 
-if [ -z "$NATIVE_DIR" ]; then NATIVE_DIR="/data/data/com.antigravity.mobile.dev/lib"; fi
-RUNTIME_DIR="${HOME:-/data/user/0/com.antigravity.mobile.dev/files}/runtime"
+if [ -z "$NATIVE_DIR" ] || [ ! -d "$NATIVE_DIR" ]; then
+  for d in /data/app/*/com.antigravity.mobile*/lib/arm64 /data/app/~~*/com.antigravity.mobile*/lib/arm64 /data/data/com.antigravity.mobile.dev/lib /data/data/com.antigravity.mobile/lib; do
+    if [ -d "$d" ]; then NATIVE_DIR="$d"; break; fi
+  done
+fi
+if [ -z "$RUNTIME_DIR" ] || [ ! -d "$RUNTIME_DIR" ]; then
+  if [ -n "$HOME" ] && [ -d "$HOME/runtime" ]; then
+    RUNTIME_DIR="$HOME/runtime"
+  elif [ -d "/data/user/0/com.antigravity.mobile.dev/files/runtime" ]; then
+    RUNTIME_DIR="/data/user/0/com.antigravity.mobile.dev/files/runtime"
+  else
+    RUNTIME_DIR="/data/user/0/com.antigravity.mobile/files/runtime"
+  fi
+fi
 PREFIX="$RUNTIME_DIR/usr"
 BIN_DIR="$RUNTIME_DIR/bin"
 OPT_DIR="$RUNTIME_DIR/opt"
@@ -33,25 +45,53 @@ install_node() {
   
   cat << 'PEOF' > "$BIN_DIR/node"
 #!/system/bin/sh
-if [ -z "$NATIVE_DIR" ]; then NATIVE_DIR="/data/data/com.antigravity.mobile.dev/lib"; fi
-OPT_NODE="${HOME:-/data/user/0/com.antigravity.mobile.dev/files}/runtime/opt/node"
-if [ ! -d "$OPT_NODE" ]; then OPT_NODE="/data/data/com.antigravity.mobile.dev/files/runtime/opt/node"; fi
+if [ -z "$NATIVE_DIR" ] || [ ! -d "$NATIVE_DIR" ]; then
+  for d in /data/app/*/com.antigravity.mobile*/lib/arm64 /data/app/~~*/com.antigravity.mobile*/lib/arm64 /data/data/com.antigravity.mobile.dev/lib /data/data/com.antigravity.mobile/lib; do
+    if [ -d "$d" ]; then NATIVE_DIR="$d"; break; fi
+  done
+fi
+if [ -z "$RUNTIME_DIR" ] || [ ! -d "$RUNTIME_DIR" ]; then
+  if [ -n "$HOME" ] && [ -d "$HOME/runtime" ]; then
+    RUNTIME_DIR="$HOME/runtime"
+  elif [ -d "/data/user/0/com.antigravity.mobile.dev/files/runtime" ]; then
+    RUNTIME_DIR="/data/user/0/com.antigravity.mobile.dev/files/runtime"
+  else
+    RUNTIME_DIR="/data/user/0/com.antigravity.mobile/files/runtime"
+  fi
+fi
+OPT_NODE="$RUNTIME_DIR/opt/node"
 exec "$NATIVE_DIR/ld-linux-aarch64.so.1" --library-path "$NATIVE_DIR:$OPT_NODE/lib" "$OPT_NODE/bin/node" "$@"
 PEOF
   chmod +x "$BIN_DIR/node" 2>/dev/null || true
 
   cat << 'PEOF' > "$BIN_DIR/npm"
 #!/system/bin/sh
-OPT_NODE="${HOME:-/data/user/0/com.antigravity.mobile.dev/files}/runtime/opt/node"
-if [ ! -d "$OPT_NODE" ]; then OPT_NODE="/data/data/com.antigravity.mobile.dev/files/runtime/opt/node"; fi
+if [ -z "$RUNTIME_DIR" ] || [ ! -d "$RUNTIME_DIR" ]; then
+  if [ -n "$HOME" ] && [ -d "$HOME/runtime" ]; then
+    RUNTIME_DIR="$HOME/runtime"
+  elif [ -d "/data/user/0/com.antigravity.mobile.dev/files/runtime" ]; then
+    RUNTIME_DIR="/data/user/0/com.antigravity.mobile.dev/files/runtime"
+  else
+    RUNTIME_DIR="/data/user/0/com.antigravity.mobile/files/runtime"
+  fi
+fi
+OPT_NODE="$RUNTIME_DIR/opt/node"
 exec node "$OPT_NODE/lib/node_modules/npm/bin/npm-cli.js" "$@"
 PEOF
   chmod +x "$BIN_DIR/npm" 2>/dev/null || true
 
   cat << 'PEOF' > "$BIN_DIR/npx"
 #!/system/bin/sh
-OPT_NODE="${HOME:-/data/user/0/com.antigravity.mobile.dev/files}/runtime/opt/node"
-if [ ! -d "$OPT_NODE" ]; then OPT_NODE="/data/data/com.antigravity.mobile.dev/files/runtime/opt/node"; fi
+if [ -z "$RUNTIME_DIR" ] || [ ! -d "$RUNTIME_DIR" ]; then
+  if [ -n "$HOME" ] && [ -d "$HOME/runtime" ]; then
+    RUNTIME_DIR="$HOME/runtime"
+  elif [ -d "/data/user/0/com.antigravity.mobile.dev/files/runtime" ]; then
+    RUNTIME_DIR="/data/user/0/com.antigravity.mobile.dev/files/runtime"
+  else
+    RUNTIME_DIR="/data/user/0/com.antigravity.mobile/files/runtime"
+  fi
+fi
+OPT_NODE="$RUNTIME_DIR/opt/node"
 exec node "$OPT_NODE/lib/node_modules/npm/bin/npx-cli.js" "$@"
 PEOF
   chmod +x "$BIN_DIR/npx" 2>/dev/null || true
@@ -100,10 +140,17 @@ install_deb_pkg() {
     if [ -f "$f" ]; then
       bname="$(basename "$f")"
       if [ ! -f "$BIN_DIR/$bname" ]; then
-        cat << PEOF > "$BIN_DIR/$bname"
+cat << PEOF > "$BIN_DIR/$bname"
 #!/system/bin/sh
-RUNTIME_DIR="\${HOME:-/data/user/0/com.antigravity.mobile.dev/files}/runtime"
-if [ ! -d "\$RUNTIME_DIR" ]; then RUNTIME_DIR="/data/data/com.antigravity.mobile.dev/files/runtime"; fi
+if [ -z "\$RUNTIME_DIR" ] || [ ! -d "\$RUNTIME_DIR" ]; then
+  if [ -n "\$HOME" ] && [ -d "\$HOME/runtime" ]; then
+    RUNTIME_DIR="\$HOME/runtime"
+  elif [ -d "/data/user/0/com.antigravity.mobile.dev/files/runtime" ]; then
+    RUNTIME_DIR="/data/user/0/com.antigravity.mobile.dev/files/runtime"
+  else
+    RUNTIME_DIR="/data/user/0/com.antigravity.mobile/files/runtime"
+  fi
+fi
 PREFIX="\$RUNTIME_DIR/usr"
 export LD_LIBRARY_PATH="\$PREFIX/lib:\$LD_LIBRARY_PATH"
 if [ -f "\$PREFIX/bin/$bname" ]; then

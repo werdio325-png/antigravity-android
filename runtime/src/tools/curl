@@ -1,9 +1,27 @@
 #!/system/bin/sh
-if [ -z "$NATIVE_DIR" ]; then NATIVE_DIR="/data/data/com.antigravity.mobile.dev/lib"; fi
-RUNTIME_DIR="${HOME:-/data/user/0/com.antigravity.mobile.dev/files}/runtime"
-if [ ! -d "$RUNTIME_DIR" ]; then RUNTIME_DIR="/data/data/com.antigravity.mobile.dev/files/runtime"; fi
+if [ -z "$NATIVE_DIR" ]; then NATIVE_DIR="/data/data/com.antigravity.mobile/lib"; fi
+RUNTIME_DIR="${HOME:-/data/user/0/com.antigravity.mobile/files}/runtime"
+if [ ! -d "$RUNTIME_DIR" ]; then RUNTIME_DIR="/data/data/com.antigravity.mobile/files/runtime"; fi
 export SSL_CERT_FILE="$RUNTIME_DIR/certs/ca-certificates.crt"
 export CURL_CA_BUNDLE="$RUNTIME_DIR/certs/ca-certificates.crt"
 export LD_LIBRARY_PATH="$NATIVE_DIR:/system/lib64:$LD_LIBRARY_PATH"
 
-exec "$NATIVE_DIR/ld-linux-aarch64.so.1" --library-path "$NATIVE_DIR:/system/lib64" "$NATIVE_DIR/libcurl_bin.so" "$@"
+RESOLVE_ARGS=""
+if echo "$*" | grep -q "://"; then
+    RESOLVE_ARGS=$(python3 -c "
+import sys, urllib.parse, socket
+flags = []
+for arg in sys.argv[1:]:
+    if '://' in arg:
+        try:
+            h = urllib.parse.urlparse(arg).hostname
+            if h:
+                ip = socket.gethostbyname(h)
+                flags.extend(['--resolve', f'{h}:443:{ip}', '--resolve', f'{h}:80:{ip}'])
+        except Exception:
+            pass
+print(' '.join(flags))
+" "$@" 2>/dev/null)
+fi
+
+exec "$NATIVE_DIR/ld-linux-aarch64.so.1" --library-path "$NATIVE_DIR:/system/lib64" "$NATIVE_DIR/libcurl_bin.so" $RESOLVE_ARGS "$@"

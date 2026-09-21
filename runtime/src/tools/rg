@@ -1,4 +1,8 @@
 #!/system/bin/sh
-if [ -z "$NATIVE_DIR" ]; then NATIVE_DIR="/data/data/com.antigravity.mobile.dev/lib"; fi
+if [ -z "$NATIVE_DIR" ] || [ ! -d "$NATIVE_DIR" ]; then
+  for d in /data/app/*/com.antigravity.mobile*/lib/arm64 /data/app/~~*/com.antigravity.mobile*/lib/arm64 /data/data/com.antigravity.mobile.dev/lib /data/data/com.antigravity.mobile/lib; do
+    if [ -d "$d" ]; then NATIVE_DIR="$d"; break; fi
+  done
+fi
 export LD_LIBRARY_PATH="$NATIVE_DIR:/system/lib64:$LD_LIBRARY_PATH"
 exec "$NATIVE_DIR/ld-linux-aarch64.so.1" --library-path "$NATIVE_DIR:/system/lib64" "$NATIVE_DIR/librg.so" "$@"

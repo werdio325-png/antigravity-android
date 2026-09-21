@@ -1,9 +1,24 @@
 #!/system/bin/sh
-if [ -z "$NATIVE_DIR" ]; then NATIVE_DIR="/data/data/com.antigravity.mobile.dev/lib"; fi
-RUNTIME_DIR="${HOME:-/data/user/0/com.antigravity.mobile.dev/files}/runtime"
-if [ ! -d "$RUNTIME_DIR" ]; then RUNTIME_DIR="/data/data/com.antigravity.mobile.dev/files/runtime"; fi
+if [ -z "$NATIVE_DIR" ] || [ ! -d "$NATIVE_DIR" ]; then
+  for d in /data/app/*/com.antigravity.mobile*/lib/arm64 /data/app/~~*/com.antigravity.mobile*/lib/arm64 /data/data/com.antigravity.mobile.dev/lib /data/data/com.antigravity.mobile/lib; do
+    if [ -d "$d" ]; then NATIVE_DIR="$d"; break; fi
+  done
+fi
+if [ -z "$RUNTIME_DIR" ] || [ ! -d "$RUNTIME_DIR" ]; then
+  if [ -n "$HOME" ] && [ -d "$HOME/runtime" ]; then
+    RUNTIME_DIR="$HOME/runtime"
+  elif [ -d "/data/user/0/com.antigravity.mobile.dev/files/runtime" ]; then
+    RUNTIME_DIR="/data/user/0/com.antigravity.mobile.dev/files/runtime"
+  elif [ -d "/data/data/com.antigravity.mobile.dev/files/runtime" ]; then
+    RUNTIME_DIR="/data/data/com.antigravity.mobile.dev/files/runtime"
+  elif [ -d "/data/user/0/com.antigravity.mobile/files/runtime" ]; then
+    RUNTIME_DIR="/data/user/0/com.antigravity.mobile/files/runtime"
+  else
+    RUNTIME_DIR="/data/data/com.antigravity.mobile/files/runtime"
+  fi
+fi
 export PYTHONHOME="$RUNTIME_DIR/python"
-export PYTHONPATH="$RUNTIME_DIR/python:$RUNTIME_DIR/python/lib-dynload"
+export PYTHONPATH="$RUNTIME_DIR/python:$RUNTIME_DIR/python/stdlib.zip:$RUNTIME_DIR/python/lib-dynload"
 export SSL_CERT_FILE="$RUNTIME_DIR/certs/ca-certificates.crt"
 export CURL_CA_BUNDLE="$RUNTIME_DIR/certs/ca-certificates.crt"
 

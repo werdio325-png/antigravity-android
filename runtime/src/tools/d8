@@ -1,4 +1,15 @@
 #!/system/bin/sh
-RUNTIME_DIR="${HOME:-/data/user/0/com.antigravity.mobile.dev/files}/runtime"
-if [ ! -d "$RUNTIME_DIR" ]; then RUNTIME_DIR="/data/data/com.antigravity.mobile.dev/files/runtime"; fi
+if [ -z "$RUNTIME_DIR" ] || [ ! -d "$RUNTIME_DIR" ]; then
+  if [ -n "$HOME" ] && [ -d "$HOME/runtime" ]; then
+    RUNTIME_DIR="$HOME/runtime"
+  elif [ -d "/data/user/0/com.antigravity.mobile.dev/files/runtime" ]; then
+    RUNTIME_DIR="/data/user/0/com.antigravity.mobile.dev/files/runtime"
+  elif [ -d "/data/data/com.antigravity.mobile.dev/files/runtime" ]; then
+    RUNTIME_DIR="/data/data/com.antigravity.mobile.dev/files/runtime"
+  elif [ -d "/data/user/0/com.antigravity.mobile/files/runtime" ]; then
+    RUNTIME_DIR="/data/user/0/com.antigravity.mobile/files/runtime"
+  else
+    RUNTIME_DIR="/data/data/com.antigravity.mobile/files/runtime"
+  fi
+fi
 exec java -cp "$RUNTIME_DIR/bin/r8.jar" com.android.tools.r8.D8 "$@"

@@ -8,7 +8,7 @@ esac
 DEX="$BASEDIR/rish_shizuku.dex"
 
 if [ ! -f "$DEX" ]; then
-  for d in /data/data/com.antigravity.mobile.dev/files/runtime/bin /data/user/0/com.antigravity.mobile.dev/files/runtime/bin; do
+  for d in "$BASEDIR" "${HOME:-}/runtime/bin" /data/user/0/com.antigravity.mobile.dev/files/runtime/bin /data/user/0/com.antigravity.mobile/files/runtime/bin /data/data/com.antigravity.mobile.dev/files/runtime/bin /data/data/com.antigravity.mobile/files/runtime/bin; do
     if [ -f "$d/rish_shizuku.dex" ]; then DEX="$d/rish_shizuku.dex"; break; fi
   done
 fi
