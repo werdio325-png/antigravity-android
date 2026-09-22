@@ -87,10 +87,6 @@ jobs:
         run: |
           OUTPUT_APK="Antigravity-${{ steps.vars.outputs.tag }}-Vanilla.apk" bash build.sh --prod --no-bypass-region
 
-      - name: Build Antigravity-Dev APK
-        run: |
-          OUTPUT_APK="Antigravity-${{ steps.vars.outputs.tag }}-Dev.apk" bash build.sh --dev
-
       - name: Package Core Binary Archive
         run: |
           mkdir -p output
@@ -107,7 +103,6 @@ jobs:
           files: |
             output/Antigravity-${{ steps.vars.outputs.tag }}-BypassRegion.apk
             output/Antigravity-${{ steps.vars.outputs.tag }}-Vanilla.apk
-            output/Antigravity-${{ steps.vars.outputs.tag }}-Dev.apk
             output/antigravity-core-arm64-${{ steps.vars.outputs.tag }}.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
