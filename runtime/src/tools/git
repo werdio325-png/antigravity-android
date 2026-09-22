@@ -26,4 +26,8 @@ if [ -d "$RUNTIME_DIR/usr/libexec/git-core" ]; then
 fi
 export LD_LIBRARY_PATH="$RUNTIME_DIR/usr/lib:$NATIVE_DIR:/system/lib64:$LD_LIBRARY_PATH"
 
+if [ -f "$RUNTIME_DIR/usr/bin/git" ]; then
+    exec "$RUNTIME_DIR/usr/bin/git" "$@"
+fi
+
 exec "$NATIVE_DIR/ld-linux-aarch64.so.1" --library-path "$RUNTIME_DIR/usr/lib:$NATIVE_DIR:/system/lib64" "$NATIVE_DIR/libgit.so" "$@"
