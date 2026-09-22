@@ -28,13 +28,37 @@ public final class DeepLinkHandler {
                 webView.post(() -> {
                     webView.evaluateJavascript(
                         "(function() {\n" +
-                        "  console.log('[Auth] Deep link auth-success received. Purging cached user status and reloading...');\n" +
+                        "  console.log('[Auth] Deep link auth-success received. Starting auth sync...');\n" +
                         "  try {\n" +
                         "    localStorage.removeItem('jetski.cachedUserStatusJson_v6');\n" +
                         "    localStorage.removeItem('jetski.cachedUserInfoJson_v6');\n" +
                         "  } catch(e) {}\n" +
                         "  if (window.evictJetskiCache) window.evictJetskiCache();\n" +
-                        "  setTimeout(function() { location.reload(); }, 200);\n" +
+                        "  var attempts = 0;\n" +
+                        "  function checkAuth() {\n" +
+                        "    attempts++;\n" +
+                        "    fetch('/exa.language_server_pb.LanguageServerService/GetUserStatus', {\n" +
+                        "      method: 'POST',\n" +
+                        "      headers: {'Content-Type': 'application/json'},\n" +
+                        "      body: '{}'\n" +
+                        "    }).then(function(r) { return r.json(); })\n" +
+                        "    .then(function(data) {\n" +
+                        "      var email = data && data.userStatus && (data.userStatus.email || data.userStatus.name);\n" +
+                        "      if (email && email !== 'unknown') {\n" +
+                        "        console.log('[Auth] Confirmed auth for ' + email + ', navigating to /');\n" +
+                        "        window.location.href = window.location.origin + '/';\n" +
+                        "      } else if (attempts < 20) {\n" +
+                        "        setTimeout(checkAuth, 400);\n" +
+                        "      } else {\n" +
+                        "        console.log('[Auth] Polling timeout reached, reloading...');\n" +
+                        "        window.location.href = window.location.origin + '/';\n" +
+                        "      }\n" +
+                        "    }).catch(function() {\n" +
+                        "      if (attempts < 20) setTimeout(checkAuth, 400);\n" +
+                        "      else window.location.href = window.location.origin + '/';\n" +
+                        "    });\n" +
+                        "  }\n" +
+                        "  setTimeout(checkAuth, 300);\n" +
                         "})();", null);
                 });
             }

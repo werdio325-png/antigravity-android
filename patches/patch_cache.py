@@ -197,7 +197,7 @@ MAIN_JS_PATCHES = [
     # 10. User status caching
     (
         'e.userStatus&&a.provider.setState(e.userStatus)',
-        'if(e.userStatus){a.provider.setState(e.userStatus);try{var __usStr=JSON.stringify(e.userStatus,(k,v)=>typeof v==="bigint"?v.toString():v);console.log("[Auth] UserStatus received from server: email="+(e.userStatus.email||e.userStatus.name||"unknown")+", tier="+(e.userStatus.tier||"free"));localStorage.setItem("jetski.cachedUserStatusJson_v6",__usStr);}catch(_){}}'
+        'if(e.userStatus){a.provider.setState(e.userStatus);try{var em=e.userStatus.email||e.userStatus.name||"";if(em&&em!=="unknown"){var __usStr=JSON.stringify(e.userStatus,(k,v)=>typeof v==="bigint"?v.toString():v);console.log("[Auth] UserStatus cached: email="+em+", tier="+(e.userStatus.tier||"free"));localStorage.setItem("jetski.cachedUserStatusJson_v6",__usStr);}}catch(_){}}'
     ),
     # 11. Pre-seed user status in J8b constructor
     (
