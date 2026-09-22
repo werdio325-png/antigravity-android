@@ -26,6 +26,7 @@ public class WebViewController {
 
     public interface Listener {
         void onInterfaceRendered();
+        void onThemeChanged(boolean isDark);
     }
 
     private final Activity activity;
@@ -83,6 +84,14 @@ public class WebViewController {
             public void onInterfaceRendered() {
                 PerfLogger.log(">>> Native bridge: onInterfaceRendered received from React DOM!");
                 notifyInterfaceRendered();
+            }
+
+            @JavascriptInterface
+            public void onThemeChanged(boolean isDark) {
+                PerfLogger.log(">>> Native bridge: onThemeChanged: isDark=" + isDark);
+                if (listener != null) {
+                    handler.post(() -> listener.onThemeChanged(isDark));
+                }
             }
 
             @JavascriptInterface

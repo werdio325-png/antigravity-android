@@ -25,8 +25,7 @@ public class MainActivity extends Activity implements WebViewController.Listener
         @Override
         public void run() {
             if (CoreServerService.serverUrl != null && webViewController != null) {
-                String theme = ThemeManager.isDarkTheme(MainActivity.this) ? "dark" : "light";
-                String url = CoreServerService.serverUrl + "&hostTheme=" + theme;
+                String url = CoreServerService.serverUrl;
                 PerfLogger.log("pollServer: loadUrl " + url);
                 webViewController.loadUrl(url);
                 // Safety fallback: dismiss splash after 12s if React never fires
@@ -44,6 +43,12 @@ public class MainActivity extends Activity implements WebViewController.Listener
     @Override
     public void onInterfaceRendered() {
         dismissSplashWithFade();
+    }
+
+    @Override
+    public void onThemeChanged(boolean isDark) {
+        PerfLogger.log("MainActivity.onThemeChanged: isDark=" + isDark);
+        ThemeManager.applySystemBarTheme(this, rootLayout, webViewController != null ? webViewController.getWebView() : null, isDark);
     }
 
     private void dismissSplashWithFade() {

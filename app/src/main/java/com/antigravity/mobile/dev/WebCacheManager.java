@@ -74,7 +74,18 @@ public class WebCacheManager {
                 baos.write(buf, 0, r);
             }
             String raw = new String(baos.toByteArray(), StandardCharsets.UTF_8);
-            String themeStyle = "<style id=\"native-theme-init\">html,body{background-color:#101010!important;color-scheme:dark!important;margin:0;}#root{min-height:100vh;background-color:#101010;}</style>\n";
+            String themeStyle = "<style id=\"native-theme-init\">\n" +
+                "  html, body { margin: 0; padding: 0; }\n" +
+                "  #root { min-height: 100vh; }\n" +
+                "  @media (prefers-color-scheme: dark) {\n" +
+                "    html:not(.light), body:not(.theme-light) { background-color: #101010; color-scheme: dark; }\n" +
+                "  }\n" +
+                "  @media (prefers-color-scheme: light) {\n" +
+                "    html:not(.dark), body:not(.dark) { background-color: #ffffff; color-scheme: light; }\n" +
+                "  }\n" +
+                "  body.dark, html.dark { background-color: #101010 !important; color-scheme: dark !important; }\n" +
+                "  body.theme-light, html.light { background-color: #ffffff !important; color-scheme: light !important; }\n" +
+                "</style>\n";
             String configTag = "<script>window.__APP_CONFIG__ = {\"productName\":\"antigravity\",\"csrfToken\":\"%CSRF_TOKEN%\",\"appVersion\":\"%APP_VERSION%\",\"devMode\":false};</script>\n";
             String bridgeTag = "<script>\n" +
                 "  (function() {\n" +
@@ -99,13 +110,45 @@ public class WebCacheManager {
                 "    var obs = new MutationObserver(checkMounted);\n" +
                 "    obs.observe(document.documentElement, { childList: true, subtree: true, characterData: true });\n" +
                 "    setInterval(checkMounted, 40);\n" +
+                "\n" +
+                "    var lastSentTheme = null;\n" +
+                "    function syncTheme() {\n" +
+                "      var isDark = false;\n" +
+                "      if (document.body && document.body.classList.contains('dark')) {\n" +
+                "        isDark = true;\n" +
+                "      } else if (document.body && document.body.classList.contains('theme-light')) {\n" +
+                "        isDark = false;\n" +
+                "      } else if (window.matchMedia) {\n" +
+                "        isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;\n" +
+                "      }\n" +
+                "      if (lastSentTheme !== isDark) {\n" +
+                "        lastSentTheme = isDark;\n" +
+                "        if (window.AntigravityNative && window.AntigravityNative.onThemeChanged) {\n" +
+                "          window.AntigravityNative.onThemeChanged(isDark);\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "    if (window.matchMedia) {\n" +
+                "      window.matchMedia('(prefers-color-scheme: dark)').addListener(syncTheme);\n" +
+                "    }\n" +
+                "    var themeObs = new MutationObserver(syncTheme);\n" +
+                "    function initThemeWatch() {\n" +
+                "      if (document.body) {\n" +
+                "        themeObs.observe(document.body, { attributes: true, attributeFilter: ['class'] });\n" +
+                "        syncTheme();\n" +
+                "      } else {\n" +
+                "        document.addEventListener('DOMContentLoaded', function() {\n" +
+                "          if (document.body) {\n" +
+                "            themeObs.observe(document.body, { attributes: true, attributeFilter: ['class'] });\n" +
+                "            syncTheme();\n" +
+                "          }\n" +
+                "        });\n" +
+                "      }\n" +
+                "    }\n" +
+                "    initThemeWatch();\n" +
                 "  })();\n" +
                 "</script>\n";
 
-            // Enforce dark class and dark style from the very first frame to prevent theme flicker
-            if (!raw.contains("class=\"dark\"")) {
-                raw = raw.replace("<html lang=\"en\">", "<html lang=\"en\" class=\"dark\" style=\"background-color:#101010;color-scheme:dark;\">");
-            }
             if (!raw.contains("native-theme-init")) {
                 raw = raw.replace("<head>", "<head>\n    " + themeStyle);
             }

@@ -21,10 +21,14 @@ public final class ThemeManager {
         return isDark ? "#101010" : "#ffffff";
     }
 
-    @SuppressWarnings("deprecation")
     public static void applySystemBarTheme(Activity activity, View rootLayout, View webView) {
         if (activity == null) return;
-        boolean isDark = isDarkTheme(activity);
+        applySystemBarTheme(activity, rootLayout, webView, isDarkTheme(activity));
+    }
+
+    @SuppressWarnings("deprecation")
+    public static void applySystemBarTheme(Activity activity, View rootLayout, View webView, boolean isDark) {
+        if (activity == null) return;
         int bgColor = Color.parseColor(getBackgroundColor(isDark));
 
         activity.getWindow().setStatusBarColor(bgColor);
