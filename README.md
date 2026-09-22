@@ -1,32 +1,32 @@
 <h1 align="center">
-  <br>
-  <img src="app/res/mipmap-xxxhdpi/ic_launcher.png" alt="Antigravity Mobile Logo" width="128" height="128" onerror="this.style.display='none'">
-  <br>
-  Antigravity Mobile
+ <br>
+ <img src="app/res/mipmap-xxxhdpi/ic_launcher.png" alt="Antigravity Mobile Logo" width="128" height="128" onerror="this.style.display='none'">
+ <br>
+ Antigravity Mobile
 </h1>
 
 <p align="center">
-  <b>Первая в мире полностью нативная автономная среда Google Antigravity для Android (ARM64)</b><br>
-  <i>Без Termux, без PRoot, без виртуализации — полноценный AI-ассистент прямо на вашем устройстве.</i>
+ <b>Первая в мире полностью нативная автономная среда Google Antigravity для Android (ARM64)</b><br>
+ <i>Без Termux, без PRoot, без виртуализации — полноценный AI-ассистент прямо на вашем устройстве.</i>
 </p>
 
 <p align="center">
-  <a href="https://github.com/werdio325-png/antigravity-android/releases/latest"><img src="https://img.shields.io/github/v/release/werdio325-png/antigravity-android?color=orange&label=Latest%20Release" alt="Latest Release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
-  <img src="https://img.shields.io/badge/Architecture-ARM64--v8a-informational.svg" alt="Arch: ARM64">
-  <img src="https://img.shields.io/badge/Platform-Android%207.0%2B-brightgreen.svg" alt="Platform: Android 7.0+">
-  <img src="https://img.shields.io/badge/Engine-v2.14.0-blueviolet.svg" alt="Engine: v2.14.0">
-  <img src="https://img.shields.io/badge/Overhead-0%25%20(Pure%20Native)-success.svg" alt="Overhead: 0%">
+ <a href="https://github.com/werdio325-png/antigravity-android/releases/latest"><img src="https://img.shields.io/github/v/release/werdio325-png/antigravity-android?color=orange&label=Latest%20Release" alt="Latest Release"></a>
+ <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
+ <img src="https://img.shields.io/badge/Architecture-ARM64--v8a-informational.svg" alt="Arch: ARM64">
+ <img src="https://img.shields.io/badge/Platform-Android%207.0%2B-brightgreen.svg" alt="Platform: Android 7.0+">
+ <img src="https://img.shields.io/badge/Engine-v2.14.0-blueviolet.svg" alt="Engine: v2.14.0">
+ <img src="https://img.shields.io/badge/Overhead-0%25%20(Pure%20Native)-success.svg" alt="Overhead: 0%">
 </p>
 
 <p align="center">
-  <a href="#russian">🇷🇺 <b>Русский</b></a> &nbsp;•&nbsp; <a href="#english">🇬🇧 <b>English</b></a> &nbsp;•&nbsp; <a href="#screenshots">📸 <b>Скриншоты / Screenshots</b></a> &nbsp;•&nbsp; <a href="#downloads">📥 <b>Загрузки / Downloads</b></a>
+ <a href="#russian"> <b>Русский</b></a> &nbsp;•&nbsp; <a href="#english"> <b>English</b></a> &nbsp;•&nbsp; <a href="#screenshots"> <b>Скриншоты / Screenshots</b></a> &nbsp;•&nbsp; <a href="#downloads"> <b>Загрузки / Downloads</b></a>
 </p>
 
 ---
 
 <a id="russian"></a>
-## 🇷🇺 Antigravity Mobile — О проекте
+## Antigravity Mobile — О проекте
 
 **Antigravity Mobile** превращает ваш Android-смартфон или планшет в автономную рабочую станцию передового искусственного интеллекта от Google DeepMind. Оригинальное ядро **Google Antigravity Language Server** упаковано в компактный системный APK с нативным сервисом, оптимизированным WebView-интерфейсом и встроенным инструментарием разработчика.
 
@@ -35,18 +35,18 @@
 ---
 
 <a id="screenshots"></a>
-### 📸 Интерфейс и скриншоты
+### Интерфейс и скриншоты
 
-| 📱 Смартфон (Портретный режим) | 💻 Планшет / Dex (Рабочая область) |
-|:---:|:---:|
+| Смартфон (Портретный режим) | Планшет / Dex (Рабочая область) |
+| :---: | :---: |
 | <a href="docs/screenshots/mobile_portrait.jpg"><img src="docs/screenshots/mobile_portrait.jpg" alt="Antigravity Mobile Phone UI" width="360"/></a><br><sub><b>Мобильный чат и селектор моделей (Gemini 3.8 Flash High)</b></sub> | <a href="docs/screenshots/tablet_landscape.png"><img src="docs/screenshots/tablet_landscape.png" alt="Antigravity Mobile Tablet UI" width="480"/></a><br><sub><b>Полноэкранный рабочий стол, проекты, история и сайдбар</b></sub> |
 
 ---
 
-### ⚡ Почему Antigravity Mobile? (Сравнение)
+### Почему Antigravity Mobile? (Сравнение)
 
-| Критерий | Termux / PRoot Linux | Облачные IDE / Web | **Antigravity Mobile** 🚀 |
-|---|:---:|:---:|:---:|
+| Критерий | Termux / PRoot Linux | Облачные IDE / Web | **Antigravity Mobile** |
+| --- | :---: | :---: | :---: |
 | **Форм-фактор** | Консоль / X11 VNC | Браузерная вкладка | **Полноценное Android-приложение (APK)** |
 | **Оверхед на запуск** | Высокий (`ptrace` перехват) | Зависит от сети | **0% — 100% нативный код ARM64** |
 | **Запуск интерфейса** | 15–30 секунд | 5–10 секунд | **< 1.5 секунд (Zero-Wait Assets)** |
@@ -57,35 +57,35 @@
 
 ---
 
-### 🌟 Ключевые возможности продукта
+### Ключевые возможности продукта
 
-* 🚀 **100% Native ARM64 & Всеядность к чипсетам:**
+* **100% Native ARM64 & Всеядность к чипсетам:**
   * Поддержка как флагманских процессоров (ARMv8.1+ с аппаратными LSE-атомиками), так и бюджетных/старых чипов (ARMv8.0).
   * Динамический эмулятор атомиков подключается на лету только при отсутствии поддержки в `/proc/cpuinfo`.
-* ⚡ **Мгновенный старт UI (Zero-Wait Asset Serving):**
+* **Мгновенный старт UI (Zero-Wait Asset Serving):**
   * Все статические ресурсы интерфейса зашиты в `assets/web` и перехватываются на лету через `WebCacheManager`.
   * Запуск без белых экранов и мерцания: принудительная инициализация темной темы на аппаратном уровне.
-* 👆 **Эргономика сенсорного ввода (Touch UI):**
+* **Эргономика сенсорного ввода (Touch UI):**
   * Исправлено выпадающее меню выбора моделей: тач по моделям с рассуждениями (например, **Gemini 3.8 Flash**) открывает подменю выбора усилий мышления (**Low / Medium / High**) вместо преждевременного закрытия диалога.
-* 🌐 **Изоляция трафика (VPN Bypass):**
+* **Изоляция трафика (VPN Bypass):**
   * Встроенный контроллер сетевых прокси изолирует loopback-соединения (`127.0.0.1`), защищая связь приложения с локальным ядром при активных сторонних VPN (WireGuard, AdGuard, OpenVPN).
-* 🔑 **Бесшовная авторизация Google OAuth:**
+* **Бесшовная авторизация Google OAuth:**
   * Запросы входа перехватываются и открываются в безопасном системном Chrome Custom Tabs, обходя блокировки Google на логин внутри WebView.
   * Возврат в рабочее окружение происходит мгновенно по системному Deep Link `antigravity://auth-success`.
-* ⚡ **Мгновенное файловое хранилище токенов:**
+* **Мгновенное файловое хранилище токенов:**
   * Устранены задержки и падения из-за отсутствия системных демонов D-Bus и настольного Keyring на Android — переключение на локальный безопасный диск за 0 мс.
-* 🛠️ **Встроенный портативный SDK разработчика:**
+* **Встроенный портативный SDK разработчика:**
   * Полноценная экосистема из коробки: `git`, `python 3.14+`, `curl`, `ripgrep`, `node`, `busybox`, `aapt`, `d8`, `apksigner`.
   * Собственный менеджер пакетов `pkg` для установки CLI-библиотек без root-прав.
-* 🛡️ **Аппаратные суперсилы с Shizuku (`rish`):**
+* **Аппаратные суперсилы с Shizuku (`rish`):**
   * Возможность предоставления агенту прав на установку приложений (`pm`), снятие скриншотов (`screencap`), ввод текста и тапы (`input tap / text`), сбор системных логов (`logcat`).
-* 🔄 **Двойные профили сборки (Dev & Prod):**
+* **Двойные профили сборки (Dev & Prod):**
   * Возможность одновременной установки стабильного `Antigravity` (`com.antigravity.mobile`) и экспериментального `Antigravity Dev` (`com.antigravity.mobile.dev`).
 
 ---
 
 <a id="downloads"></a>
-### 📥 Загрузка и Быстрый старт
+### Загрузка и Быстрый старт
 
 #### Шаг 1: Скачайте APK
 Готовые установочные пакеты доступны на странице [**GitHub Releases**](https://github.com/werdio325-png/antigravity-android/releases/latest):
@@ -103,7 +103,7 @@
 
 ---
 
-### 🛠 Архитектура решения
+### Архитектура решения
 
 ```mermaid
 graph TD
@@ -132,7 +132,7 @@ graph TD
 
 ---
 
-### 🔨 Сборка из исходного кода
+### Сборка из исходного кода
 
 Сборка полностью автономна и может выполняться как на ПК (Linux/macOS), так и прямо на Android-устройстве:
 
@@ -159,7 +159,7 @@ bash build.sh clean
 
 ---
 
-### 🗺️ Дорожная карта (Roadmap)
+### Дорожная карта (Roadmap)
 
 - [x] Автономный нативный запуск ядра ARM64 без PRoot
 - [x] Поддержка архитектур ARMv8.0 и ARMv8.1+
@@ -173,7 +173,7 @@ bash build.sh clean
 ---
 
 <a id="english"></a>
-## 🇬🇧 Antigravity Mobile — English Overview
+## Antigravity Mobile — English Overview
 
 **Antigravity Mobile** transforms your Android smartphone or tablet into a standalone AI engineering workstation powered by Google DeepMind's Antigravity. The original **Google Antigravity Language Server** engine is packaged into an ultra-compact native Android APK with an optimized WebView UI and a complete autonomous developer toolchain.
 
@@ -181,13 +181,13 @@ Runs in a single tap without root, introduces zero emulation overhead, and prese
 
 ---
 
-### 📸 Interface Showcase
+### Interface Showcase
 
-| 📱 Phone (Portrait Layout) | 💻 Tablet / Dex (Workspace Layout) |
-|:---:|:---:|
+| Phone (Portrait Layout) | Tablet / Dex (Workspace Layout) |
+| :---: | :---: |
 | <a href="docs/screenshots/mobile_portrait.jpg"><img src="docs/screenshots/mobile_portrait.jpg" alt="Antigravity Mobile Phone UI" width="360"/></a><br><sub><b>Mobile chat & reasoning effort selector (Gemini 3.8 Flash High)</b></sub> | <a href="docs/screenshots/tablet_landscape.png"><img src="docs/screenshots/tablet_landscape.png" alt="Antigravity Mobile Tablet UI" width="480"/></a><br><sub><b>Full widescreen workspace with sidebar, projects & history</b></sub> |
 
-### 🌟 Key Product Highlights
+### Key Product Highlights
 
 * **100% Bare-Metal ARM64 Execution:**
   Zero `ptrace` system call emulation overhead. Directly leverages device CPU with dynamic fallback emulation for ARMv8.0 devices via `/proc/cpuinfo` detection.
@@ -206,7 +206,7 @@ Runs in a single tap without root, introduces zero emulation overhead, and prese
 
 ---
 
-### 📥 Quick Start
+### Quick Start
 
 1. **Download:** Get the latest release from [**GitHub Releases**](https://github.com/werdio325-png/antigravity-android/releases/latest).
 2. **Install:** Open the APK on your device (Android 7.0+) and grant All-Files Access permission.
@@ -214,6 +214,6 @@ Runs in a single tap without root, introduces zero emulation overhead, and prese
 
 ---
 
-### 📜 Лицензия / License
+### Лицензия / License
 
 Распространяется под лицензией **Apache License 2.0**. Подробности в файле [`LICENSE`](LICENSE).
