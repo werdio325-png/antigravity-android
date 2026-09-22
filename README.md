@@ -37,16 +37,9 @@
 <a id="screenshots"></a>
 ### 📸 Интерфейс и скриншоты
 
-> [!NOTE]
-> Скриншоты интерфейса будут размещены здесь. Ниже подготовлены витрины ключевых экранов приложения.
-
 | 📱 Смартфон (Портретный режим) | 💻 Планшет / Dex (Рабочая область) |
 |:---:|:---:|
 | <a href="docs/screenshots/mobile_portrait.jpg"><img src="docs/screenshots/mobile_portrait.jpg" alt="Antigravity Mobile Phone UI" width="360"/></a><br><sub><b>Мобильный чат и селектор моделей (Gemini 3.8 Flash High)</b></sub> | <a href="docs/screenshots/tablet_landscape.png"><img src="docs/screenshots/tablet_landscape.png" alt="Antigravity Mobile Tablet UI" width="480"/></a><br><sub><b>Полноэкранный рабочий стол, проекты, история и сайдбар</b></sub> |
-
-| 🤖 Автономный агент в работе (Shizuku / Shell) | ⚡ 100% Нативный CLI SDK (Python 3.14, Git, pkg) |
-|:---:|:---:|
-| <a href="docs/screenshots/live_agent_session.png"><img src="docs/screenshots/live_agent_session.png" alt="Live Agent Session" width="480"/></a><br><sub><b>Автономный агент исполняет shell/rish команды и управляет Android</b></sub> | <a href="docs/screenshots/cli_tools_benchmark.png"><img src="docs/screenshots/cli_tools_benchmark.png" alt="CLI Tools Benchmark" width="480"/></a><br><sub><b>Тестирование автономного стека: Python 3.14, Git 2.53, Curl, aapt</b></sub> |
 
 ---
 
@@ -193,10 +186,6 @@ Runs in a single tap without root, introduces zero emulation overhead, and prese
 | 📱 Phone (Portrait Layout) | 💻 Tablet / Dex (Workspace Layout) |
 |:---:|:---:|
 | <a href="docs/screenshots/mobile_portrait.jpg"><img src="docs/screenshots/mobile_portrait.jpg" alt="Antigravity Mobile Phone UI" width="360"/></a><br><sub><b>Mobile chat & reasoning effort selector (Gemini 3.8 Flash High)</b></sub> | <a href="docs/screenshots/tablet_landscape.png"><img src="docs/screenshots/tablet_landscape.png" alt="Antigravity Mobile Tablet UI" width="480"/></a><br><sub><b>Full widescreen workspace with sidebar, projects & history</b></sub> |
-
-| 🤖 Autonomous Agent at Work (Shizuku / Shell) | ⚡ 100% Native CLI Suite (Python 3.14, Git, pkg) |
-|:---:|:---:|
-| <a href="docs/screenshots/live_agent_session.png"><img src="docs/screenshots/live_agent_session.png" alt="Live Agent Session" width="480"/></a><br><sub><b>AI agent executing shell & Shizuku rish commands natively</b></sub> | <a href="docs/screenshots/cli_tools_benchmark.png"><img src="docs/screenshots/cli_tools_benchmark.png" alt="CLI Tools Benchmark" width="480"/></a><br><sub><b>Live verification: Python 3.14, Git 2.53, Curl, aapt on Android 14</b></sub> |
 
 ### 🌟 Key Product Highlights
 
