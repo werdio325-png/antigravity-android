@@ -27,6 +27,7 @@ public class WebViewController {
     public interface Listener {
         void onInterfaceRendered();
         void onThemeChanged(boolean isDark);
+        void onThemeModeSelected(String mode);
     }
 
     private final Activity activity;
@@ -91,6 +92,24 @@ public class WebViewController {
                 PerfLogger.log(">>> Native bridge: onThemeChanged: isDark=" + isDark);
                 if (listener != null) {
                     handler.post(() -> listener.onThemeChanged(isDark));
+                }
+            }
+
+            @JavascriptInterface
+            public boolean isSystemDark() {
+                return ThemeManager.isDarkTheme(activity);
+            }
+
+            @JavascriptInterface
+            public String getSavedThemeMode() {
+                return ThemeManager.getThemePreference(activity);
+            }
+
+            @JavascriptInterface
+            public void onThemeModeSelected(String mode) {
+                PerfLogger.log(">>> Native bridge: onThemeModeSelected: mode=" + mode);
+                if (listener != null) {
+                    handler.post(() -> listener.onThemeModeSelected(mode));
                 }
             }
 

@@ -49,6 +49,16 @@ public class MainActivity extends Activity implements WebViewController.Listener
     public void onThemeChanged(boolean isDark) {
         PerfLogger.log("MainActivity.onThemeChanged: isDark=" + isDark);
         ThemeManager.applySystemBarTheme(this, rootLayout, webViewController != null ? webViewController.getWebView() : null, isDark);
+        ThemeManager.updateLauncherIcon(this, isDark);
+    }
+
+    @Override
+    public void onThemeModeSelected(String mode) {
+        PerfLogger.log("MainActivity.onThemeModeSelected: mode=" + mode);
+        ThemeManager.setThemePreference(this, mode);
+        boolean isDark = ThemeManager.isEffectiveDark(this);
+        ThemeManager.applySystemBarTheme(this, rootLayout, webViewController != null ? webViewController.getWebView() : null, isDark);
+        ThemeManager.updateLauncherIcon(this, isDark);
     }
 
     private void dismissSplashWithFade() {
@@ -70,7 +80,16 @@ public class MainActivity extends Activity implements WebViewController.Listener
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        ThemeManager.applySystemBarTheme(this, rootLayout, webViewController != null ? webViewController.getWebView() : null);
+        String pref = ThemeManager.getThemePreference(this);
+        if ("system".equalsIgnoreCase(pref)) {
+            boolean isDark = ThemeManager.isDarkTheme(this);
+            ThemeManager.applySystemBarTheme(this, rootLayout, webViewController != null ? webViewController.getWebView() : null, isDark);
+            ThemeManager.updateLauncherIcon(this, isDark);
+            if (webViewController != null && webViewController.getWebView() != null) {
+                webViewController.getWebView().evaluateJavascript(
+                    "if (window.__refreshSystemTheme) { window.__refreshSystemTheme(); }", null);
+            }
+        }
     }
 
     @Override
@@ -92,10 +111,11 @@ public class MainActivity extends Activity implements WebViewController.Listener
 
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        ThemeManager.applySystemBarTheme(this, null, null);
 
-        boolean isDark = ThemeManager.isDarkTheme(this);
+        boolean isDark = ThemeManager.isEffectiveDark(this);
         String bg = ThemeManager.getBackgroundColor(isDark);
+        ThemeManager.applySystemBarTheme(this, null, null, isDark);
+        ThemeManager.updateLauncherIcon(this, isDark);
 
         rootLayout = new FrameLayout(this);
         setContentView(rootLayout);
@@ -110,7 +130,7 @@ public class MainActivity extends Activity implements WebViewController.Listener
         rootLayout.addView(splashView, new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        ThemeManager.applySystemBarTheme(this, rootLayout, webViewController.getWebView());
+        ThemeManager.applySystemBarTheme(this, rootLayout, webViewController.getWebView(), isDark);
 
         // 4. Permissions, server polling, deep links
         PermissionHelper.requestStoragePermissions(this);

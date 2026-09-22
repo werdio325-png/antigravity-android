@@ -128,7 +128,7 @@ cp -f "$CORE_SRC" "$STAGING_DIR/language_server"
 
 # Генерация AndroidManifest.xml под выбранный flavor
 sed -e "s/package=\"[^\"]*\"/package=\"$PKG_NAME\"/" \
-    -e "s/android:label=\"[^\"]*\"/android:label=\"$APP_LABEL\"/" \
+    -e "s/android:label=\"[^\"]*\"/android:label=\"$APP_LABEL\"/g" \
     "$APP_DIR/AndroidManifest.xml" > "$BUILD_DIR/AndroidManifest.xml"
 
 echo "[2/6] Запуск patch pipeline..."
@@ -159,6 +159,8 @@ if [ -d "$PROJECT_ROOT/web_ui" ]; then
     python3 "$PROJECT_ROOT/patches/patch_touch.py" "$PROJECT_ROOT/web_ui"
     echo "[*] Применение патча оффлайн-кеша проектов и обсуждений..."
     python3 "$PROJECT_ROOT/patches/patch_cache.py" "$PROJECT_ROOT/web_ui"
+    echo "[*] Применение патча синхронизации светлой/тёмной темы..."
+    python3 "$PROJECT_ROOT/patches/patch_theme.py" "$PROJECT_ROOT/web_ui"
     echo "[*] Вшивание web_ui бандла в assets/web..."
     mkdir -p "$BUILD_DIR/apk/assets/web"
     cp -rf "$PROJECT_ROOT/web_ui/"* "$BUILD_DIR/apk/assets/web/"
