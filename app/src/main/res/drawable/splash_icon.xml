@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ system splash icon. Visible logo is kept SMALL and well inside
+  the icon area so the system's circular mask never crops it.
+
+  Source bitmap: drawable-nodpi/splash_logo.png (540x540) is mostly padding:
+  its non-transparent content is 404x372 at +67+84. The transparent 288dp
+  canvas pins the drawable's intrinsic size; the bitmap is drawn at 96dp, so
+  the visible logo is ~96 * 404/540 = ~72dp (and ~48dp after the system scales
+  the 288dp canvas into the 192dp icon area) — several times smaller than
+  before, with margin so nothing is clipped. No adaptive-icon wrapper.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:width="288dp"
+        android:height="288dp"
+        android:gravity="center">
+        <color android:color="@android:color/transparent" />
+    </item>
+    <item
+        android:width="64dp"
+        android:height="64dp"
+        android:gravity="center">
+        <bitmap
+            android:src="@drawable/splash_logo"
+            android:gravity="fill"
+            android:filter="true" />
+    </item>
+</layer-list>

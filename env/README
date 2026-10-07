@@ -1,0 +1,41 @@
+# env
+
+Bionic toolchain for AGY: a self-contained Android prefix installed at
+`$PREFIX` (`/data/data/com.agy/files/usr`), a package manager (`pkg`), and a
+path-rewrite helper. No root, no proot.
+
+```
+env/bootstrap/   Termux bootstrap archive + prefix patch
+env/overlay/     files copied verbatim into $PREFIX (etc, bin/rish, ...)
+env/pkg/         pkg + its shell libraries
+env/dist/env/    packaged assets consumed by EnvInstaller
+env/tests/       offline selftest / invariant / e3 checks
+```
+
+## Termux prefix rewriting
+
+The Termux bootstrap and its packages are compiled with
+`/data/data/com.termux/files/usr` hardcoded: in shebangs, in helper bodies
+(`gzexe` tmpdir, dpkg `.list`, `*-config`), and in absolute symlinks. Our
+prefix is different, so every occurrence must be repointed.
+
+Two layers do this:
+
+1. **Install time.** `EnvInstaller.rewriteTermuxPrefixes(prefix)` walks text
+   files under `$PREFIX/{bin,libexec,etc,share,var}` and replaces every
+   `/data/data/com.<anyid>/files/usr` with `$PREFIX` (atomic in-place rewrite;
+   binary/ELF files and symlinks skipped). `pkg install` does the same for each
+   package right after extraction, via `rewrite_prefix` in `pkg/lib/util.sh`.
+2. **After third-party installers.** `pip`, `npm` and friends write console
+   scripts that bake in the Termux interpreter path. Run the shipped helper:
+
+```sh
+agy-fix-paths                 # rewrite the whole prefix
+agy-fix-paths ~/site/bin      # only these files/dirs
+agy-fix-paths ./venv/bin/*    # globs expanded by the shell
+```
+
+`agy-fix-paths` prints the number of files rewritten. It is idempotent (files
+already using `$PREFIX` are left byte-identical) and skips binaries and
+symlinks. It lives at `env/overlay/bin/agy-fix-paths` and is installed to
+`$PREFIX/bin/agy-fix-paths`.

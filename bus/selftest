@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# selftest - offline checks for the bus. Run: bus selftest [--profile P]
+# No Android, no network, no core required. Exits non-zero on any failure.
+set -uo pipefail
+BUS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROFILE="${BUS_PROFILE:-default}"
+while [ $# -gt 0 ]; do case "$1" in --profile) PROFILE="$2"; shift 2;; *) shift;; esac; done
+TMP="${TMPDIR:-/tmp}/bus-test.$$"; mkdir -p "$TMP/elements" "$TMP/run"
+FAIL=0
+_pass(){ printf 'PASS  %s\n' "$1"; }
+_fail(){ printf 'FAIL  %s\n' "$1"; FAIL=$((FAIL+1)); }
+_bus(){ bash "$BUS_DIR/bus.sh" "$@"; }
+
+echo "== bus selftest (profile=$PROFILE) =="
+
+# 1. syntax of every script
+_syn=1
+for f in "$BUS_DIR/bus.sh" "$BUS_DIR/selftest" \
+         "$BUS_DIR"/lib/*.sh "$BUS_DIR"/cmd/*.sh \
+         "$BUS_DIR"/modules/*.sh "$BUS_DIR"/profiles/*.sh "$BUS_DIR"/elements/*.sh; do
+  [ -r "$f" ] && { bash -n "$f" || _syn=0; }
+done
+[ "$_syn" = 1 ] && _pass "syntax" || _fail "syntax"
+
+# 2. list discovers profiles and modules
+_l="$(_bus list 2>/dev/null)"
+printf '%s\n' "$_l" | grep -q '  00-prefix' && _pass "list: modules" || _fail "list: modules"
+printf '%s\n' "$_l" | grep -q '  core'   && _pass "list: profiles" || _fail "list: profiles"
+
+# 3. env composition for the core profile
+_e="$(_bus env --profile core 2>/dev/null || true)"
+printf '%s\n' "$_e" | grep -q '^  LD_LIBRARY_PATH=' && _pass "env: LD_LIBRARY_PATH" || _fail "env: LD_LIBRARY_PATH"
+printf '%s\n' "$_e" | grep -q '^  SSL_CERT_FILE='   && _pass "env: SSL_CERT_FILE"   || _fail "env: SSL_CERT_FILE"
+printf '%s\n' "$_e" | grep -q 'GODEBUG=.*netdns='  && _pass "env: netdns"          || _fail "env: netdns"
+printf '%s\n' "$_e" | grep -q '^  PREFIX='          && _pass "env: PREFIX"          || _fail "env: PREFIX"
+
+# 4. doctor runs and reports the profile (rc may be non-zero offline)
+_bus doctor --profile core >"$TMP/doctor.out" 2>&1 || true
+grep -q '^profile: core' "$TMP/doctor.out" && _pass "doctor: runs" || _fail "doctor: runs"
+
+# 5. args channel: a temp element injects a flag, mock target echoes argv
+cat >"$TMP/elements/zzmock.sh" <<'EOF'
+zzmock_up() { _endpoint zz "mock://x"; }
+zzmock_args() { printf '%s\n' "-injected=YES"; }
+EOF
+cat >"$TMP/mock" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*"
+EOF
+chmod +x "$TMP/mock"
+_args="$(BUS_RUN_DIR="$TMP/run" BUS_ELEMENTS_DIR="$TMP/elements" MODULES="prefix zzmock" EXTRA_ARGS="--x" \
+         _bus run --profile "$PROFILE" -- "$TMP/mock" USER 2>/dev/null)"
+case "$_args" in
+  *"-injected=YES --x USER"*) _pass "args channel: $_args";;
+  *) _fail "args channel: got '$_args'";;
+esac
+grep -q '^zz=mock://x$' "$TMP/run/endpoints" 2>/dev/null && _pass "endpoint registry" || _fail "endpoint registry"
+
+# 6. service lifecycle (trivial sleeper)
+cat >"$TMP/elements/zzsvc.sh" <<'EOF'
+zzsvc_svc_up() { _spawn zzsvc sleep 30; }
+zzsvc_svc_down() { _svc_stop zzsvc; }
+zzsvc_svc_status() { _svc_alive zzsvc; }
+EOF
+BUS_RUN_DIR="$TMP/run" BUS_ELEMENTS_DIR="$TMP/elements" _bus svc up zzsvc >/dev/null 2>&1
+BUS_RUN_DIR="$TMP/run" BUS_ELEMENTS_DIR="$TMP/elements" _bus svc status zzsvc >/dev/null 2>&1 \
+  && _pass "svc up/status" || _fail "svc up/status"
+BUS_RUN_DIR="$TMP/run" BUS_ELEMENTS_DIR="$TMP/elements" _bus svc down zzsvc >/dev/null 2>&1
+BUS_RUN_DIR="$TMP/run" BUS_ELEMENTS_DIR="$TMP/elements" _bus svc status zzsvc >/dev/null 2>&1 \
+  && _fail "svc down" || _pass "svc down"
+
+rm -rf "$TMP"
+echo "== failures: $FAIL =="
+exit $((FAIL>0))

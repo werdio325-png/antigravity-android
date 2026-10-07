@@ -1,0 +1,16 @@
+# 00-env.sh -- core environment of the tlx prefix.
+export HOME="${HOME:-$(dirname "$PREFIX")/home}"
+export TMPDIR="$PREFIX/tmp"
+export PATH="$PREFIX/bin"
+export LD_LIBRARY_PATH="$PREFIX/lib"
+export LD_PRELOAD="$PREFIX/lib/libtermux-exec.so"
+export TERMUX__PREFIX="$PREFIX"
+export TERMUX__ROOTFS="/"
+export TERMUX_APP__DATA_DIR="$(dirname "$(dirname "$PREFIX")")"
+export SSL_CERT_FILE="$PREFIX/etc/tls/cert.pem"
+export CURL_CA_BUNDLE="$PREFIX/etc/tls/cert.pem"
+export GIT_SSL_CAINFO="$PREFIX/etc/tls/cert.pem"
+export OPENSSL_CONF="$PREFIX/etc/tls/openssl.cnf"
+export LANG="${LANG:-C.UTF-8}"
+export TZ="${TZ:-UTC}"
+mkdir -p "$TMPDIR" "$HOME" 2>/dev/null || true

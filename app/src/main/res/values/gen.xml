@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Checked-in defaults for the build-generated values. The build overwrites this
+  file in the staging tree from config/app.env (app_name, https_server_port,
+  oauth_scheme); these values keep a plain aapt build compiling.
+-->
+<resources>
+    <string name="app_name">Antigravity</string>
+    <integer name="https_server_port">45157</integer>
+    <string name="oauth_scheme">antigravity</string>
+</resources>

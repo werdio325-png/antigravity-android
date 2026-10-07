@@ -1,0 +1,35 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# ==============================================================================
+# Antigravity 2.0 Autonomous Server Starter for Termux
+# ==============================================================================
+export LANG=ru_RU.UTF-8
+export LC_ALL=ru_RU.UTF-8
+export no_proxy="127.0.0.1,localhost"
+export NO_PROXY="127.0.0.1,localhost"
+export http_proxy=http://127.0.0.1:1080
+export https_proxy=http://127.0.0.1:1080
+export all_proxy=socks5://127.0.0.1:1080
+export HTTP_PROXY=http://127.0.0.1:1080
+export HTTPS_PROXY=http://127.0.0.1:1080
+export ALL_PROXY=socks5://127.0.0.1:1080
+
+PORT=38695
+CSRF_TOKEN="antigravity-termux-token"
+
+echo "🚀 Запуск Google Antigravity 2.0 в Termux..."
+
+# Keep wake-lock
+termux-wake-lock 2>/dev/null || true
+
+$PREFIX/bin/antigravity-server \
+  --standalone \
+  --override_ide_name antigravity \
+  --subclient_type hub \
+  --override_ide_version 2.11.0 \
+  --override_user_agent_name antigravity \
+  --https_server_port $PORT \
+  --csrf_token $CSRF_TOKEN \
+  --app_data_dir antigravity \
+  --api_server_url https://generativelanguage.googleapis.com \
+  --cloud_code_endpoint https://daily-cloudcode-pa.googleapis.com \
+  --enable_sidecars

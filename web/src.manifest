@@ -1,0 +1,58 @@
+# AGY v2 web source manifest -> web/generated/**
+#
+# Syntax:
+#   # or ; at line start = comment
+#   bundle iife <out>  open an IIFE-wrapped bundle
+#   bundle <out>       open a bundle concatenated without a wrapper
+#   src/<path>         append a fragment (relative to web/) to the open bundle
+# Blank lines are ignored.
+#
+# Fragments of one bundle share that bundle's IIFE scope. The first fragment of
+# each bundle owns the namespace/guard; later fragments attach to it.
+
+bundle iife boot/custom-elements-guard.js
+src/boot/custom-elements-guard.js
+
+bundle iife boot/theme-bootstrap.js
+src/boot/theme-bootstrap.js
+
+bundle iife bridge.core.js
+src/core/namespace.js
+src/core/polyfills-process.js
+src/core/config.js
+src/core/csrf.js
+src/core/endpoints.js
+src/core/fetch-rewrite.js
+src/core/public-api.js
+
+bundle iife patches/web_optimizations.js
+src/patches/web_optimizations/taps.js
+src/patches/web_optimizations/viewport.js
+src/patches/web_optimizations/gpu.js
+src/patches/web_optimizations/public-api.js
+
+bundle iife patches/touch_model_menu.js
+src/patches/touch_model_menu/config.js
+src/patches/touch_model_menu/state.js
+src/patches/touch_model_menu/detect.js
+src/patches/touch_model_menu/synth.js
+src/patches/touch_model_menu/open.js
+src/patches/touch_model_menu/register.js
+src/patches/touch_model_menu/scan.js
+src/patches/touch_model_menu/install.js
+src/patches/touch_model_menu/public-api.js
+
+bundle iife patches/theme_sync.js
+src/patches/theme_sync/config.js
+src/patches/theme_sync/resolve.js
+src/patches/theme_sync/notify.js
+src/patches/theme_sync/install.js
+src/patches/theme_sync/public-api.js
+
+bundle iife patches/startup_ready.js
+src/patches/startup_ready/signal.js
+src/patches/startup_ready/error-capture.js
+src/patches/startup_ready/console-hook.js
+src/patches/startup_ready/detect-ui.js
+src/patches/startup_ready/arm.js
+src/patches/startup_ready/public-api.js

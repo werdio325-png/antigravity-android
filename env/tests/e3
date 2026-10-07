@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# e3 -- assemble a runtime prefix from bootstrap.tar.gz + overlay + pkg, then
+# verify: bionic exec, certs/DNS via curl, pkg CLI through the wrapper.
+set -uo pipefail
+
+SELF="$(cd "$(dirname "$0")" && pwd)"
+ENV_DIR="$(cd "$SELF/.." && pwd)"
+
+PREFIX="$(mktemp -d)/usr"
+export PREFIX
+mkdir -p "$PREFIX"
+
+fail=0
+ok()  { printf 'PASS  %s\n' "$1"; }
+bad() { printf 'FAIL  %s\n' "$1"; fail=$((fail + 1)); }
+
+# --- unpack runtime ---------------------------------------------------------
+tar -xzf "$ENV_DIR/bootstrap/bootstrap.tar.gz" -C "$PREFIX"
+cp -a "$ENV_DIR/overlay/." "$PREFIX/"
+# drop Termux-app-specific profile hooks (they target the real Termux prefix)
+rm -f "$PREFIX/etc/profile.d/01-termux-bootstrap-second-stage-fallback.sh" \
+      "$PREFIX/etc/profile.d/init-termux-properties.sh"
+mkdir -p "$PREFIX/libexec"
+cp -a "$ENV_DIR/pkg/." "$PREFIX/libexec/pkg/"
+
+# wrapper that points straight at our own shell (no shim needed)
+cat > "$PREFIX/bin/pkg" <<EOF
+#!$PREFIX/bin/bash
+exec "$PREFIX/libexec/pkg/pkg" "\$@"
+EOF
+chmod +x "$PREFIX/bin/pkg" "$PREFIX/libexec/pkg/pkg"
+
+# --- rewrite termux shebangs, then load environment -------------------------
+PKG_LIB="$ENV_DIR/pkg/lib" bash -c '. "$PKG_LIB/util.sh"; rewrite_prefix "$PREFIX/bin" "$PREFIX/libexec"'
+. "$PREFIX/etc/profile"
+
+# --- checks -----------------------------------------------------------------
+[ "$("$PREFIX/bin/sh" -c 'echo sh-ok' 2>/dev/null)" = "sh-ok" ] \
+    && ok "bionic sh" || bad "bionic sh"
+
+[ -n "${SSL_CERT_FILE:-}" ] && [ -r "$SSL_CERT_FILE" ] \
+    && ok "cert bundle: ${SSL_CERT_FILE#$PREFIX/}" || bad "cert bundle"
+
+code="$(curl -sI --max-time 25 https://packages.termux.dev/apt/termux-main/dists/stable/Release 2>/dev/null | awk 'NR==1{print $2}')"
+[ "$code" = "200" ] && ok "curl https -> $code" || bad "curl https -> ${code:-none}"
+
+[ "$("$PREFIX/bin/pkg" version 2>/dev/null)" = "pkg 0.1.0" ] \
+    && ok "pkg via wrapper" || bad "pkg via wrapper"
+
+# a package installed by pkg must be runnable
+"$PREFIX/bin/pkg" update >/dev/null 2>&1
+"$PREFIX/bin/pkg" install hello >/dev/null 2>&1
+out="$("$PREFIX/bin/hello" 2>/dev/null | head -1)"
+[ "$out" = "Hello, world!" ] && ok "pkg install + run hello" || bad "pkg install + run hello ($out)"
+
+rm -rf "$(dirname "$PREFIX")"
+printf '== failures: %s ==\n' "$fail"
+[ "$fail" = 0 ]

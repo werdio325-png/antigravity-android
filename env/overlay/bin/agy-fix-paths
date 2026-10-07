@@ -1,0 +1,49 @@
+#!/data/data/com.agy/files/usr/bin/bash
+# agy-fix-paths [PATH...] -- rewrite hardcoded Termux/app prefixes to $PREFIX.
+#
+# Replaces every occurrence of /data/data/com.<id>/files/usr in text files with
+# $PREFIX. Default target is the whole prefix. Binary files (NUL byte), ELF
+# objects and symlinks are skipped. Idempotent: files already using $PREFIX are
+# left byte-identical. Prints the number of files rewritten.
+#
+# Run it after installers that bake Termux interpreter paths into their output:
+#   pip install <pkg>
+#   npm install -g <pkg>
+#   ./configure && make install
+#
+# Exits 0 even when nothing matched. Shell paths in $PREFIX are preserved.
+set -uo pipefail
+
+: "${PREFIX:=/data/data/com.agy/files/usr}"
+PATTERN='/data/data/com\.[^/]*/files/usr'
+
+if [ "$#" -gt 0 ]; then
+    targets=("$@")
+else
+    targets=("$PREFIX")
+fi
+
+esc="$(printf '%s' "$PREFIX" | sed 's/[\\&|]/\\&/g')"
+count=0
+
+while IFS= read -r -d '' f; do
+    [ -n "$f" ] || continue
+    tmp="$f.agyfix.$$"
+    if sed "s|$PATTERN|$esc|g" "$f" > "$tmp" 2>/dev/null; then
+        if cmp -s "$f" "$tmp"; then
+            rm -f "$tmp"
+        else
+            # Preserve mode, then rename over the original. Rename is atomic and
+            # leaves a running copy of this script reading the old inode, so the
+            # pass can safely rewrite itself.
+            mode="$(stat -c '%a' "$f" 2>/dev/null)" || mode=""
+            [ -n "$mode" ] && chmod "$mode" "$tmp" 2>/dev/null
+            mv -f "$tmp" "$f"
+            count=$((count + 1))
+        fi
+    else
+        rm -f "$tmp"
+    fi
+done < <(grep -rIlZ -e "$PATTERN" -- "${targets[@]}" 2>/dev/null)
+
+printf 'agy-fix-paths: rewrote %d file(s) -> %s\n' "$count" "$PREFIX"

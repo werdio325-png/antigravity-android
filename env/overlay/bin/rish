@@ -1,0 +1,29 @@
+#!/system/bin/sh
+BASEDIR=$(dirname "$0")
+DEX=""
+for d in "$BASEDIR" "$BASEDIR/../share/rish" "$PREFIX/share/rish" "$PREFIX/../runtime/bin" "/data/user/0/com.agy/files/runtime/bin" "/data/data/com.agy/files/runtime/bin"; do
+  if [ -f "$d/rish_shizuku.dex" ]; then
+    DEX="$d/rish_shizuku.dex"
+    break
+  fi
+done
+
+if [ -z "$DEX" ]; then
+  echo "rish: rish_shizuku.dex not found" >&2
+  exit 1
+fi
+
+SDK=$(/system/bin/getprop ro.build.version.sdk 2>/dev/null || echo 0)
+if [ "$SDK" -ge 34 ]; then
+  if [ -w "$DEX" ]; then
+    chmod 400 "$DEX" 2>/dev/null
+  fi
+  if [ -w "$DEX" ]; then
+    echo "Cannot remove the write permission of $DEX." >&2
+    exit 1
+  fi
+fi
+
+# Bundled with the AGY app: default to its own package id.
+[ -z "$RISH_APPLICATION_ID" ] && export RISH_APPLICATION_ID="com.agy"
+exec env -u LD_PRELOAD -u LD_LIBRARY_PATH /system/bin/app_process -Djava.class.path="$DEX" /system/bin --nice-name=rish rikka.shizuku.shell.ShizukuShellLoader "$@"

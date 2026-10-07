@@ -1,0 +1,15 @@
+# /etc/profile -- tlx environment login setup.
+# PREFIX is normally exported by the app; otherwise derive it from this file.
+if [ -z "${PREFIX:-}" ]; then
+    _tlx_self="${BASH_SOURCE[0]:-$0}"
+    PREFIX="$(cd "$(dirname "$_tlx_self")/.." 2>/dev/null && pwd)"
+    unset _tlx_self
+fi
+export PREFIX
+
+if [ -d "$PREFIX/etc/profile.d" ]; then
+    for _tlx_f in "$PREFIX/etc/profile.d"/*.sh; do
+        [ -r "$_tlx_f" ] && . "$_tlx_f"
+    done
+    unset _tlx_f
+fi

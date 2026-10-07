@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+      Loopback core: language_server serves ConnectRPC over HTTPS with a
+      self-signed cert (CN=localhost, SAN DNS:localhost + IP:127.0.0.1,
+      "bundled on purpose"). WebView does not call onReceivedSslError for
+      fetch()/XHR subresources, so the cert must be trusted at the network
+      stack level here or every RPC fails and the UI stays blank.
+
+      res/raw/agy_core_cert.pem is the exact cert presented by core/*; if the
+      core binary is ever replaced, re-capture it (build/tools has the note).
+    -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+        <trust-anchors>
+            <certificates src="@raw/agy_core_cert" />
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+
+    <!-- Everything else: system trust anchors, no cleartext. -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

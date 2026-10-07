@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "core": {
+    "name": "language_server",
+    "arch": "aarch64",
+    "go": "go1.28-20260721-RC03",
+    "expected_size": 174608568
+  },
+  "policy": {
+    "fail_closed": true,
+    "allow_missing_default": false,
+    "idempotent": true,
+    "no_fixed_offsets": true
+  },
+  "groups": [
+    {
+      "id": "eligibility",
+      "group": "eligibility",
+      "file": "gates",
+      "module": "groups/gates/module.py",
+      "description": "Force the eligibility/auth gate bits for the CLI gate and authclient.(*EnterpriseAuthValidator).Validate.",
+      "precondition": "raw+patched site counts must equal expected (cli=2, manager=1); the w2 channelz site must never match.",
+      "expected_counts": {"cli": 2, "manager": 1},
+      "signatures": {
+        "cli_raw": "01 20 40 39 (ldrb w1,[x0,#8]) + 3 bytes + 0x37 (tbnz w1,#0)",
+        "cli_patch": "21 00 80 52 (mov w1,#1)",
+        "manager_raw": "03 20 40 39 (ldrb w3,[x0,#8]) + tbz w3,#0 + token-setup (.. 03 10 06 a9)",
+        "manager_patch": "23 00 80 52 03 20 00 39 (mov w3,#1 ; strb w3,[x0,#8])"
+      },
+      "verify": "cli raw==0 & patched==2 ; manager raw==0 & patched==1"
+    },
+    {
+      "id": "seccomp",
+      "group": "seccomp",
+      "file": "syscalls",
+      "module": "groups/syscalls/module.py",
+      "description": "Retarget Android-seccomp-trapped syscalls: faccessat2 439->48 and fchmodat2 452->53, inside the Go function bodies only.",
+      "precondition": "each Go ELF must have a parsable pclntab that resolves runtime.memmove; MOVZ X0 must be unique inside the target function.",
+      "expected_counts": {
+        "main": {"faccessat2": 1, "fchmodat2": 1},
+        "helper_go_elfs": {"faccessat2": 1}
+      },
+      "signatures": {
+        "faccessat2_raw": "MOVZ X0,#439 = e0 36 80 d2",
+        "faccessat2_patch": "MOVZ X0,#48 = 00 06 80 d2",
+        "fchmodat2_raw": "MOVZ X0,#452 = 80 38 80 d2",
+        "fchmodat2_patch": "MOVZ X0,#53 = a0 06 80 d2"
+      },
+      "verify": "in every Go ELF: faccessat2 old==0 & new>=1; primary ELF also fchmodat2 old==0 & new>=1"
+    },
+    {
+      "id": "resolv",
+      "group": "resolv",
+      "file": "resolv",
+      "module": "groups/resolv/module.py",
+      "description": "Length-preserving resolver path rewrite: /etc/resolv.conf -> etc//resolv.conf.",
+      "precondition": "exactly 2 clean 16-byte occurrences; hits adjacent to / . \\ are longer paths and are rejected.",
+      "expected_counts": {"clean": 2},
+      "signatures": {
+        "target": "/etc/resolv.conf (16 bytes)",
+        "replacement": "etc//resolv.conf (16 bytes)"
+      },
+      "verify": "clean target count==0 and replacement count==2"
+    },
+    {
+      "id": "auth",
+      "group": "auth",
+      "file": "auth",
+      "module": "groups/auth/module.py",
+      "description": "OAuth success URL -> antigravity:// deep link (46 -> 46 bytes).",
+      "precondition": "exactly 1 target; every do_not_patch OAuth string must remain intact.",
+      "expected_counts": {"target": 1},
+      "signatures": {
+        "target": "https://antigravity.google/auth-success?app=%s (46 bytes)",
+        "replacement": "antigravity://auth-success?app=%s + '#'*13 (46 bytes)"
+      },
+      "do_not_patch": [
+        "oauth-callback",
+        "accounts.google.com/o/oauth2/auth",
+        "oauth2.googleapis.com/token",
+        "oauth2.googleapis.com/device"
+      ],
+      "verify": "target count==0 and replacement count==1 and all do_not_patch strings present"
+    }
+  ]
+}

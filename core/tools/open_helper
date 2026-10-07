@@ -1,0 +1,3 @@
+#!/system/bin/sh
+# AGY opener: delegate to xdg-open next to this file.
+exec "$(dirname "$0")/xdg-open" "$@"

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive-icon foreground: the full-color Antigravity logo, transparent
+  background, centered on a 108dp canvas. The logo is the pre-scaled
+  drawable-nodpi/ic_launcher_logo.png; a symmetric 15% inset shrinks it to
+  ~70% of the canvas (~30% smaller than before) while keeping it exactly
+  centered, so it stays inside the 72dp safe zone with no corner clipping.
+-->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:inset="15%">
+    <bitmap
+        android:src="@drawable/ic_launcher_logo"
+        android:gravity="fill"
+        android:filter="true" />
+</inset>

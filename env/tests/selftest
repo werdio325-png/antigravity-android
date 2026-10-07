@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# selftest -- offline checks for pkg core (no network).
+set -uo pipefail
+
+SELF="$(cd "$(dirname "$0")" && pwd)"
+PKG_DIR="$SELF/../pkg"
+PKG_LIB="$PKG_DIR/lib"
+PKG_SELF="$PKG_DIR"
+
+PREFIX="$(mktemp -d)/usr"
+export PREFIX
+
+. "$PKG_LIB/util.sh"
+. "$PKG_LIB/version.sh"
+. "$PKG_LIB/index.sh"
+. "$PKG_LIB/db.sh"
+. "$PKG_LIB/deb.sh"
+. "$PKG_LIB/resolver.sh"
+ensure_dirs
+
+fail=0
+ok()   { printf 'PASS  %s\n' "$1"; }
+bad()  { printf 'FAIL  %s\n' "$1"; fail=$((fail + 1)); }
+
+# ---- version comparison ----------------------------------------------------
+vc() { # A B EXPECTED
+    local got; got="$(deb_vercmp "$1" "$2")"
+    [ "$got" = "$3" ] && ok "vercmp $1 $2 = $3" || bad "vercmp $1 $2 = $3 (got $got)"
+}
+vc 1.0.0       1.0.0       0
+vc 1.0.0       1.0.1      -1
+vc 1.0.1       1.0.0       1
+vc 2.0         10.0       -1
+vc 1.0~rc1     1.0        -1
+vc 1:1.0       2.0         1
+vc 1.0-1       1.0-2      -1
+vc 1.0         1.0-0       0
+vc 1.0-1       1.0-1       0
+vc 1.2.3-4     1.2.3-4build1 -1
+vc 1.0a        1.0b       -1
+vc 1.0+really1.1 1.0       1
+
+# ---- index parsing ---------------------------------------------------------
+FIX="$SELF/fixtures/Packages"
+[ "$(index_get "$FIX" hello 2)"    = "1.0.0" ]   && ok "index version"    || bad "index version"
+[ "$(index_get "$FIX" hello 5)"    = "libhello (>= 1.0), world | glob" ] && ok "index depends" || bad "index depends"
+[ "$(index_get "$FIX" world 4)"    = "yes" ]     && ok "index essential"  || bad "index essential"
+[ "$(index_get "$FIX" world 7)"    = "glob" ]    && ok "index provides"   || bad "index provides"
+
+# continuation line must not become a field
+[ "$(index_get "$FIX" hello 1)"    = "hello" ]   && ok "index name"       || bad "index name"
+
+# ---- db --------------------------------------------------------------------
+printf 'bin/hello\nlib/libhello.so\n' | db_put hello 1.0.0 aarch64
+[ "$(db_get hello version)" = "1.0.0" ] && ok "db get" || bad "db get"
+db_exists hello && ok "db exists" || bad "db exists"
+[ "$(db_owner bin/hello)" = "hello" ] && ok "db owner" || bad "db owner"
+db_list | grep -q '^hello 1.0.0$' && ok "db list" || bad "db list"
+db_remove hello
+db_exists hello && bad "db remove" || ok "db remove"
+
+# ---- version constraints ---------------------------------------------------
+vs() { # V OP WANT EXPECT(0 ok,1 not)
+    if ver_satisfies "$1" "$2" "$3"; then s=0; else s=1; fi
+    [ "$s" = "$4" ] && ok "satisfies $1 $2 $3 = $4" || bad "satisfies $1 $2 $3 = $4 (got $s)"
+}
+vs 1.2.0 ">=" 1.0.0 0
+vs 0.9   ">=" 1.0.0 1
+vs 1.0   "="  1.0   0
+vs 1.0   ">>" 1.0   1
+vs 1:2.0 ">=" 2.0   0
+
+# ---- .deb (ar + tar) -------------------------------------------------------
+DEB="$SELF/fixtures/hello.deb"
+if [ -f "$DEB" ]; then
+    [ "$(ar_members "$DEB" | tr '\n' ' ')" = "debian-binary control.tar.xz data.tar.xz " ] \
+        && ok "deb ar members" || bad "deb ar members"
+    [ "$(deb_field "$DEB" Version)" = "2.12.3-1" ] && ok "deb control Version" || bad "deb control Version"
+    [ "$(deb_field "$DEB" Depends)" = "libiconv" ] && ok "deb control Depends" || bad "deb control Depends"
+    deb_files "$DEB" | grep -qx 'bin/hello' && ok "deb data files" || bad "deb data files"
+else
+    printf 'SKIP  deb checks (no fixtures/hello.deb)\n'
+fi
+
+rm -rf "$(dirname "$PREFIX")"
+printf '== failures: %s ==\n' "$fail"
+[ "$fail" = 0 ]

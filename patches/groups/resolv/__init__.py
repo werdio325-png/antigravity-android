@@ -1,0 +1,1 @@
+"""Resolver path rewrite group."""

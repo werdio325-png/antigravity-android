@@ -1,0 +1,548 @@
+/* Scoped Prism themes for light and dark modes using CSS Nesting. Token colors
+ * are driven by --syntax-* CSS variables so a selected theme preset can override
+ * the syntax palette without re-tokenizing (a preset just swaps the vars). The
+ * defaults below reproduce the original bundled prismjs palettes exactly (light:
+ * prism default; dark: okaidia), so this is a no-op until presets seed --syntax-*.
+ * Backgrounds/structural colors stay app-native and are intentionally not
+ * preset-driven. */
+
+.theme-light {
+  /* Default syntax palette (prism default theme, @author Lea Verou). */
+  --syntax-default-fg: black;
+  --syntax-comment: slategray;
+  --syntax-punctuation: #999;
+  --syntax-property: #905;
+  --syntax-tag: #905;
+  --syntax-constant: #905;
+  --syntax-number: #905;
+  --syntax-string: #690;
+  --syntax-attr-name: #690;
+  --syntax-builtin: #690;
+  --syntax-operator: #9a6e3a;
+  --syntax-variable: #e90;
+  --syntax-attr-value: #07a;
+  --syntax-keyword: #07a;
+  --syntax-function: #dd4a68;
+  --syntax-class-name: #dd4a68;
+  --syntax-regex: #e90;
+
+  code[class*='language-'],
+  pre[class*='language-'] {
+    color: var(--syntax-default-fg);
+    background: none;
+    text-shadow: 0 1px white;
+    font-family: var(--editor-font-family, Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace);
+    font-size: 1em;
+    text-align: left;
+    white-space: pre;
+    word-spacing: normal;
+    word-break: normal;
+    word-wrap: normal;
+    line-height: 1.5;
+
+    -moz-tab-size: 4;
+    -o-tab-size: 4;
+    tab-size: 4;
+
+    -webkit-hyphens: none;
+    -moz-hyphens: none;
+    -ms-hyphens: none;
+    hyphens: none;
+  }
+
+  pre[class*='language-']::-moz-selection,
+  pre[class*='language-'] ::-moz-selection,
+  code[class*='language-']::-moz-selection,
+  code[class*='language-'] ::-moz-selection {
+    text-shadow: none;
+    background: #b3d4fc;
+  }
+
+  pre[class*='language-']::selection,
+  pre[class*='language-'] ::selection,
+  code[class*='language-']::selection,
+  code[class*='language-'] ::selection {
+    text-shadow: none;
+    background: #b3d4fc;
+  }
+
+  @media print {
+    code[class*='language-'],
+    pre[class*='language-'] {
+      text-shadow: none;
+    }
+  }
+
+  /* Code blocks */
+  pre[class*='language-'] {
+    padding: 1em;
+    margin: 0.5em 0;
+    overflow: auto;
+  }
+
+  :not(pre) > code[class*='language-'],
+  pre[class*='language-'] {
+    background: #f5f2f0;
+  }
+
+  /* Inline code */
+  :not(pre) > code[class*='language-'] {
+    padding: 0.1em;
+    border-radius: 0.3em;
+    white-space: normal;
+  }
+
+  .token.comment,
+  .token.prolog,
+  .token.doctype,
+  .token.cdata {
+    color: var(--syntax-comment);
+  }
+
+  .token.punctuation {
+    color: var(--syntax-punctuation);
+  }
+
+  .token.namespace {
+    opacity: 0.7;
+  }
+
+  .token.property,
+  .token.symbol,
+  .token.deleted {
+    color: var(--syntax-property);
+  }
+
+  .token.tag {
+    color: var(--syntax-tag);
+  }
+
+  .token.constant {
+    color: var(--syntax-constant);
+  }
+
+  .token.boolean,
+  .token.number {
+    color: var(--syntax-number);
+  }
+
+  .token.selector,
+  .token.string,
+  .token.char,
+  .token.inserted {
+    color: var(--syntax-string);
+  }
+
+  .token.attr-name {
+    color: var(--syntax-attr-name);
+  }
+
+  .token.builtin {
+    color: var(--syntax-builtin);
+  }
+
+  .token.operator,
+  .token.entity,
+  .token.url,
+  .language-css .token.string,
+  .style .token.string {
+    color: var(--syntax-operator);
+  }
+
+  .token.atrule,
+  .token.attr-value {
+    color: var(--syntax-attr-value);
+  }
+
+  .token.keyword {
+    color: var(--syntax-keyword);
+  }
+
+  .token.function {
+    color: var(--syntax-function);
+  }
+
+  .token.class-name {
+    color: var(--syntax-class-name);
+  }
+
+  .token.regex,
+  .token.important {
+    color: var(--syntax-regex);
+  }
+
+  .token.variable {
+    color: var(--syntax-variable);
+  }
+
+  .token.important,
+  .token.bold {
+    font-weight: bold;
+  }
+  .token.italic {
+    font-style: italic;
+  }
+
+  .token.entity {
+    cursor: help;
+  }
+
+  /* The embedded CATCH viewer labels tokens with its own class names, which
+     Prism never emits; match them to the colours of their Prism counterparts. */
+  .token.reference {
+    color: #905;
+  }
+
+  .token.type,
+  .token.definition {
+    color: #dd4a68;
+  }
+
+  .token.macro {
+    color: #e90;
+  }
+}
+
+.theme-dark {
+  /* Default syntax palette (okaidia theme, @author ocodia). */
+  --syntax-default-fg: #f8f8f2;
+  --syntax-comment: #8292a2;
+  --syntax-punctuation: #f8f8f2;
+  --syntax-property: #f92672;
+  --syntax-tag: #f92672;
+  --syntax-constant: #f92672;
+  --syntax-number: #ae81ff;
+  --syntax-string: #a6e22e;
+  --syntax-attr-name: #a6e22e;
+  --syntax-builtin: #a6e22e;
+  --syntax-operator: #f8f8f2;
+  --syntax-variable: #f8f8f2;
+  --syntax-attr-value: #e6db74;
+  --syntax-keyword: #66d9ef;
+  --syntax-function: #e6db74;
+  --syntax-class-name: #e6db74;
+  --syntax-regex: #fd971f;
+
+  code[class*='language-'],
+  pre[class*='language-'] {
+    color: var(--syntax-default-fg);
+    background: none;
+    text-shadow: 0 1px rgba(0, 0, 0, 0.3);
+    font-family: var(--editor-font-family, Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace);
+    font-size: 1em;
+    text-align: left;
+    white-space: pre;
+    word-spacing: normal;
+    word-break: normal;
+    word-wrap: normal;
+    line-height: 1.5;
+
+    -moz-tab-size: 4;
+    -o-tab-size: 4;
+    tab-size: 4;
+
+    -webkit-hyphens: none;
+    -moz-hyphens: none;
+    -ms-hyphens: none;
+    hyphens: none;
+  }
+
+  /* Code blocks */
+  pre[class*='language-'] {
+    padding: 1em;
+    margin: 0.5em 0;
+    overflow: auto;
+    border-radius: 0.3em;
+  }
+
+  :not(pre) > code[class*='language-'],
+  pre[class*='language-'] {
+    background: #272822;
+  }
+
+  /* Inline code */
+  :not(pre) > code[class*='language-'] {
+    padding: 0.1em;
+    border-radius: 0.3em;
+    white-space: normal;
+  }
+
+  .token.comment,
+  .token.prolog,
+  .token.doctype,
+  .token.cdata {
+    color: var(--syntax-comment);
+  }
+
+  .token.punctuation {
+    color: var(--syntax-punctuation);
+  }
+
+  .token.namespace {
+    opacity: 0.7;
+  }
+
+  .token.property,
+  .token.symbol,
+  .token.deleted {
+    color: var(--syntax-property);
+  }
+
+  .token.tag {
+    color: var(--syntax-tag);
+  }
+
+  .token.constant {
+    color: var(--syntax-constant);
+  }
+
+  .token.boolean,
+  .token.number {
+    color: var(--syntax-number);
+  }
+
+  .token.selector,
+  .token.string,
+  .token.char,
+  .token.inserted {
+    color: var(--syntax-string);
+  }
+
+  .token.attr-name {
+    color: var(--syntax-attr-name);
+  }
+
+  .token.builtin {
+    color: var(--syntax-builtin);
+  }
+
+  .token.operator,
+  .token.entity,
+  .token.url,
+  .language-css .token.string,
+  .style .token.string {
+    color: var(--syntax-operator);
+  }
+
+  .token.atrule,
+  .token.attr-value {
+    color: var(--syntax-attr-value);
+  }
+
+  .token.keyword {
+    color: var(--syntax-keyword);
+  }
+
+  .token.function {
+    color: var(--syntax-function);
+  }
+
+  .token.class-name {
+    color: var(--syntax-class-name);
+  }
+
+  .token.regex,
+  .token.important {
+    color: var(--syntax-regex);
+  }
+
+  .token.variable {
+    color: var(--syntax-variable);
+  }
+
+  .token.important,
+  .token.bold {
+    font-weight: bold;
+  }
+  .token.italic {
+    font-style: italic;
+  }
+
+  .token.entity {
+    cursor: help;
+  }
+
+  /* The embedded CATCH viewer labels tokens with its own class names, which
+     Prism never emits; match them to the colours of their Prism counterparts. */
+  .token.reference {
+    color: #f92672;
+  }
+
+  .token.type,
+  .token.definition {
+    color: #e6db74;
+  }
+
+  .token.macro {
+    color: #fd971f;
+  }
+}
+
+/* Keep token spans inline: the `table` token else hits Tailwind's
+ * `.table { display: table }`, wrapping the Markdown pipe `|` onto its own line. */
+.theme-light .token,
+.theme-dark .token {
+  display: inline;
+}
+
+/* Selection and cursor overlays in the CATCH file viewer paint from these
+ * custom properties. They are declared in the CATCH application's global theme,
+ * which this bundle does not load, and an undefined custom property makes
+ * background-color compute to an invalid value: the overlay renders fully
+ * transparent, so a selection exists in the model and copies correctly while
+ * being impossible to see. Values match the CATCH light and dark palettes. */
+.theme-light {
+  --bg-selection: rgba(180, 213, 254, 0.4);
+  --bg-selection-overlay: rgba(180, 213, 254, 0.35);
+  --bg-cursor-line: rgba(254, 252, 232, 0.55);
+  --fg-cursor: #374151;
+}
+
+.theme-dark {
+  --bg-selection: rgba(60, 130, 200, 0.35);
+  --bg-selection-overlay: rgba(100, 160, 230, 0.3);
+  --bg-cursor-line: rgba(255, 240, 200, 0.06);
+  --fg-cursor: #aeafad;
+}
+
+/** @license
+ * Copyright (c) 2022 ReactTooltip Team Github
+ * SPDX-License-Identifier: MIT
+ */
+:root {
+  --rt-color-white: #fff;
+  --rt-color-dark: #222;
+  --rt-color-success: #8dc572;
+  --rt-color-error: #be6464;
+  --rt-color-warning: #f0ad4e;
+  --rt-color-info: #337ab7;
+  --rt-opacity: 0.9;
+  --rt-transition-show-delay: 0.15s;
+  --rt-transition-closing-delay: 0.15s;
+  --rt-arrow-size: 8px;
+}
+
+/** @license
+ * Copyright (c) 2022 ReactTooltip Team Github
+ * SPDX-License-Identifier: MIT
+ */
+:-stv-set-elsewhere {
+  --rt-arrow-size: initial;
+  --rt-color-dark: initial;
+  --rt-color-white: initial;
+  --rt-color-success: initial;
+  --rt-color-warning: initial;
+  --rt-color-error: initial;
+  --rt-color-info: initial;
+}
+
+@goog-export-classes .reactTooltipComponent;
+.reactTooltipComponenttooltip {
+  border-radius: 3px;
+  font-size: 90%;
+  width: -webkit-max-content;
+  width: -moz-max-content;
+  width: max-content;
+}
+.reactTooltipComponentcontent {
+  background: inherit;
+  border-radius: inherit;
+  padding: 8px 16px;
+}
+.reactTooltipComponentarrow {
+  width: var(--rt-arrow-size);
+  height: var(--rt-arrow-size);
+}
+[class*=react-tooltip__place-top] > .reactTooltipComponentarrow {
+  -webkit-transform: rotate(45deg);
+          transform: rotate(45deg);
+}
+[class*=react-tooltip__place-right] > .reactTooltipComponentarrow {
+  -webkit-transform: rotate(135deg);
+          transform: rotate(135deg);
+}
+[class*=react-tooltip__place-bottom] > .reactTooltipComponentarrow {
+  -webkit-transform: rotate(225deg);
+          transform: rotate(225deg);
+}
+[class*=react-tooltip__place-left] > .reactTooltipComponentarrow {
+  -webkit-transform: rotate(315deg);
+          transform: rotate(315deg);
+}
+.reactTooltipComponentdark {
+  background: var(--rt-color-dark);
+  color: var(--rt-color-white);
+}
+.reactTooltipComponentlight {
+  background-color: var(--rt-color-white);
+  color: var(--rt-color-dark);
+}
+.reactTooltipComponentsuccess {
+  background-color: var(--rt-color-success);
+  color: var(--rt-color-white);
+}
+.reactTooltipComponentwarning {
+  background-color: var(--rt-color-warning);
+  color: var(--rt-color-white);
+}
+.reactTooltipComponenterror {
+  background-color: var(--rt-color-error);
+  color: var(--rt-color-white);
+}
+.reactTooltipComponentinfo {
+  background-color: var(--rt-color-info);
+  color: var(--rt-color-white);
+}
+
+/** @license
+ * Copyright (c) 2022 ReactTooltip Team Github
+ * SPDX-License-Identifier: MIT
+ */
+:-stv-set-elsewhere {
+  --rt-opacity: initial;
+  --rt-transition-show-delay: initial;
+  --rt-transition-closing-delay: initial;
+}
+
+@goog-export-classes .reactTooltipCore;
+.reactTooltipCoretooltip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+.reactTooltipCorefixed {
+  position: fixed;
+}
+.reactTooltipCorearrow {
+  position: absolute;
+  background: inherit;
+  z-index: -1;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+.reactTooltipCorecontent {
+  position: relative;
+  z-index: 1;
+}
+.reactTooltipCorenoArrow {
+  display: none;
+}
+.reactTooltipCoreclickable {
+  pointer-events: auto;
+}
+.reactTooltipCoreshow {
+  opacity: var(--rt-opacity);
+  -webkit-transition: opacity var(--rt-transition-show-delay) ease-out;
+  transition: opacity var(--rt-transition-show-delay) ease-out;
+  will-change: opacity;
+}
+.reactTooltipCoreclosing {
+  opacity: 0;
+  -webkit-transition: opacity var(--rt-transition-closing-delay) ease-in;
+  transition: opacity var(--rt-transition-closing-delay) ease-in;
+  will-change: opacity;
+}
+
+/*# sourceMappingURL=styles.css.map */{"version":3,"sources":["../../../../../../../third_party/javascript/react_tooltip/src/tokens.scss","_styles_sass_binary.css","../../../../../../../third_party/javascript/react_tooltip/src/components/Tooltip/styles.module.scss","../../../../../../../webutil/sass/mss.scss","../../../../../../../third_party/javascript/react_tooltip/src/components/Tooltip/core-styles.module.scss"],"names":[],"mappings":"AAAA;;;EAAA;AAIA;EACE,sBAAA;EACA,qBAAA;EACA,2BAAA;EACA,yBAAA;EACA,2BAAA;EACA,wBAAA;EACA,iBAAA;EACA,iCAAA;EACA,oCAAA;EACA,oBAAA;ACCF;;ACfA;;;EAAA;AAMA;EACE,wBAAA;EACA,wBAAA;EACA,yBAAA;EACA,2BAAA;EACA,2BAAA;EACA,yBAAA;EACA,wBAAA;ADgBF;;AEDI,2CAAA;ADRF;EACE,kBAAA;EACA,cAAA;EACA,0BAAA;EAAA,uBAAA;EAAA,kBAAA;ADaJ;ACVE;EACE,mBAAA;EACA,sBAAA;EACA,iBAAA;ADYJ;ACTE;EACE,2BAAA;EACA,4BAAA;ADWJ;ACRE;EACE,gCAAA;UAAA,wBAAA;ADUJ;ACPE;EACE,iCAAA;UAAA,yBAAA;ADSJ;ACNE;EACE,iCAAA;UAAA,yBAAA;ADQJ;ACLE;EACE,iCAAA;UAAA,yBAAA;ADOJ;ACJE;EACE,gCAAA;EACA,4BAAA;ADMJ;ACHE;EACE,uCAAA;EACA,2BAAA;ADKJ;ACFE;EACE,yCAAA;EACA,4BAAA;ADIJ;ACDE;EACE,yCAAA;EACA,4BAAA;ADGJ;ACAE;EACE,uCAAA;EACA,4BAAA;ADEJ;ACCE;EACE,sCAAA;EACA,4BAAA;ADCJ;;AGjFA;;;EAAA;AAMA;EACE,qBAAA;EACA,mCAAA;EACA,sCAAA;AHkFF;;AE/DI,sCAAA;ACZF;EACE,kBAAA;EACA,MAAA;EACA,OAAA;EACA,oBAAA;EACA,UAAA;AH+EJ;AG5EE;EACE,eAAA;AH8EJ;AG3EE;EACE,kBAAA;EACA,mBAAA;EACA,WAAA;EACA,mCAAA;EACA,2BAAA;AH6EJ;AG1EE;EACE,kBAAA;EACA,UAAA;AH4EJ;AGzEE;EACE,aAAA;AH2EJ;AGxEE;EACE,oBAAA;AH0EJ;AGvEE;EACE,0BAAA;EACA,oEAAA;EAAA,4DAAA;EACA,oBAAA;AHyEJ;AGtEE;EACE,UAAA;EACA,sEAAA;EAAA,8DAAA;EACA,oBAAA;AHwEJ","file":"styles.css"}

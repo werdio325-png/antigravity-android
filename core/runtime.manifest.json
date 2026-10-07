@@ -1,0 +1,189 @@
+{
+  "core": {
+    "path": "core/language_server",
+    "sha256_final": "6f738eba385f68d66c83dfd50546346a30688422d364fa398d2f9155586853da",
+    "sha256_initial": "6f738eba385f68d66c83dfd50546346a30688422d364fa398d2f9155586853da",
+    "size": 174608568,
+    "version": "go1.28-20260721-RC03 cl/951519500 +3ebc191975 X:fieldtrack,boringcrypto,simd,mapsplitgroup"
+  },
+  "generated_at": "2026-10-07T11:27:09Z",
+  "groups": [
+    {
+      "changed": 3,
+      "description": "Force eligibility/auth gate bits (CLI + EnterpriseAuthValidator).",
+      "expected_counts": {
+        "cli": 2,
+        "manager": 1
+      },
+      "file": "gates",
+      "group": "eligibility",
+      "id": "eligibility",
+      "messages": [
+        "would patch"
+      ],
+      "observed_counts": {
+        "cli": {
+          "patched": 0,
+          "raw": 2
+        },
+        "manager": {
+          "patched": 0,
+          "raw": 1
+        }
+      },
+      "offsets": {
+        "cli_patched": [],
+        "cli_raw": [
+          "0x4ffbcfc",
+          "0x67eb684"
+        ],
+        "manager_patched": [],
+        "manager_raw": [
+          "0x6bd13e0"
+        ]
+      },
+      "state": "dry-run"
+    },
+    {
+      "changed": 0,
+      "description": "Retarget faccessat2(439)->faccessat(48) and fchmodat2(452)->fchmodat(53).",
+      "elves": [
+        {
+          "elf_base": "0x0",
+          "functions": {
+            "syscall.faccessat2": {
+              "entry": "0x4a668a0",
+              "mov_offset": "0x4a669c4",
+              "new_count": 0,
+              "old_count": 1,
+              "present": true,
+              "size": 320,
+              "state": "patch"
+            },
+            "syscall.fchmodat2": {
+              "entry": "0x4a66b10",
+              "mov_offset": "0x4a66c34",
+              "new_count": 0,
+              "old_count": 1,
+              "present": true,
+              "size": 320,
+              "state": "patch"
+            }
+          },
+          "is_primary": true,
+          "kind": "go",
+          "pclntab": {
+            "nfunc": 156100,
+            "offset": "0x138a198"
+          },
+          "region_end": "0x8eef6d3",
+          "text": {
+            "offset": "0x49bc000",
+            "size": "0x28be090"
+          }
+        },
+        {
+          "elf_base": "0x8eef6d3",
+          "is_primary": false,
+          "kind": "elf, no Go pclntab (skipped)",
+          "region_end": "0x96f32cb",
+          "text": {
+            "offset": "0x90fa293",
+            "size": "0x2c345c"
+          }
+        },
+        {
+          "elf_base": "0x96f32cb",
+          "functions": {
+            "syscall.faccessat2": {
+              "entry": "0x98a103b",
+              "mov_offset": "0x98a10af",
+              "new_count": 0,
+              "old_count": 1,
+              "present": true,
+              "size": 320,
+              "state": "patch"
+            },
+            "syscall.fchmodat2": {
+              "present": false,
+              "state": "absent"
+            }
+          },
+          "is_primary": false,
+          "kind": "go",
+          "pclntab": {
+            "nfunc": 19519,
+            "offset": "0x9d09c4b"
+          },
+          "region_end": "0xa6850b8",
+          "text": {
+            "offset": "0x96f42cb",
+            "size": "0x5ce404"
+          }
+        }
+      ],
+      "expected": {
+        "helper_go_elfs": {
+          "faccessat2": 1
+        },
+        "main": {
+          "faccessat2": 1,
+          "fchmodat2": 1
+        }
+      },
+      "file": "syscalls",
+      "group": "seccomp",
+      "id": "seccomp",
+      "messages": [
+        "go elf @0x0: .text@0x49bc000 pclntab@0x138a198 nfunc=156100",
+        "syscall.faccessat2 @0x4a669c4: would patch 439 -> 48",
+        "syscall.fchmodat2 @0x4a66c34: would patch 452 -> 53",
+        "go elf @0x96f32cb: .text@0x96f42cb pclntab@0x9d09c4b nfunc=19519",
+        "syscall.faccessat2 @0x98a10af: would patch 439 -> 48"
+      ],
+      "offsets": {
+        "elf_0x0": {
+          "syscall.faccessat2": "0x4a669c4",
+          "syscall.fchmodat2": "0x4a66c34"
+        },
+        "elf_0x96f32cb": {
+          "syscall.faccessat2": "0x98a10af"
+        }
+      },
+      "state": "dry-run",
+      "would_change": 3
+    },
+    {
+      "changed": 2,
+      "description": "Relative resolver path; /etc/resolv.conf -> etc//resolv.conf.",
+      "expected_counts": {
+        "clean": 2
+      },
+      "file": "resolv",
+      "group": "resolv",
+      "id": "resolv",
+      "messages": [],
+      "observed_counts": {
+        "clean": 2,
+        "rejected": 0,
+        "replacement": 0
+      },
+      "offsets": {
+        "clean": [
+          "0x4074c79",
+          "0x9cca78d"
+        ],
+        "rejected": [],
+        "replacement": []
+      },
+      "state": "dry-run"
+    }
+  ],
+  "mode": {
+    "allow_missing": false,
+    "dry_run": true,
+    "verify": false
+  },
+  "ok": true,
+  "schema": 1
+}

@@ -1,0 +1,36 @@
+# Build artifacts
+build/*
+!build/lib/
+!build/phases/
+!build/tools/
+dist/*
+!dist/.gitkeep
+app/gen/
+web/generated/
+core/language_server
+!core/language_server.tar.gz
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Shell Bus runtime state
+bus/run/
+bus/elements/
+
+# Logs and debug output
+*.log
+*.tmp
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Sensitive credentials & keystores
+*.keystore
+*.jks
+*.key
+*-token
+jetski-standalone-oauth-token

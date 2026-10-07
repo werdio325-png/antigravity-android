@@ -1,0 +1,140 @@
+name: Build and Release Antigravity APKs
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag (e.g. v2.11.0)'
+        required: false
+        default: 'v2.11.0'
+      draft:
+        description: 'Create Draft Release'
+        type: boolean
+        default: false
+      prerelease:
+        description: 'Mark as Pre-release'
+        type: boolean
+        default: false
+      vendor_url:
+        description: 'Optional direct URL to download vendor inputs archive (core, glibc, certs, seed, tools)'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Both Release Editions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Setup Java JDK (Java 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Python 3
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Android Build Tools & System Utilities
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y aapt zipalign apksigner file zip unzip gzip sha256sum
+
+      - name: Prepare Vendor Inputs & Signing Keystore
+        env:
+          VENDOR_URL: ${{ inputs.vendor_url || secrets.VENDOR_DOWNLOAD_URL }}
+        run: |
+          mkdir -p tools
+          
+          # 1. Generate debug keystore if absent
+          if [ ! -f "tools/debug.keystore" ]; then
+            echo "[CI] Generating debug keystore..."
+            keytool -genkey -v -keystore tools/debug.keystore \
+              -storepass android -alias androiddebugkey -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+          # 2. Setup Android API 28 android.jar if absent
+          if [ ! -f "tools/android.jar" ]; then
+            echo "[CI] Fetching android.jar (API 28)..."
+            curl -fsSL -o tools/android.jar "https://github.com/Sable/android-platforms/raw/master/android-28/android.jar" || \
+            curl -fsSL -o tools/android.jar "https://raw.githubusercontent.com/iBotPeaches/platform_frameworks_base/master/android-28.jar"
+          fi
+
+          # 3. Setup R8 / D8 compiler jar if absent
+          if [ ! -f "tools/r8.jar" ]; then
+            echo "[CI] Fetching r8.jar..."
+            curl -fsSL -o tools/r8.jar "https://dl.google.com/dl/android/maven2/com/android/tools/r8/8.2.42/r8-8.2.42.jar"
+          fi
+
+          # 4. Unpack repository core if language_server.tar.gz is present
+          if [ -f "core/language_server.tar.gz" ] && [ ! -f "core/language_server" ]; then
+            echo "[CI] Unpacking core/language_server.tar.gz..."
+            tar -xzf core/language_server.tar.gz -C core/
+            chmod +x core/language_server
+          elif [ -n "$VENDOR_URL" ]; then
+            echo "[CI] Downloading vendor inputs from $VENDOR_URL..."
+            mkdir -p vendor
+            curl -fsSL -o vendor.tar.gz "$VENDOR_URL"
+            tar -xzf vendor.tar.gz -C vendor
+            export AGY_HOME="$PWD/vendor"
+          fi
+
+      - name: Build Standard Release APK (dist/antigravity.apk)
+        run: |
+          bash build.sh
+
+      - name: Build Region Bypass Release APK (dist/antigravity-bypass.apk)
+        run: |
+          bash build.sh --region-bypass
+
+      - name: Compute Cryptographic Checksums
+        run: |
+          cd dist
+          sha256sum antigravity.apk antigravity-bypass.apk > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: antigravity-binaries
+          path: |
+            dist/antigravity.apk
+            dist/antigravity-bypass.apk
+            dist/SHA256SUMS.txt
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
+          name: Antigravity for Android ${{ github.event.inputs.tag_name || github.ref_name }}
+          draft: ${{ github.event.inputs.draft || false }}
+          prerelease: ${{ github.event.inputs.prerelease || false }}
+          files: |
+            dist/antigravity.apk
+            dist/antigravity-bypass.apk
+            dist/SHA256SUMS.txt
+          body: |
+            ## 🚀 Antigravity for Android (AGY v2) Release
+
+            ### 📦 Included Release APKs:
+            * **`antigravity.apk`** — Standard Production Release (Port 45157).
+            * **`antigravity-bypass.apk`** — Region Bypass Edition (includes eligibility & region gate patch).
+
+            ### 🛡️ SHA-256 Checksums:
+            Inspect `SHA256SUMS.txt` below to verify package integrity.

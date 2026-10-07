@@ -1,0 +1,28 @@
+#!/system/bin/sh
+# AGY URL opener shim. Installed as xdg-open / open_helper / sensible-browser.
+#
+# Contract:
+#   1. $1 (fallback $2) is the URL to open.
+#   2. Primary channel: print a single machine-readable line to stdout,
+#      "AGY_OPEN_URL=<url>", captured by CoreServerService's stdout bridge.
+#   3. Fallback channel: append the URL to "$TMPDIR/agy-open-url" so a watcher
+#      that polls the file still sees it.
+#   4. Opportunistic: termux-open, then /system/bin/am when available.
+# The shim never fails the caller: with no Android bridge it still exits 0.
+URL="$1"
+[ -z "$URL" ] && URL="$2"
+[ -z "$URL" ] && exit 0
+
+echo "AGY_OPEN_URL=$URL"
+
+if [ -n "$TMPDIR" ] && [ -d "$TMPDIR" ]; then
+  printf '%s\n' "$URL" >> "$TMPDIR/agy-open-url" 2>/dev/null || true
+fi
+
+if command -v termux-open >/dev/null 2>&1; then
+  termux-open "$URL" >/dev/null 2>&1 && exit 0
+fi
+if [ -x /system/bin/am ]; then
+  /system/bin/am start -a android.intent.action.VIEW -d "$URL" >/dev/null 2>&1 && exit 0
+fi
+exit 0

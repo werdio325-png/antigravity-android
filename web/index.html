@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Jetski Web</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0" />
+    <!-- Preconnect secondary CDNs for dynamic UI icons (Drive, Docs, Colab) -->
+    <link rel="preconnect" href="https://www.gstatic.com" />
+    <link rel="preconnect" href="https://ssl.gstatic.com" />
+    <!-- Preconnect to font origins for dynamic Google Symbols loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <link rel="icon" type="image/png" href="./antigravity-icon.png" />
+    <link rel="stylesheet" href="./jetbox.css" />
+    <link rel="stylesheet" href="./compiled_tailwind.css" />
+
+    <!-- Boot fragments (generated from web/src/boot/**). -->
+    <!-- Workaround for custom elements in overlay bundle -->
+    <script src="./generated/boot/custom-elements-guard.js"></script>
+    <!-- Fast theme bootstrap: honors light/dark from ?hostTheme / __AG_HOST_THEME__. -->
+    <script src="./generated/boot/theme-bootstrap.js"></script>
+
+    <!-- Fast Dark Theme Skeleton & Sleek Loading Screen Styles -->
+    <style>
+      :root {
+        --bg-main: #0b0e17;
+        --bg-card: rgba(18, 23, 38, 0.75);
+        --accent-glow: #38bdf8;
+        --text-primary: #f1f5f9;
+        --text-secondary: #94a3b8;
+      }
+      *, *::before, *::after {
+        box-sizing: border-box;
+      }
+      html, body {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: var(--bg-main);
+        color: var(--text-primary);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        overscroll-behavior: none;
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;
+      }
+      #root {
+        width: 100%;
+        height: 100%;
+      }
+      </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!--
+      Locked AGY UI load order (do not reorder):
+      web_optimizations.js -> touch_model_menu.js -> theme_sync.js
+      -> bridge.core.js -> prism_bundle.js (defer) -> main.js
+
+      bridge.cache.js was removed: main.js never referenced window.__agCache,
+      and the fetch interceptor is an unnecessary failure surface. core's fetch
+      rewrite is the only transport shim now.
+
+      startup_ready.js is injected natively by the Java agent; it is served from
+      ./generated/patches/startup_ready.js and intentionally absent here.
+    -->
+    <script src="./generated/patches/web_optimizations.js"></script>
+    <script src="./generated/patches/touch_model_menu.js"></script>
+    <script src="./generated/patches/theme_sync.js"></script>
+    <script src="./generated/bridge.core.js"></script>
+    <script defer src="./prism_bundle.js"></script>
+    <script src="./main.js"></script>
+  </body>
+</html>

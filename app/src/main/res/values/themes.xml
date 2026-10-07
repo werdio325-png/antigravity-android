@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Day (system light) splash theme. Extends AppTheme so all normal window
+      attributes (status/nav bar, colors, light bars) are already present after
+      the splash finishes. The AndroidX-only `android:postSplashScreenTheme`
+      attr is unavailable in this project (no androidx.core:core-splashscreen
+      dependency; plain aapt). Inheriting AppTheme gives the same effect.
+
+      API31+ splash attributes live in values-v31/themes.xml so the base build
+      still compiles on minSdk 24. Base windowBackground is the pre-API31
+      fallback: solid color + centered transparent logo.
+    -->
+    <style name="SplashTheme" parent="@style/AppTheme">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
+
+    <!--
+      OS starting-window themes bound to the launcher alias, so the tapped alias
+      encodes the persisted in-app theme (ThemeManager.applyLauncherIcon). Solid
+      windowBackground (no centered logo): the logo is the system splash icon on
+      API31+ (values-v31) and the 3-dot WebView overlay on API<31.
+    -->
+    <style name="SplashThemeDark" parent="@style/AppTheme">
+        <item name="android:windowBackground">@color/splash_bg_dark</item>
+    </style>
+    <style name="SplashThemeLight" parent="@style/AppTheme">
+        <item name="android:windowBackground">@color/splash_bg_light</item>
+    </style>
+</resources>

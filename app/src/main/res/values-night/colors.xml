@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark theme (system night mode) -->
+    <color name="window_background">#101010</color>
+    <!-- Adaptive launcher icon background for night; follows SYSTEM dark mode only. -->
+    <color name="ic_launcher_background">#101010</color>
+</resources>

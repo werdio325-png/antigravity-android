@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pre-API26 fallback for the light launcher alias (round). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/ic_launcher_background_light" />
+    <item android:drawable="@drawable/ic_launcher_foreground" />
+</layer-list>

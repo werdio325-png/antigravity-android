@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark theme default across all window backgrounds -->
+    <color name="window_background">#101010</color>
+    <!-- Adaptive launcher icon background for light/day; night override in values-night. -->
+    <color name="ic_launcher_background">#ffffff</color>
+    <!-- Fixed launcher-alias backgrounds: dark alias always #101010, light alias
+         always #ffffff, independent of the system night mode. -->
+    <color name="ic_launcher_background_dark">#101010</color>
+    <color name="ic_launcher_background_light">#ffffff</color>
+    <!-- Fixed OS-splash backgrounds, bound per launcher alias so the starting
+         window matches the persisted in-app theme, never the system day/night. -->
+    <color name="splash_bg_dark">#101010</color>
+    <color name="splash_bg_light">#ffffff</color>
+</resources>

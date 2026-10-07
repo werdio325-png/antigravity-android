@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# invariant -- verify asset staging is 1:1 with sources and preserves links.
+set -uo pipefail
+
+SELF="$(cd "$(dirname "$0")" && pwd)"
+ENV_DIR="$(cd "$SELF/.." && pwd)"
+DIST="${ASSETS:-$ENV_DIR/dist}"
+
+fail=0
+ok()  { printf 'PASS  %s\n' "$1"; }
+bad() { printf 'FAIL  %s\n' "$1"; fail=$((fail + 1)); }
+
+# 1. pkg/ and overlay/ copied byte-for-byte
+for src in pkg overlay; do
+    n=0; bad_n=0
+    while IFS= read -r -d '' f; do
+        n=$((n + 1))
+        rel="${f#"$ENV_DIR/$src/"}"
+        dst="$DIST/env/$src/$rel"
+        if [ ! -f "$dst" ]; then bad "missing: $src/$rel"; bad_n=$((bad_n + 1)); continue; fi
+        if [ "$(sha256sum "$f" | cut -d' ' -f1)" != "$(sha256sum "$dst" | cut -d' ' -f1)" ]; then
+            bad "content differs: $src/$rel"; bad_n=$((bad_n + 1))
+        fi
+    done < <(find "$ENV_DIR/$src" -type f -print0)
+    [ "$bad_n" = 0 ] && ok "$src: $n files 1:1" || true
+done
+
+# 2. bootstrap archive present and preserves symlinks
+TAR="$DIST/env/bootstrap/bootstrap.tar.gz"
+if [ -f "$TAR" ]; then
+    links="$(tar -tvzf "$TAR" 2>/dev/null | grep -c '^l')"
+    [ "$links" -ge 240 ] && ok "bootstrap symlinks preserved: $links" || bad "bootstrap symlinks: $links"
+    if tar -tvzf "$TAR" 2>/dev/null | grep 'bin/sh -> dash' >/dev/null; then
+        ok "bootstrap bin/sh symlink"
+    else
+        bad "bootstrap bin/sh symlink"
+    fi
+else
+    bad "missing bootstrap.tar.gz"
+fi
+
+# 3. no build metadata leaked into pkg/overlay
+while IFS= read -r -d '' f; do
+    case "$f" in
+        *.tmp|*.part) bad "stray temp file: ${f#"$DIST/"}" ;;
+    esac
+done < <(find "$DIST/env/pkg" "$DIST/env/overlay" -type f -print0)
+
+printf '== failures: %s ==\n' "$fail"
+[ "$fail" = 0 ]
