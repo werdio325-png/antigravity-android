@@ -9,9 +9,9 @@
 
   <!-- Project Banner: Theme-Adaptive -->
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner_dark.png">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner_dark.jpg">
     <source media="(prefers-color-scheme: light)" srcset="docs/assets/banner_light.png">
-    <img alt="Antigravity Banner" src="docs/assets/banner_dark.png" width="100%" style="border-radius: 12px; margin-bottom: 20px;" />
+    <img alt="Antigravity Banner" src="docs/assets/banner_dark.jpg" width="100%" style="border-radius: 12px; margin-bottom: 20px;" />
   </picture>
 
   <img src="docs/assets/logo.png" alt="Antigravity Logo" width="96" height="96" style="border-radius: 22px; margin-bottom: 14px;" />
@@ -27,15 +27,6 @@
     <code>Native Bionic</code> &nbsp;&bull;&nbsp;
     <code>Apache 2.0</code>
   </p>
-
-  <br/>
-
-  <!-- Hero Visual: Full Width & Theme-Adaptive -->
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/hero_light.png">
-    <img alt="Antigravity Workspace Interface" src="docs/assets/hero_dark.png" width="100%" style="border-radius: 14px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);" />
-  </picture>
 
 </div>
 
