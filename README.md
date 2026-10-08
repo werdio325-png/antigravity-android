@@ -7,6 +7,13 @@
 
   <br/>
 
+  <!-- Project Banner: Theme-Adaptive -->
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/banner_light.png">
+    <img alt="Antigravity Banner" src="docs/assets/banner_dark.png" width="100%" style="border-radius: 12px; margin-bottom: 20px;" />
+  </picture>
+
   <img src="docs/assets/logo.png" alt="Antigravity Logo" width="96" height="96" style="border-radius: 22px; margin-bottom: 14px;" />
 
   <p><font size="6"><b>Antigravity for Android</b></font></p>
