@@ -13,7 +13,7 @@ public final class DesktopModePrefs {
 
     public static boolean isDesktopMode(Context context) {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .getBoolean(KEY_DESKTOP_MODE, true);
+                .getBoolean(KEY_DESKTOP_MODE, false);
     }
 
     public static void setDesktopMode(Context context, boolean enabled) {

@@ -48,7 +48,7 @@ public final class UiBridge {
 
     public boolean isDesktopMode() {
         final MainActivity host = this.activity;
-        return host != null ? host.isDesktopMode() : true;
+        return host != null ? host.isDesktopMode() : false;
     }
 
     public void setDesktopMode(final boolean enabled) {

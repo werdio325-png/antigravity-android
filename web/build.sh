@@ -22,6 +22,10 @@ die() { printf 'build.sh: %s\n' "$*" >&2; exit 1; }
 
 [ -f "$MANIFEST" ] || die "manifest not found: $MANIFEST"
 
+if [ -f "$SCRIPT_DIR/patch_main.py" ] && [ -f "$SCRIPT_DIR/main.js" ]; then
+    python3 "$SCRIPT_DIR/patch_main.py" "$SCRIPT_DIR/main.js" || die "web/patch_main.py failed"
+fi
+
 rm -rf "$GEN_DIR"
 mkdir -p "$GEN_DIR"
 
