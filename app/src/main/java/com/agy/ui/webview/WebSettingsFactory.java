@@ -20,21 +20,27 @@ public final class WebSettingsFactory {
     private WebSettingsFactory() {
     }
 
+    private static String defaultUserAgent = null;
+
     public static void configure(WebView view) {
         WebSettings settings = view.getSettings();
+        if (defaultUserAgent == null) {
+            defaultUserAgent = settings.getUserAgentString();
+        }
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
-        settings.setUseWideViewPort(true);
-        settings.setLoadWithOverviewMode(true);
         settings.setSupportZoom(true);
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
         settings.setSupportMultipleWindows(true);
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
-        settings.setUserAgentString(DESKTOP_UA);
+
+        boolean desktop = DesktopModePrefs.isDesktopMode(view.getContext());
+        applyDesktopMode(view, desktop);
+
         // File + content access are needed for local assets requested by our UI.
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
@@ -55,5 +61,15 @@ public final class WebSettingsFactory {
                 Log.w(TAG, "setOffscreenPreRaster failed", e);
             }
         }
+    }
+
+    public static void applyDesktopMode(WebView view, boolean desktop) {
+        WebSettings settings = view.getSettings();
+        if (defaultUserAgent == null) {
+            defaultUserAgent = settings.getUserAgentString();
+        }
+        settings.setUserAgentString(desktop ? DESKTOP_UA : defaultUserAgent);
+        settings.setUseWideViewPort(desktop);
+        settings.setLoadWithOverviewMode(desktop);
     }
 }

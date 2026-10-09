@@ -69,6 +69,20 @@ public final class WebViewHost {
         return CoreUrl.startUrl(port, csrfToken);
     }
 
+    public boolean isDesktopMode() {
+        return DesktopModePrefs.isDesktopMode(context);
+    }
+
+    public void setDesktopMode(boolean enabled) {
+        DesktopModePrefs.setDesktopMode(context, enabled);
+        webView.post(new Runnable() {
+            @Override
+            public void run() {
+                WebSettingsFactory.applyDesktopMode(webView, enabled);
+            }
+        });
+    }
+
     /** Loads our asset UI with the app config injected ahead of every app script. */
     public void loadApp() {
         AppLoader.load(context, webView, theme, bridge);

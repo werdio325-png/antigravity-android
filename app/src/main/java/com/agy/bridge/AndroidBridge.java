@@ -63,6 +63,16 @@ public final class AndroidBridge {
     }
 
     @JavascriptInterface
+    public boolean isDesktopMode() {
+        return ui.isDesktopMode();
+    }
+
+    @JavascriptInterface
+    public void setDesktopMode(boolean enabled) {
+        ui.setDesktopMode(enabled);
+    }
+
+    @JavascriptInterface
     public boolean isEngineReady() {
         return engine.isReady();
     }

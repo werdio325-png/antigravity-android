@@ -45,4 +45,22 @@ public final class UiBridge {
             }
         });
     }
+
+    public boolean isDesktopMode() {
+        final MainActivity host = this.activity;
+        return host != null ? host.isDesktopMode() : true;
+    }
+
+    public void setDesktopMode(final boolean enabled) {
+        final MainActivity host = this.activity;
+        if (host == null) {
+            return;
+        }
+        host.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                host.setDesktopMode(enabled);
+            }
+        });
+    }
 }

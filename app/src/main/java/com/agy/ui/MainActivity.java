@@ -178,6 +178,18 @@ public class MainActivity extends Activity implements WebViewHost.Listener {
         splash.dismiss();
     }
 
+    public boolean isDesktopMode() {
+        return webViewHost != null ? webViewHost.isDesktopMode() : DesktopModePrefs.isDesktopMode(this);
+    }
+
+    public void setDesktopMode(boolean enabled) {
+        if (webViewHost != null) {
+            webViewHost.setDesktopMode(enabled);
+        } else {
+            DesktopModePrefs.setDesktopMode(this, enabled);
+        }
+    }
+
     @Override
     protected void onDestroy() {
         AppLifecycle.destroy(handler);
