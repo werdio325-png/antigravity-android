@@ -27,6 +27,7 @@ import com.agy.ui.lifecycle.AppLifecycle;
 import com.agy.ui.lifecycle.BackNavigator;
 import com.agy.ui.lifecycle.ThemeRefresher;
 import com.agy.ui.splash.SplashController;
+import com.agy.ui.webview.DesktopModePrefs;
 import com.agy.ui.webview.WebViewHost;
 import com.agy.util.ViewParams;
 
