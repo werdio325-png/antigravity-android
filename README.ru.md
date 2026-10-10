@@ -26,11 +26,11 @@
 
   <!-- Hero Visual -->
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo_benchmark_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo_benchmark_light.png">
-    <img alt="Интерфейс Antigravity в работе" src="docs/assets/demo_benchmark_dark.png" width="100%" style="border-radius: 14px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);" />
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/hero_light.png">
+    <img alt="Интерфейс Antigravity в работе" src="docs/assets/hero_dark.png" width="100%" style="border-radius: 14px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);" />
   </picture>
-  <p align="center"><font size="2" color="#7d8590">Автономное выполнение CLI-диагностики накопителя агентом на физическом устройстве (Linux 6.1, AArch64)</font></p>
+  <p align="center"><font size="2" color="#7d8590">Интерфейс автономной агентной разработки Antigravity на Android (Linux 6.1, AArch64)</font></p>
 
 </div>
 
