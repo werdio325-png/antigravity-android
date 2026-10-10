@@ -1,12 +1,12 @@
 #!/data/user/0/com.agy/files/usr/bin/bash
-# agy-notify - Post and manage Android notifications from AI Agent CLI
-# Supports direct ADB rish bridge and fallback modes. Zero emojis, pure utility.
+# agy-notify - Post and manage Android notifications with original Antigravity logo
+# Zero emojis, purely functional and cleanly formatted.
 
 set -e
 
 USAGE="Usage: agy-notify [post|cancel|list] [options]
 Commands:
-  post    -t <title> [-s <subtitle>] [-m <message>] [-tag <tag>]
+  post    -t <title> [-s <subtitle>] [-m <message>] [--tag <tag>]
   cancel  <tag>
   list    Show active notifications
 "
@@ -57,20 +57,31 @@ if [ "$CMD" = "post" ]; then
         BODY_TEXT="[$SUBTITLE] $MESSAGE"
     fi
 
-    # Try elevated Shizuku shell first if available
     RISH_BIN="/data/user/0/com.agy/files/usr/bin/rish"
     if [ -x "$RISH_BIN" ]; then
-        "$RISH_BIN" -c "cmd notification post -S bigtext -t $(printf %q "$TITLE") $(printf %q "$TAG") $(printf %q "$BODY_TEXT")" 2>/dev/null && exit 0
+        # Cache original Antigravity logo into /data/local/tmp for high-res notification icon
+        LOGO_CACHE="/data/local/tmp/agy_logo.png"
+        SRC_LOGO="/storage/emulated/0/Documents/antigravity_release/docs/assets/logo.png"
+        if [ ! -f "$LOGO_CACHE" ] && [ -f "$SRC_LOGO" ]; then
+            "$RISH_BIN" -c "cp -f $(printf %q "$SRC_LOGO") $(printf %q "$LOGO_CACHE") && chmod 644 $(printf %q "$LOGO_CACHE")" 2>/dev/null || true
+        fi
+
+        LARGE_ICON_OPT=""
+        if "$RISH_BIN" -c "test -f $LOGO_CACHE" 2>/dev/null; then
+            LARGE_ICON_OPT="-I file://$LOGO_CACHE"
+        fi
+
+        "$RISH_BIN" -c "cmd notification post -S bigtext $LARGE_ICON_OPT -t $(printf %q "$TITLE") $(printf %q "$TAG") $(printf %q "$BODY_TEXT")" 2>/dev/null && exit 0
     fi
 
-    # Fallback to direct am/cmd if running with proper permissions
+    # Fallback if without rish
     cmd notification post -S bigtext -t "$TITLE" "$TAG" "$BODY_TEXT" 2>/dev/null && exit 0 || true
     echo "[agy-notify] notification queued: $TITLE - $MESSAGE"
 
 elif [ "$CMD" = "cancel" ]; then
     RISH_BIN="/data/user/0/com.agy/files/usr/bin/rish"
     if [ -x "$RISH_BIN" ]; then
-        "$RISH_BIN" -c "cmd notification cancel $(printf %q "$TITLE")" 2>/dev/null || true
+        "$RISH_BIN" -c "cmd notification cancel $(printf %q "$TAG")" 2>/dev/null || true
     fi
 
 elif [ "$CMD" = "list" ]; then

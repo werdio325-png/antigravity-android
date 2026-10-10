@@ -30,7 +30,9 @@ public final class ForegroundNotification {
         Notification notification = builder
                 .setContentTitle("Antigravity")
                 .setContentText("Core running")
-                .setSmallIcon(android.R.drawable.stat_notify_sync)
+                .setSmallIcon(service.getResources().getIdentifier("ic_notification", "drawable", service.getPackageName()) != 0
+                        ? service.getResources().getIdentifier("ic_notification", "drawable", service.getPackageName())
+                        : android.R.drawable.stat_notify_sync)
                 .setOngoing(true)
                 .build();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

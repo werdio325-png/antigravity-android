@@ -15,18 +15,24 @@ public final class SplashRetryBridge {
     private SplashRetryBridge() {
     }
 
-    /** Binds the retry bridge to the splash WebView. Call once per splash view. */
-    public static void bind(WebView splashView, SplashRetryListener listener) {
-        if (splashView == null || listener == null) {
+    /** Binds the retry and log export bridge to the splash WebView. */
+    public static void bind(WebView splashView, android.content.Context context, SplashRetryListener listener) {
+        if (splashView == null) {
             return;
         }
-        splashView.addJavascriptInterface(new Bridge(listener), RETRY_BRIDGE);
+        splashView.addJavascriptInterface(new Bridge(context, listener), RETRY_BRIDGE);
+    }
+
+    public static void bind(WebView splashView, SplashRetryListener listener) {
+        bind(splashView, null, listener);
     }
 
     private static final class Bridge {
+        private final android.content.Context context;
         private final SplashRetryListener listener;
 
-        Bridge(SplashRetryListener listener) {
+        Bridge(android.content.Context context, SplashRetryListener listener) {
+            this.context = context != null ? context.getApplicationContext() : null;
             this.listener = listener;
         }
 
@@ -36,9 +42,31 @@ public final class SplashRetryBridge {
                 @Override
                 public void run() {
                     try {
-                        listener.onRetry();
+                        if (listener != null) {
+                            listener.onRetry();
+                        }
                     } catch (Exception ignored) {
                     }
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void copyLogs() {
+            MAIN.post(new Runnable() {
+                @Override
+                public void run() {
+                    LogExporter.copyToClipboard(context);
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void saveLogs() {
+            MAIN.post(new Runnable() {
+                @Override
+                public void run() {
+                    LogExporter.saveAndShare(context);
                 }
             });
         }

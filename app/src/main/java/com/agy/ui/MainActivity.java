@@ -13,6 +13,10 @@ import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.content.ActivityNotFoundException;
+import android.content.ClipData;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
 
@@ -27,6 +31,7 @@ import com.agy.ui.lifecycle.AppLifecycle;
 import com.agy.ui.lifecycle.BackNavigator;
 import com.agy.ui.lifecycle.ThemeRefresher;
 import com.agy.ui.splash.SplashController;
+import com.agy.ui.webview.AgyWebChromeClient;
 import com.agy.ui.webview.DesktopModePrefs;
 import com.agy.ui.webview.WebViewHost;
 import com.agy.util.ViewParams;
@@ -36,12 +41,16 @@ import com.agy.util.ViewParams;
  * three-dot splash until the core UI has rendered, and wires theming/OAuth.
  * All logic lives in the helper classes; this only wires them and polls.
  */
-public class MainActivity extends Activity implements WebViewHost.Listener {
+public class MainActivity extends Activity
+        implements WebViewHost.Listener, AgyWebChromeClient.FileChooserCallback {
 
     private static final String TAG = "MainActivity";
     private static final int REQUEST_STORAGE = 100;
+    private static final int REQUEST_FILE_CHOOSER = 1002;
     private static final long SPLASH_TIMEOUT_MS = 45000;
     private static final long POLL_INTERVAL_MS = 50;
+
+    private ValueCallback<Uri[]> filePathCallback;
 
     private ThemeManager themeManager;
     private OAuthManager oauthManager;
@@ -114,7 +123,7 @@ public class MainActivity extends Activity implements WebViewHost.Listener {
         shizukuBridge = new ShizukuBridge(this);
         androidBridge = new AndroidBridge(this, runtimeManager, shizukuBridge, oauthManager, themeManager);
         androidBridge.setActivity(this);
-        webViewHost = new WebViewHost(this, themeManager, oauthManager, androidBridge);
+        webViewHost = new WebViewHost(this, themeManager, oauthManager, androidBridge, this);
         webViewHost.setListener(this);
 
         rootLayout = new FrameLayout(this);
@@ -281,6 +290,74 @@ public class MainActivity extends Activity implements WebViewHost.Listener {
                         android.Manifest.permission.READ_EXTERNAL_STORAGE,
                         android.Manifest.permission.WRITE_EXTERNAL_STORAGE
                 }, REQUEST_STORAGE);
+            }
+        }
+    }
+
+    @Override
+    public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> callback,
+                                      WebChromeClient.FileChooserParams fileChooserParams) {
+        if (filePathCallback != null) {
+            filePathCallback.onReceiveValue(null);
+            filePathCallback = null;
+        }
+        this.filePathCallback = callback;
+
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+
+        if (fileChooserParams != null
+                && fileChooserParams.getMode() == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) {
+            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        }
+
+        try {
+            startActivityForResult(intent, REQUEST_FILE_CHOOSER);
+            return true;
+        } catch (ActivityNotFoundException e) {
+            try {
+                Intent fallback = new Intent(Intent.ACTION_GET_CONTENT);
+                fallback.addCategory(Intent.CATEGORY_OPENABLE);
+                fallback.setType("*/*");
+                if (fileChooserParams != null
+                        && fileChooserParams.getMode() == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) {
+                    fallback.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                }
+                startActivityForResult(Intent.createChooser(fallback, "Select File"), REQUEST_FILE_CHOOSER);
+                return true;
+            } catch (Exception ex) {
+                Log.e(TAG, "Cannot launch file chooser: " + ex.getMessage());
+                if (filePathCallback != null) {
+                    filePathCallback.onReceiveValue(null);
+                    filePathCallback = null;
+                }
+                return false;
+            }
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_FILE_CHOOSER) {
+            if (filePathCallback != null) {
+                Uri[] results = null;
+                if (resultCode == RESULT_OK && data != null) {
+                    ClipData clipData = data.getClipData();
+                    if (clipData != null && clipData.getItemCount() > 0) {
+                        results = new Uri[clipData.getItemCount()];
+                        for (int i = 0; i < clipData.getItemCount(); i++) {
+                            results[i] = clipData.getItemAt(i).getUri();
+                        }
+                    } else if (data.getData() != null) {
+                        results = new Uri[]{data.getData()};
+                    } else if (data.getDataString() != null) {
+                        results = new Uri[]{Uri.parse(data.getDataString())};
+                    }
+                }
+                filePathCallback.onReceiveValue(results);
+                filePathCallback = null;
             }
         }
     }

@@ -19,6 +19,7 @@ public final class SplashController {
     public static final int MODE_TRANSIENT = 1;
     public static final int MODE_ERROR = 2;
 
+    private final Context context;
     private final WebView view;
     private final ThemeManager theme;
     private final FrameLayout root;
@@ -29,6 +30,7 @@ public final class SplashController {
     private int mode = MODE_LOADING;
 
     public SplashController(Context context, ThemeManager theme, FrameLayout root) {
+        this.context = context;
         this.theme = theme;
         this.root = root;
         this.view = new WebView(context);
@@ -49,7 +51,7 @@ public final class SplashController {
 
     public void setRetryListener(SplashRetryListener listener) {
         this.retryListener = listener;
-        SplashRetryBridge.bind(view, listener);
+        SplashRetryBridge.bind(view, context, listener);
     }
 
     /** First render of the loading splash (before any show* call). */
@@ -88,7 +90,7 @@ public final class SplashController {
         fatalShown = true;
         mode = MODE_ERROR;
         setVisible();
-        SplashRetryBridge.bind(view, retryListener);
+        SplashRetryBridge.bind(view, context, retryListener);
         SplashOverlayHtml.show(view, "Antigravity failed to start", message,
                 foreground(), background(), retryListener != null);
     }

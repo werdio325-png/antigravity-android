@@ -2,11 +2,17 @@
 """
 agy-daemon - Ultra-lightweight background scheduler & autonomous watcher for Antigravity (AGY v2).
 Zero emojis. Minimal memory footprint (<10MB). Runs smoothly with screen off under partial wakelock.
-Supports:
-  - Exact time delay triggers ("after 4 hours do X")
-  - GitHub repo polling triggers ("if new PR or issue appears, trigger task")
-  - Cron / periodic triggers ("every N minutes")
-  - System notification dispatch & status reporting
+
+Triggers supported:
+  --delay <duration>        Run task after delay (e.g. 4h, 30m, 10s)
+  --interval <duration>     Run task periodically (e.g. 15m, 1h)
+  --cron "<5-field cron>"   Standard cron schedule (e.g. "0 3 * * *")
+  --github-pr <owner/repo>  Watch GitHub repository for new pull requests
+  --github-issue <owner/repo> Watch GitHub repository for new issues
+  --watch-file <path>       Trigger task whenever file or directory changes
+  --battery-below <percent> Trigger task when battery falls below percentage
+  --webhook-port <port>     Start a lightweight HTTP webhook receiver for incoming triggers
+  --wake-app                Bring Antigravity workspace to foreground upon completion
 """
 
 import sys
@@ -18,6 +24,8 @@ import argparse
 import subprocess
 import urllib.request
 import urllib.error
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
 
 CONFIG_DIR = os.path.expanduser("~/.gemini/antigravity-app/daemon")
 TASKS_FILE = os.path.join(CONFIG_DIR, "tasks.json")
@@ -29,20 +37,21 @@ def log(msg):
     formatted = f"[{ts}] {msg}"
     print(formatted, flush=True)
     try:
+        os.makedirs(CONFIG_DIR, exist_ok=True)
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(formatted + "\n")
     except Exception:
         pass
 
 def notify(title, message, tag=None):
-    log(f"Notify: {title} - {message}")
+    log(f"Notification: {title} - {message}")
     cmd = ["agy-notify", "post", "-t", title, "-m", message]
     if tag:
         cmd.extend(["--tag", tag])
     try:
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception as e:
-        log(f"Notification error: {e}")
+        log(f"Notification failed: {e}")
 
 def load_tasks():
     if not os.path.isfile(TASKS_FILE):
@@ -61,11 +70,22 @@ def save_tasks(tasks):
         json.dump(tasks, f, indent=2, ensure_ascii=False)
     os.replace(tmp_path, TASKS_FILE)
 
+def wake_antigravity_app():
+    log("Waking Antigravity activity to foreground...")
+    try:
+        rish = "/data/user/0/com.agy/files/usr/bin/rish"
+        if os.path.isfile(rish):
+            subprocess.run([rish, "-c", "am start -n com.agy/.ui.MainActivity"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            subprocess.run(["am", "start", "-n", "com.agy/.ui.MainActivity"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception as e:
+        log(f"Cannot wake app: {e}")
+
 def execute_action(task):
-    action_type = task.get("action_type", "shell")
     command = task.get("command", "")
     task_id = task.get("id", "unknown")
     name = task.get("name", task_id)
+    wake_app = task.get("wake_app", False)
 
     log(f"Executing task [{name}] (id: {task_id}): {command}")
     notify("Antigravity Daemon", f"Running task: {name}", tag=f"task_{task_id}")
@@ -97,16 +117,19 @@ def execute_action(task):
     
     notify(
         f"Task {status_str}: {name}",
-        f"Finished in {duration}s. {output[:100]}",
+        f"Finished in {duration}s. {output[:120]}",
         tag=f"task_done_{task_id}"
     )
 
-def check_github_pr(trigger_info, task):
+    if wake_app:
+        wake_antigravity_app()
+
+def check_github_repo(trigger_info, endpoint_type="pulls"):
     repo = trigger_info.get("repo")
     if not repo:
         return False
     token = os.environ.get("GITHUB_TOKEN") or trigger_info.get("token")
-    url = f"https://api.github.com/repos/{repo}/pulls?state=open"
+    url = f"https://api.github.com/repos/{repo}/{endpoint_type}?state=open"
     headers = {"User-Agent": "Antigravity-Daemon", "Accept": "application/vnd.github.v3+json"}
     if token:
         headers["Authorization"] = f"token {token}"
@@ -115,22 +138,85 @@ def check_github_pr(trigger_info, task):
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         
-        last_count = trigger_info.get("last_pr_count")
+        last_count_key = f"last_{endpoint_type}_count"
+        last_count = trigger_info.get(last_count_key)
         current_count = len(data)
-        trigger_info["last_pr_count"] = current_count
+        trigger_info[last_count_key] = current_count
         trigger_info["last_check_ts"] = time.time()
 
         if last_count is not None and current_count > last_count:
-            new_pr = data[0] if data else {}
-            title = new_pr.get("title", "New PR")
-            log(f"GitHub trigger fired for {repo}: new PR found '{title}'")
+            item = data[0] if data else {}
+            title = item.get("title", f"New {endpoint_type}")
+            log(f"GitHub trigger fired for {repo} ({endpoint_type}): '{title}'")
             return True
     except Exception as e:
         log(f"GitHub check error for {repo}: {e}")
     return False
 
+def check_file_watcher(trigger_info):
+    target_path = trigger_info.get("path")
+    if not target_path or not os.path.exists(target_path):
+        return False
+    try:
+        last_mtime = trigger_info.get("last_mtime", 0)
+        curr_mtime = os.path.getmtime(target_path)
+        if last_mtime == 0:
+            trigger_info["last_mtime"] = curr_mtime
+            return False
+        if curr_mtime > last_mtime:
+            trigger_info["last_mtime"] = curr_mtime
+            log(f"File watch trigger fired for: {target_path}")
+            return True
+    except Exception as e:
+        log(f"File watch error: {e}")
+    return False
+
+def check_battery_condition(trigger_info):
+    target_level = trigger_info.get("below_level")
+    if target_level is None:
+        return False
+    try:
+        rish = "/data/user/0/com.agy/files/usr/bin/rish"
+        p = subprocess.run([rish, "-c", "dumpsys battery"], stdout=subprocess.PIPE, text=True, timeout=5)
+        for line in p.stdout.splitlines():
+            if "level:" in line:
+                val = int(line.split(":", 1)[1].strip())
+                return val <= target_level
+    except Exception:
+        pass
+    return False
+
+def start_webhook_listener(port):
+    class WebhookHandler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length).decode("utf-8")
+            log(f"Incoming webhook on port {port}: {body[:200]}")
+            
+            # Check for triggered tasks
+            tasks = load_tasks()
+            fired = False
+            for t in tasks:
+                if t.get("enabled", True) and t.get("trigger", {}).get("type") == "webhook":
+                    execute_action(t)
+                    fired = True
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok", "fired": fired}).encode("utf-8"))
+
+        def log_message(self, format, *args):
+            pass
+
+    server = HTTPServer(("127.0.0.1", port), WebhookHandler)
+    log(f"Local webhook receiver listening on http://127.0.0.1:{port}")
+    server.serve_forever()
+
 def daemon_loop():
-    log("Antigravity background daemon loop initialized.")
+    log("Antigravity background micro-daemon running.")
+    webhook_threads = {}
+
     while True:
         try:
             tasks = load_tasks()
@@ -166,9 +252,43 @@ def daemon_loop():
                     interval = trigger.get("interval_sec", 180)
                     last_check = trigger.get("last_check_ts", 0)
                     if (now - last_check) >= interval:
-                        if check_github_pr(trigger, task):
+                        if check_github_repo(trigger, "pulls"):
                             should_run = True
                         changed = True
+
+                elif ttype == "github_issue":
+                    interval = trigger.get("interval_sec", 180)
+                    last_check = trigger.get("last_check_ts", 0)
+                    if (now - last_check) >= interval:
+                        if check_github_repo(trigger, "issues"):
+                            should_run = True
+                        changed = True
+
+                elif ttype == "watch_file":
+                    interval = trigger.get("interval_sec", 15)
+                    last_check = trigger.get("last_check_ts", 0)
+                    if (now - last_check) >= interval:
+                        trigger["last_check_ts"] = now
+                        if check_file_watcher(trigger):
+                            should_run = True
+                        changed = True
+
+                elif ttype == "battery":
+                    interval = trigger.get("interval_sec", 300)
+                    last_check = trigger.get("last_check_ts", 0)
+                    if (now - last_check) >= interval:
+                        trigger["last_check_ts"] = now
+                        if check_battery_condition(trigger):
+                            should_run = True
+                            task["enabled"] = False
+                        changed = True
+
+                elif ttype == "webhook":
+                    port = trigger.get("port", 45199)
+                    if port not in webhook_threads:
+                        t = threading.Thread(target=start_webhook_listener, args=(port,), daemon=True)
+                        t.start()
+                        webhook_threads[port] = t
 
                 if should_run:
                     execute_action(task)
@@ -177,9 +297,19 @@ def daemon_loop():
                 save_tasks(tasks)
 
         except Exception as e:
-            log(f"Loop iteration error: {e}")
+            log(f"Loop error: {e}")
 
         time.sleep(10)
+
+def parse_duration(s):
+    s = str(s).strip()
+    if s.endswith("h"):
+        return int(float(s[:-1]) * 3600)
+    elif s.endswith("m"):
+        return int(float(s[:-1]) * 60)
+    elif s.endswith("s"):
+        return int(float(s[:-1]))
+    return int(s)
 
 def cmd_add(args):
     tasks = load_tasks()
@@ -187,7 +317,6 @@ def cmd_add(args):
     trigger = {}
 
     if args.delay:
-        # Format e.g. 10m, 4h, 30s, or seconds
         delay_sec = parse_duration(args.delay)
         trigger = {
             "type": "delay",
@@ -207,14 +336,38 @@ def cmd_add(args):
             "repo": args.github_pr,
             "interval_sec": parse_duration(args.interval or "180s")
         }
+    elif args.github_issue:
+        trigger = {
+            "type": "github_issue",
+            "repo": args.github_issue,
+            "interval_sec": parse_duration(args.interval or "180s")
+        }
+    elif args.watch_file:
+        trigger = {
+            "type": "watch_file",
+            "path": os.path.abspath(args.watch_file),
+            "interval_sec": parse_duration(args.interval or "15s")
+        }
+    elif args.battery_below:
+        trigger = {
+            "type": "battery",
+            "below_level": int(args.battery_below),
+            "interval_sec": parse_duration(args.interval or "300s")
+        }
+    elif args.webhook_port:
+        trigger = {
+            "type": "webhook",
+            "port": int(args.webhook_port)
+        }
     else:
-        print("[agy-daemon] error: specify trigger (--delay, --interval, or --github-pr)")
+        print("[agy-daemon] error: specify trigger (--delay, --interval, --github-pr, --github-issue, --watch-file, --battery-below, or --webhook-port)")
         sys.exit(1)
 
     new_task = {
         "id": task_id,
         "name": args.name or task_id,
         "command": args.command,
+        "wake_app": args.wake_app or False,
         "trigger": trigger,
         "enabled": True,
         "created_at": time.time()
@@ -223,6 +376,20 @@ def cmd_add(args):
     save_tasks(tasks)
     print(f"[agy-daemon] Task added: {new_task['name']} (ID: {task_id})")
 
+def cmd_remove(args):
+    tasks = load_tasks()
+    initial_len = len(tasks)
+    tasks = [t for t in tasks if t.get("id") != args.id and t.get("name") != args.id]
+    if len(tasks) < initial_len:
+        save_tasks(tasks)
+        print(f"[agy-daemon] Task removed: {args.id}")
+    else:
+        print(f"[agy-daemon] Task not found: {args.id}")
+
+def cmd_clear(args):
+    save_tasks([])
+    print("[agy-daemon] All scheduled tasks cleared.")
+
 def cmd_list(args):
     tasks = load_tasks()
     print(f"Total scheduled tasks: {len(tasks)}")
@@ -230,37 +397,33 @@ def cmd_list(args):
         status = "Active" if t.get("enabled") else "Disabled"
         print(f"- [{t['id']}] {t.get('name')} | Status: {status} | Trigger: {t.get('trigger', {}).get('type')}")
         print(f"  Command: {t.get('command')}")
-
-def parse_duration(s):
-    s = str(s).strip()
-    if s.endswith("h"):
-        return int(float(s[:-1]) * 3600)
-    elif s.endswith("m"):
-        return int(float(s[:-1]) * 60)
-    elif s.endswith("s"):
-        return int(float(s[:-1]))
-    return int(s)
+        if t.get("wake_app"):
+            print("  Wake UI: Enabled")
 
 def main():
     parser = argparse.ArgumentParser(description="Antigravity Micro-Daemon")
     subparsers = parser.add_subparsers(dest="subcommand")
 
-    # start
     subparsers.add_parser("start", help="Start daemon service")
-    # stop
     subparsers.add_parser("stop", help="Stop daemon service")
-    # status
     subparsers.add_parser("status", help="Get daemon status")
-    # list
     subparsers.add_parser("list", help="List active jobs")
+    subparsers.add_parser("clear", help="Clear all jobs")
 
-    # add
+    p_rm = subparsers.add_parser("remove", help="Remove task by id or name")
+    p_rm.add_argument("id", help="Task ID or name")
+
     p_add = subparsers.add_parser("add", help="Schedule a new task")
     p_add.add_argument("--name", help="Human-readable task name")
     p_add.add_argument("--command", required=True, help="Shell command to execute")
     p_add.add_argument("--delay", help="Execute after duration, e.g. 4h, 30m, 60s")
     p_add.add_argument("--interval", help="Execute periodically, e.g. 15m, 1h")
     p_add.add_argument("--github-pr", help="Watch GitHub repo for new PRs, e.g. user/repo")
+    p_add.add_argument("--github-issue", help="Watch GitHub repo for new issues, e.g. user/repo")
+    p_add.add_argument("--watch-file", help="Watch file or directory path for changes")
+    p_add.add_argument("--battery-below", help="Trigger when battery percentage falls below value")
+    p_add.add_argument("--webhook-port", help="Start HTTP webhook receiver on port")
+    p_add.add_argument("--wake-app", action="store_true", help="Bring Antigravity UI to front when task finishes")
 
     args = parser.parse_args()
 
@@ -271,6 +434,10 @@ def main():
         daemon_loop()
     elif args.subcommand == "add":
         cmd_add(args)
+    elif args.subcommand == "remove":
+        cmd_remove(args)
+    elif args.subcommand == "clear":
+        cmd_clear(args)
     elif args.subcommand == "list":
         cmd_list(args)
     elif args.subcommand == "status":
