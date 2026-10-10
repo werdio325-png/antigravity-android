@@ -7,41 +7,42 @@
 
   <br/>
 
-  <img src="docs/assets/logo.png" alt="Логотип Antigravity" width="96" height="96" style="border-radius: 22px; margin-bottom: 14px;" />
+  <img src="docs/assets/logo.png" alt="Antigravity" width="96" height="96" style="border-radius: 22px; margin-bottom: 12px;" />
 
   <p><font size="6"><b>Antigravity для Android</b></font></p>
 
-  <p><font color="#7d8590">Автономная агентная среда разработки, созданная нативно для Android и ARM64.</font></p>
+  <p><font color="#7d8590">Автономная среда ИИ-разработки, созданная нативно для Android и ARM64.</font></p>
 
   <p>
     <code>Android 7.0+</code> &nbsp;&bull;&nbsp;
     <code>ARM64 v8.1-A+</code> &nbsp;&bull;&nbsp;
     <code>Shizuku Ready</code> &nbsp;&bull;&nbsp;
     <code>Native Bionic</code> &nbsp;&bull;&nbsp;
+    <code>Seamless Upgrades</code> &nbsp;&bull;&nbsp;
     <code>Apache 2.0</code>
   </p>
 
   <br/>
 
-  <!-- Hero Visual: Full Width & Theme-Adaptive -->
+  <!-- Hero Visual -->
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/hero_light.png">
-    <img alt="Интерфейс Antigravity" src="docs/assets/hero_dark.png" width="100%" style="border-radius: 14px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);" />
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo_benchmark_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo_benchmark_light.png">
+    <img alt="Интерфейс Antigravity в работе" src="docs/assets/demo_benchmark_dark.png" width="100%" style="border-radius: 14px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);" />
   </picture>
 
 </div>
 
 ---
 
-<p><font size="5"><b>Обзор</b></font></p>
+<p><font size="5"><b>О платформе</b></font></p>
 
-**Antigravity для Android** переносит платформу автономного ИИ-программирования от Google нативно на мобильные устройства и планшеты.
+**Antigravity для Android** переносит автономную агентную среду разработки от Google прямо на мобильные устройства и планшеты.
 
-В отличие от обычных чат-оболочек или тяжелых виртуальных контейнеров, Antigravity напрямую объединяет нативный изолированный Linux userspace на базе Bionic с автономным ядром агента. Агент анализирует кодовые базы, редактирует дерево проекта, запускает локальные компиляторы, выполняет тесты и проверяет работу кода прямо на физическом устройстве.
+В отличие от простых чат-оболочек или тяжелых виртуальных контейнеров, Antigravity функционирует **нативно в пространстве пользователя Android** без PRoot, QEMU и накладных расходов трансляции. Интегрированное ядро Gemini анализирует кодовые базы, редактирует дерево проекта, выполняет команды в терминале и тестирует приложения прямо на физическом мобильном железе.
 
 > [!NOTE]
-> **Нативная производительность без контейнеров:** Выполняется напрямую в пространстве пользователя без накладных расходов PRoot, QEMU или трансляции chroot.
+> **Нативная производительность без эмуляции:** Процессы исполняются напрямую на процессоре устройства через Bionic/Glibc userspace, используя аппаратную скорость памяти UFS (более 1.2 ГБ/с) и нативные инструкции ARMv8.1-A+ LSE.
 
 ---
 
@@ -50,44 +51,136 @@
 <table width="100%" style="border-collapse: separate; border-spacing: 8px; border: none;">
   <tr>
     <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>Автономный агентный движок</b></font></p>
-      <p><font color="#7d8590">Прямая интеграция с моделями Gemini. Составляет планы реализации, вносит правки в проект, диагностирует ошибки сборки и координирует субагентов.</font></p>
+      <p><font size="4"><b>🤖 Автономный агент Gemini</b></font></p>
+      <p><font color="#7d8590">Полный цикл разработки: декомпозиция задач, многофайловые правки, компиляция кода, запуск тестов и исправление ошибок.</font></p>
     </td>
     <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>Привилегии Shizuku и Rish</b></font></p>
-      <p><font color="#7d8590">Повышение привилегий ADB без root (<code>uid=2000</code>). Полный доступ к общей памяти, управление пакетами (<code>pm install</code>) и системная диагностика.</font></p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>Встроенный менеджер пакетов</b></font></p>
-      <p><font color="#7d8590">Включает <code>pkg</code> (tlx) — легковесный менеджер пакетов на чистом Bash и AWK. Быстро устанавливает инструменты разработки (<code>git</code>, <code>python</code>, <code>node</code>) за секунды.</font></p>
-    </td>
-    <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>Адаптивный сенсорный интерфейс</b></font></p>
-      <p><font color="#7d8590">Оптимизирован для планшетов: раздельные панели, отслеживание виртуальной клавиатуры, синхронизация цветов статус-бара и жестовое управление.</font></p>
+      <p><font size="4"><b>⚡ Привилегии Shizuku (Rish)</b></font></p>
+      <p><font color="#7d8590">Повышение прав до уровня ADB (<code>uid=2000</code>) без root: установка APK (<code>pm install</code>), доступ к системным логам и общим директориям.</font></p>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>Низкоуровневые патчи AArch64</b></font></p>
-      <p><font color="#7d8590">Конвейер модификации бинарников для обхода ограничений seccomp ядра Android, корректировки регистров и перехвата системных вызовов libc.</font></p>
+      <p><font size="4"><b>📦 Нативный менеджер пакетов</b></font></p>
+      <p><font color="#7d8590">Встроенный быстрый менеджер <code>pkg</code> на чистом Bash & AWK. Мгновенная установка <code>git</code>, <code>python</code>, <code>nodejs</code>, <code>clang</code> из зеркал Termux.</font></p>
     </td>
     <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>Детерминированная сборка без Gradle</b></font></p>
-      <p><font color="#7d8590">Быстрая компиляция через прямой вызов <code>aapt</code>, <code>javac</code>, <code>d8</code> и <code>apksigner</code>. Создает подписанные релизные APK менее чем за 4 секунды.</font></p>
+      <p><font size="4"><b>📱 Два режима: Mobile & Desktop</b></font></p>
+      <p><font color="#7d8590">Крупный сенсорный интерфейс по умолчанию для телефонов и масштабированный десктопный режим для планшетов, клавиатур и Samsung DeX.</font></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
+      <p><font size="4"><b>🧠 Осведомлённость об Android</b></font></p>
+      <p><font color="#7d8590">Предустановленный системный контекст (<code>AGENTS.md</code>) обучает агента архитектуре Android, путям префикса и предотвращает ошибки песочницы.</font></p>
+    </td>
+    <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
+      <p><font size="4"><b>🔄 Бесшовные обновления</b></font></p>
+      <p><font color="#7d8590">Единый релизный ключ подписи (Keystore): новые версии APK обновляются поверх без удаления и без потери локальных данных и сессий.</font></p>
     </td>
   </tr>
 </table>
 
+---
+
+<p><font size="5"><b>Поэтапная презентация продукта</b></font></p>
+
+### Этап 1. Рабочее пространство разработчика
+
+Интерфейс спроектирован специально для мобильных устройств: боковая панель проектов, удобное переключение сессий, выбор моделей Gemini и поддержка как тёмной, так и светлой системной темы.
+
+<br/>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/workspace_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/workspace_light.png">
+  <img alt="Рабочее пространство Antigravity" src="docs/assets/workspace_dark.png" width="100%" style="border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.25);" />
+</picture>
+
+<br/>
+
+---
+
+### Этап 2. Адаптивность: переключение Mobile & Desktop Mode
+
+В настройках внешнего вида (*Appearance*) доступен моментальный переключатель **Desktop Mode**:
+* **Mobile Mode (по умолчанию):** Крупные элементы управления, оптимизация под управление одной рукой и виртуальную клавиатуру.
+* **Desktop Mode:** Полноценный рабочий стол с широким обзором кода и десктопным User-Agent (идеально при подключении клавиатуры, мыши или внешнего монитора).
+* *Переключение перезагружает вьюпорт на лету без перезапуска всего приложения.*
+
+<br/>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/settings_desktop_mode_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/settings_desktop_mode_light.png">
+  <img alt="Настройки Appearance и переключатель Desktop Mode" src="docs/assets/settings_desktop_mode_dark.png" width="100%" style="border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.25);" />
+</picture>
+
+<br/>
+
+---
+
+### Этап 3. Автономный агент в процессе работы
+
+Агент не просто генерирует код, а самостоятельно исследует систему: выполняет терминальные команды в среде Bionic, создаёт изолированные директории для разработки, запускает скрипты и анализирует вывод ошибок в реальном времени.
+
+<br/>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo_exec_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo_exec_light.png">
+  <img alt="Исполнение терминальных команд агентом" src="docs/assets/demo_exec_dark.png" width="100%" style="border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.25);" />
+</picture>
+
+<br/>
+
+---
+
+### Этап 4. Системная мощь и реальные результаты
+
+Пример реальной демонстрации: агент по запросу написал на Python инструмент замера скорости внутреннего накопителя UFS, выполнил тесты и сформировал сводный отчёт. Скорость последовательного чтения превысила **1.2 ГБ/с**, а случайной записи достигла **84 000 IOPS** — подтверждая производительность нативного выполнения кода на Android.
+
+<br/>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo_benchmark_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo_benchmark_light.png">
+  <img alt="Результаты бенчмарка памяти агентом" src="docs/assets/demo_benchmark_dark.png" width="100%" style="border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.25);" />
+</picture>
+
+<br/>
+
+---
+
+<p><font size="5"><b>Пошаговый быстрый старт</b></font></p>
+
+<table width="100%" style="border-collapse: separate; border-spacing: 8px; border: none;">
+  <tr>
+    <td width="33%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
+      <p><font size="4"><b>1. Скачать релизный APK</b></font></p>
+      <p><font color="#7d8590">В разделе <a href="https://github.com/werdio325-png/antigravity-android/releases">Релизов</a> доступны сборки:<br/><br/>
+      &bull; <b><code>antigravity.apk</code></b> — стандартная версия.<br/>
+      &bull; <b><code>antigravity-bypass.apk</code></b> — сборка с региональным обходом.<br/><br/>
+      <i>Обновления можно ставить поверх без потери сессий.</i></font></p>
+    </td>
+    <td width="33%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
+      <p><font size="4"><b>2. Выдать разрешения</b></font></p>
+      <p><font color="#7d8590">При первом входе предоставьте доступ ко всем файлам (<code>MANAGE_EXTERNAL_STORAGE</code>).<br/><br/>
+      <i>(Опционально)</i> Запустите <b>Shizuku</b> и выдайте права приложению для доступа к ADB Shell без root-прав.</font></p>
+    </td>
+    <td width="33%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
+      <p><font size="4"><b>3. Установить окружение</b></font></p>
+      <p><font color="#7d8590">Попросите агента поставить нужные пакеты или выполните сами в терминале:<br/><br/>
+      <code>pkg update</code><br/>
+      <code>pkg install git python nodejs</code><br/><br/>
+      Среда готова к полноценной разработке!</font></p>
+    </td>
+  </tr>
+</table>
 
 ---
 
 <p><font size="5"><b>Системные требования</b></font></p>
-
-> [!WARNING]
-> **Ограничение процессора: требуется ARMv8.1-A или новее.**
-> Ядро исполнения опирается на 64-битные атомарные инструкции Large System Extension (LSE). Старые процессоры ARMv8.0 (Cortex-A53, Cortex-A57, Cortex-A72) не поддерживаются и завершатся с ошибкой при запуске.
 
 <table width="100%" style="border-collapse: separate; border-spacing: 0; border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; overflow: hidden;">
   <thead>
@@ -106,12 +199,12 @@
     <tr>
       <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);"><b>Оперативная память</b></td>
       <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);">4 ГБ LPDDR4X</td>
-      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);">8 ГБ+ LPDDR5</td>
+      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);">8 ГБ+ LPDDR5 / LPDDR5X</td>
     </tr>
     <tr>
       <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);"><b>Свободная память</b></td>
       <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);">2 ГБ (ядро среды)</td>
-      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);">8 ГБ+ (для компиляторов и кэша сборки)</td>
+      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);">8 ГБ+ UFS (для пакетов и кэша сборки)</td>
     </tr>
     <tr>
       <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);"><b>Версия Android</b></td>
@@ -128,53 +221,22 @@
 
 ---
 
-<p><font size="5"><b>Быстрый старт</b></font></p>
-
-<p><b>1. Установка</b></p>
-
-Доступные сборки в разделе релизов:
-* `antigravity.apk` — Стандартный стабильный релиз (Порт 45157).
-* `antigravity-bypass.apk` — Сборка со встроенным обходом региона (Порт 45157, включает патч региональных ограничений).
-
-<p><b>2. Выдача разрешений</b></p>
-
-1. Откройте приложение и предоставьте доступ ко всем файлам (`MANAGE_EXTERNAL_STORAGE`).
-2. *(Опционально)* Запустите Shizuku и авторизуйте Antigravity для доступа к оболочке ADB.
-
-<p><b>3. Проверка окружения и установка пакетов</b></p>
-
-Проверьте целостность среды и установите базовые утилиты:
-
-```bash
-# Диагностика здоровья среды
-pkg selftest
-
-# Обновление индексов и установка инструментов
-pkg update
-pkg install git python nodejs bash
-
-# Список установленных пакетов
-pkg installed
-```
-
----
-
 <p><font size="5"><b>Структура репозитория</b></font></p>
 
 ```text
-antigravity-v2/
+antigravity-android/
 ├── app/        # Android Host, WebView и супервизор процессов
 ├── build/      # Детерминированная сборка без Gradle (aapt, javac, d8, apksigner)
 ├── bus/        # Shell-шина, демоны IPC и композиторы переменных
 ├── config/     # Централизованные конфиги окружения (app.env, paths.env, tools.env)
-├── docs/       # Спецификации архитектуры и технические руководства
-├── env/        # Тулчейн Bionic, оверлей файловой системы и pkg
-├── patches/    # Патчи бинарников (Go pclntab, обход seccomp, шлюзы AArch64)
-└── web/        # Веб-интерфейс, эргономика сенсорного ввода и AndroidBridge
+├── docs/       # Спецификации архитектуры, руководства и медиа-ассеты
+├── env/        # Тулчейн Bionic, оверлей файловой системы и пакетный менеджер pkg
+├── patches/    # Низкоуровневые патчи (Go pclntab, обход seccomp, шлюзы AArch64)
+└── web/        # Веб-интерфейс, эргономика сенсорного ввода и динамический патчер
 ```
 
 ---
 
-<p><font size="5"><b>Лицензия</b></font></p>
-
-Проект распространяется под лицензией Apache License 2.0. Условия описаны в файле LICENSE.
+<div align="center">
+  <p><font color="#7d8590">Проект распространяется под лицензией <a href="LICENSE">Apache License 2.0</a></font></p>
+</div>
