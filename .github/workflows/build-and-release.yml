@@ -139,11 +139,11 @@ jobs:
 
             ### Packages & Artifacts
 
-            | Package | Description | Default Port |
-            | :--- | :--- | :--- |
-            | **`antigravity.apk`** | Standard production release with embedded native engine | `45157` |
-            | **`antigravity-bypass.apk`** | Region bypass edition with dynamic eligibility gate patch | `45157` |
-            | **`SHA256SUMS.txt`** | Cryptographic checksums for package integrity verification | &mdash; |
+            | Package | Description |
+            | :--- | :--- |
+            | **`antigravity.apk`** | Standard production release with embedded native engine |
+            | **`antigravity-bypass.apk`** | Region bypass edition with dynamic eligibility gate patch |
+            | **`SHA256SUMS.txt`** | Cryptographic checksums for package integrity verification |
 
             ---
 
