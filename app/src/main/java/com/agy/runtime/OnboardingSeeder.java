@@ -30,6 +30,12 @@ public final class OnboardingSeeder {
             seedStateFile(appContext, "antigravity_state.pbtxt",
                     new File(appData, "antigravity_state.pbtxt"));
 
+            // Seed default agent rules (AGENTS.md) into ~/.gemini/config/AGENTS.md
+            File configDir = projects.getParentFile();
+            if (configDir != null && (configDir.isDirectory() || configDir.mkdirs())) {
+                seedStateFile(appContext, "AGENTS.md", new File(configDir, "AGENTS.md"));
+            }
+
             // The project store resolves its projects here; without the
             // pseudo-project file it logs project_store_get_file_missing.
             if (!projects.exists() && !projects.mkdirs()) {

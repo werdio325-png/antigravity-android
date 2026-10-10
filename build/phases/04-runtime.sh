@@ -26,5 +26,5 @@ cp -f "$CORE_GLIBC/$GLIBC_LOADER" "$RT/lib/$GLIBC_LOADER"
 chmod 755 "$RT/lib/$GLIBC_LOADER"
 # certs + seed
 cp -f "$CERTS_DIR"/* "$RT/certs/"
-cp -f "$SEED_DIR"/*.pbtxt "$RT/seed/"
+cp -f "$SEED_DIR"/* "$RT/seed/"
 chmod 755 "$RT/bin"/* 2>/dev/null || true
