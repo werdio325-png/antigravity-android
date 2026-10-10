@@ -112,3 +112,35 @@ The agent has native access to Shizuku's elevated ADB shell (`uid=2000(shell)`):
 
 - **Port Binding:** Local development servers (Vite, Next.js, Express, FastAPI) MUST bind to `localhost` or `127.0.0.1` on ports such as `3000`, `5173`, `8000`, `8080`. Avoid ports `45157` and `45158` (reserved for Antigravity core).
 - **Compilation:** When compiling native C/C++/Rust code, target `-march=armv8.1-a` (or higher) to leverage native LSE atomics.
+
+---
+
+## 6. Background Daemon & Android Notifications
+
+Antigravity includes an ultra-lightweight background scheduler and native notification CLI:
+
+- **Notifications (`agy-notify`):**
+  Post, list, or clear Android status notifications from the terminal:
+  ```bash
+  # Send an alert to user notification tray:
+  agy-notify post -t "Build Finished" -m "Tests passed without errors"
+
+  # Inspect active notifications:
+  agy-notify list
+  ```
+
+- **Autonomous Background Daemon (`agy-daemon`):**
+  Enables delayed, interval, and event-based triggers that continue executing even when the screen is turned off:
+  ```bash
+  # Schedule task after duration (e.g. 4h, 30m, 10s):
+  agy-daemon add --name "Nightly Backup" --delay 4h --command "tar -czf ~/backup.tar.gz ~/Documents"
+
+  # Run periodically:
+  agy-daemon add --name "Disk Health Check" --interval 30m --command "df -h > ~/.gemini/disk.log"
+
+  # Watch GitHub repo for new PRs:
+  agy-daemon add --name "Watch PRs" --github-pr "werdio325-png/antigravity-android" --interval 5m --command "agy-notify post -t 'GitHub Alert' -m 'New Pull Request detected'"
+
+  # List active background tasks:
+  agy-daemon list
+  ```

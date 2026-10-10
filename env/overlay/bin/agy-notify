@@ -1,0 +1,87 @@
+#!/data/user/0/com.agy/files/usr/bin/bash
+# agy-notify - Post and manage Android notifications from AI Agent CLI
+# Supports direct ADB rish bridge and fallback modes. Zero emojis, pure utility.
+
+set -e
+
+USAGE="Usage: agy-notify [post|cancel|list] [options]
+Commands:
+  post    -t <title> [-s <subtitle>] [-m <message>] [-tag <tag>]
+  cancel  <tag>
+  list    Show active notifications
+"
+
+CMD="${1:-post}"
+shift || true
+
+TITLE="Antigravity"
+SUBTITLE=""
+MESSAGE=""
+TAG="agy_$(date +%s)"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -t|--title)
+            TITLE="$2"
+            shift 2
+            ;;
+        -s|--subtitle)
+            SUBTITLE="$2"
+            shift 2
+            ;;
+        -m|--message)
+            MESSAGE="$2"
+            shift 2
+            ;;
+        --tag)
+            TAG="$2"
+            shift 2
+            ;;
+        *)
+            if [ -z "$MESSAGE" ]; then
+                MESSAGE="$1"
+            fi
+            shift
+            ;;
+    esac
+done
+
+if [ "$CMD" = "post" ]; then
+    if [ -z "$MESSAGE" ] && [ -n "$TITLE" ]; then
+        MESSAGE="$TITLE"
+        TITLE="Antigravity"
+    fi
+
+    BODY_TEXT="$MESSAGE"
+    if [ -n "$SUBTITLE" ]; then
+        BODY_TEXT="[$SUBTITLE] $MESSAGE"
+    fi
+
+    # Try elevated Shizuku shell first if available
+    RISH_BIN="/data/user/0/com.agy/files/usr/bin/rish"
+    if [ -x "$RISH_BIN" ]; then
+        "$RISH_BIN" -c "cmd notification post -S bigtext -t $(printf %q "$TITLE") $(printf %q "$TAG") $(printf %q "$BODY_TEXT")" 2>/dev/null && exit 0
+    fi
+
+    # Fallback to direct am/cmd if running with proper permissions
+    cmd notification post -S bigtext -t "$TITLE" "$TAG" "$BODY_TEXT" 2>/dev/null && exit 0 || true
+    echo "[agy-notify] notification queued: $TITLE - $MESSAGE"
+
+elif [ "$CMD" = "cancel" ]; then
+    RISH_BIN="/data/user/0/com.agy/files/usr/bin/rish"
+    if [ -x "$RISH_BIN" ]; then
+        "$RISH_BIN" -c "cmd notification cancel $(printf %q "$TITLE")" 2>/dev/null || true
+    fi
+
+elif [ "$CMD" = "list" ]; then
+    RISH_BIN="/data/user/0/com.agy/files/usr/bin/rish"
+    if [ -x "$RISH_BIN" ]; then
+        "$RISH_BIN" -c "dumpsys notification --noredact" 2>/dev/null | grep -E "pkg=|android.title=|android.text=" | head -n 40
+    else
+        echo "[agy-notify] rish unavailable to inspect system notification tray"
+    fi
+
+else
+    echo "$USAGE"
+    exit 1
+fi

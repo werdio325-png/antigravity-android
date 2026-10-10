@@ -22,6 +22,7 @@ public final class AndroidBridge {
     private final EngineConfigJson config;
     private final ExternalUrlBridge external;
     private final ShellBridge shell;
+    private final NotificationBridge notification;
 
     public AndroidBridge(Context context, RuntimeManager runtime,
                          ShizukuBridge shizuku, OAuthManager oauth,
@@ -32,6 +33,7 @@ public final class AndroidBridge {
         this.config = new EngineConfigJson(appContext, runtime, engine, shizuku, themeBridge);
         this.external = new ExternalUrlBridge(appContext, oauth);
         this.shell = new ShellBridge(shizuku);
+        this.notification = new NotificationBridge(appContext, shizuku);
     }
 
     /** Host activity, used to dismiss the native splash once the UI has painted. */
@@ -125,5 +127,15 @@ public final class AndroidBridge {
     @JavascriptInterface
     public boolean shizukuAvailable() {
         return shell.available();
+    }
+
+    @JavascriptInterface
+    public boolean postNotification(String title, String message, String tag) {
+        return notification.post(title, message, tag);
+    }
+
+    @JavascriptInterface
+    public String listNotifications() {
+        return notification.list();
     }
 }
