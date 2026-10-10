@@ -30,6 +30,7 @@ Thumbs.db
 
 # Sensitive credentials & keystores
 *.keystore
+!tools/debug.keystore
 *.jks
 *.key
 *-token
