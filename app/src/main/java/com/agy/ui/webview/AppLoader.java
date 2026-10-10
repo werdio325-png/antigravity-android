@@ -35,7 +35,14 @@ public final class AppLoader {
         if (theme != null) {
             theme.applyToWebView(webView);
         }
-        String hostTheme = theme != null ? theme.getTheme() : "dark";
+        String hostTheme;
+        if (theme != null && theme.mode() == com.agy.theme.ThemeColors.MODE_DARK) {
+            hostTheme = "dark";
+        } else if (theme != null && theme.mode() == com.agy.theme.ThemeColors.MODE_LIGHT) {
+            hostTheme = "light";
+        } else {
+            hostTheme = "system";
+        }
         String origin = "https://127.0.0.1:" + port + "/";
         String historyUrl = origin + "?hostTheme=" + hostTheme;
         webView.loadDataWithBaseURL(origin, AppHtmlInjector.inject(html, bridge, theme),

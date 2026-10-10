@@ -20,12 +20,24 @@ public final class ThemeManager {
         controller.updateContext(context);
     }
 
+    public int mode() {
+        return controller.mode();
+    }
+
     /**
-     * Persist and apply an explicit "light"/"dark" choice (from the Web UI).
+     * Persist and apply an explicit "system"/"light"/"dark" choice (from the Web UI).
      * Returns false for any other value. Also keeps the launcher in sync.
      */
     public boolean setTheme(String theme) {
         return controller.setTheme(theme);
+    }
+
+    public boolean setThemeByUser(String theme) {
+        return controller.setThemeByUser(theme);
+    }
+
+    public void onVisualThemeChanged(String visual) {
+        controller.onVisualThemeChanged(visual);
     }
 
     /** Effective theme as a "light"/"dark" string (system mode is resolved). */

@@ -10,14 +10,16 @@ if (window.__agThemeSync && window.__agThemeSync.__installed) {
 }
 
 var doc = window.document;
-var hostTheme = 'dark';
+var hostTheme = 'system';
 try {
   var params = new URLSearchParams(window.location.search);
-  hostTheme = params.get('hostTheme') || window.__AG_HOST_THEME__ || 'dark';
+  hostTheme = params.get('hostTheme') || window.__AG_HOST_THEME__ || 'system';
 } catch (e) {
-  hostTheme = window.__AG_HOST_THEME__ || 'dark';
+  hostTheme = window.__AG_HOST_THEME__ || 'system';
 }
-hostTheme = hostTheme === 'light' ? 'light' : 'dark';
+if (hostTheme !== 'light' && hostTheme !== 'dark') {
+  hostTheme = 'system';
+}
 
 var state = {
   installed: false,

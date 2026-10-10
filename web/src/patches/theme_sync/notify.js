@@ -7,9 +7,11 @@ function notify() {
   state.last = theme;
   state.notifications++;
   try {
-    if (window.Android && typeof window.Android.setTheme === 'function') {
+    if (window.Android) {
       state.hasAndroid = true;
-      window.Android.setTheme(theme);
+      if (typeof window.Android.onVisualThemeChanged === 'function') {
+        window.Android.onVisualThemeChanged(theme);
+      }
     }
   } catch (e) { /* never throw into JS */ }
   return theme;

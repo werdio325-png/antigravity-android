@@ -24,6 +24,12 @@ function install() {
       window.addEventListener('storage', function () { notify(); }, false);
       state.storageBound = true;
     }
+    if (window.matchMedia) {
+      var mql = window.matchMedia('(prefers-color-scheme: dark)');
+      if (mql.addEventListener) {
+        mql.addEventListener('change', function () { notify(); });
+      }
+    }
   } catch (e) { /* ignore */ }
 
   notify();

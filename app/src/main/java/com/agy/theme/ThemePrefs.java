@@ -7,7 +7,7 @@ import android.content.SharedPreferences;
 public final class ThemePrefs {
 
     private static final String PREFS = "agy_prefs";
-    private static final String KEY_MODE = "theme_mode";
+    private static final String KEY_MODE = "theme_mode_v3";
 
     private ThemePrefs() {
     }

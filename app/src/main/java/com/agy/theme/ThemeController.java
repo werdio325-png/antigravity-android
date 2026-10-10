@@ -45,10 +45,11 @@ public final class ThemeController {
             setMode(ThemeColors.MODE_LIGHT);
         } else if (ThemeColors.THEME_DARK.equalsIgnoreCase(theme)) {
             setMode(ThemeColors.MODE_DARK);
+        } else if ("system".equalsIgnoreCase(theme) || "default".equalsIgnoreCase(theme)) {
+            setMode(ThemeColors.MODE_SYSTEM);
         } else {
             return false;
         }
-        applyLauncherIcon();
         // The bridge calls this on a WebView thread; window/bars must change on
         // the main thread. Apply right away so status/nav bars and the window
         // background track the Web UI without waiting for a resume.
@@ -64,6 +65,33 @@ public final class ThemeController {
             });
         }
         return true;
+    }
+
+    /**
+     * User explicitly selected a theme mode in Settings.
+     * Updates theme and, if the launcher icon needs changing, in-place switches and exits.
+     */
+    public boolean setThemeByUser(String theme) {
+        boolean changed = setTheme(theme);
+        if (changed) {
+            applyLauncherIcon();
+        }
+        return changed;
+    }
+
+    /** Called when the Web UI paints a visual theme, without altering user mode preference. */
+    public void onVisualThemeChanged(final String visual) {
+        final Activity activity = currentContext instanceof Activity
+                ? (Activity) currentContext : null;
+        if (activity != null) {
+            final boolean dark = "dark".equalsIgnoreCase(visual);
+            MainThreadPost.post(new Runnable() {
+                @Override
+                public void run() {
+                    ActivityPainter.apply(activity, dark);
+                }
+            });
+        }
     }
 
     /** Effective theme as a "light"/"dark" string (system mode is resolved). */
@@ -93,7 +121,11 @@ public final class ThemeController {
         return isDark() ? ThemeColors.FG_DARK_HEX : ThemeColors.FG_LIGHT_HEX;
     }
 
+    public boolean isLauncherDark() {
+        return mode == ThemeColors.MODE_DARK;
+    }
+
     public void applyLauncherIcon() {
-        LauncherIconSwitcher.apply(appContext, isDark());
+        LauncherIconSwitcher.apply(currentContext != null ? currentContext : appContext, isLauncherDark());
     }
 }

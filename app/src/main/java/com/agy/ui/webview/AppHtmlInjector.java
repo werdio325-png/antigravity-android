@@ -32,7 +32,10 @@ public final class AppHtmlInjector {
                     + "window.__AG_ENDPOINTS__=" + endpoints.toString() + ";"
                     + "window.__AG_CSRF__=" + JSONObject.quote(bridge.getCsrfToken()) + ";"
                     + "window.__AG_HOST_THEME__="
-                    + JSONObject.quote(theme != null ? theme.getTheme() : "dark") + ";"
+                    + JSONObject.quote(theme != null && theme.mode() == com.agy.theme.ThemeColors.MODE_DARK ? "dark"
+                            : (theme != null && theme.mode() == com.agy.theme.ThemeColors.MODE_LIGHT ? "light" : "system")) + ";"
+                    + "window.__AG_RESOLVED_THEME__="
+                    + JSONObject.quote(theme != null ? theme.getTheme() : "light") + ";"
                     + "window.AndroidBridge=window.Android;"
                     + "})();</script>"
                     // Signals first paint back to native (AndroidBridge.onUiReady)
