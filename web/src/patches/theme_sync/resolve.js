@@ -12,23 +12,22 @@ function fromClassList() {
   return null;
 }
 
-function fromStorage() {
-  try {
-    var store = window.localStorage;
-    if (!store) return null;
-    for (var i = 0; i < store.length; i++) {
-      var key = store.key(i);
-      if (!key || !/^theme-preset-/.test(key)) continue;
-      if (/-light$/.test(key)) return 'light';
-      if (/-dark$/.test(key)) return 'dark';
-      var value = String(store.getItem(key) || '').toLowerCase();
-      if (value.indexOf('light') >= 0) return 'light';
-      if (value.indexOf('dark') >= 0) return 'dark';
-    }
-  } catch (e) { /* ignore */ }
-  return null;
-}
-
 function resolveTheme() {
-  return fromClassList() || fromStorage() || hostTheme;
+  var cl = fromClassList();
+  if (cl) return cl;
+  if (hostTheme === 'light') return 'light';
+  if (hostTheme === 'dark') return 'dark';
+  if (typeof window !== 'undefined' && window.Android && typeof window.Android.getTheme === 'function') {
+    try {
+      var t = window.Android.getTheme();
+      if (t === 'dark' || t === 'light') return t;
+    } catch (e) {}
+  }
+  if (typeof window !== 'undefined' && window.__AG_RESOLVED_THEME__) {
+    return window.__AG_RESOLVED_THEME__;
+  }
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return 'dark';
+  }
+  return 'light';
 }

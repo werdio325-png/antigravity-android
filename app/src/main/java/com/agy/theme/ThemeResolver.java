@@ -1,5 +1,6 @@
 package com.agy.theme;
 
+import android.app.UiModeManager;
 import android.content.Context;
 import android.content.res.Configuration;
 
@@ -16,12 +17,41 @@ public final class ThemeResolver {
         if (mode == ThemeColors.MODE_LIGHT) {
             return false;
         }
-        Context ctx = context;
-        if (ctx == null) {
+        // MODE_SYSTEM
+        if (context == null) {
             return false;
         }
-        int uiMode = ctx.getResources().getConfiguration().uiMode
-                & Configuration.UI_MODE_NIGHT_MASK;
-        return uiMode == Configuration.UI_MODE_NIGHT_YES;
+
+        // 1. Try context Configuration (Activity reflects onConfigurationChanged immediately)
+        try {
+            int uiMode = context.getResources().getConfiguration().uiMode
+                    & Configuration.UI_MODE_NIGHT_MASK;
+            if (uiMode == Configuration.UI_MODE_NIGHT_YES) {
+                return true;
+            }
+            if (uiMode == Configuration.UI_MODE_NIGHT_NO) {
+                return false;
+            }
+        } catch (Exception ignored) {
+        }
+
+        // 2. Try ApplicationContext Configuration
+        try {
+            Context appCtx = context.getApplicationContext();
+            if (appCtx != null && appCtx != context) {
+                int uiMode = appCtx.getResources().getConfiguration().uiMode
+                        & Configuration.UI_MODE_NIGHT_MASK;
+                if (uiMode == Configuration.UI_MODE_NIGHT_YES) {
+                    return true;
+                }
+                if (uiMode == Configuration.UI_MODE_NIGHT_NO) {
+                    return false;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        // Fallback: default light
+        return false;
     }
 }

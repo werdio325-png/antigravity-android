@@ -19,6 +19,16 @@ public final class ThemeBridge {
         return theme != null && theme.setTheme(mode);
     }
 
+    public boolean setThemeByUser(String mode) {
+        return theme != null && theme.setThemeByUser(mode);
+    }
+
+    public void onVisualThemeChanged(String visual) {
+        if (theme != null) {
+            theme.onVisualThemeChanged(visual);
+        }
+    }
+
     /** Effective persisted theme as "light"/"dark" (system mode resolved). */
     public String getTheme() {
         return theme != null ? theme.getTheme() : "dark";

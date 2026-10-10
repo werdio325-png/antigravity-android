@@ -58,6 +58,16 @@ public final class AndroidBridge {
     }
 
     @JavascriptInterface
+    public boolean setThemeByUser(final String mode) {
+        return themeBridge.setThemeByUser(mode);
+    }
+
+    @JavascriptInterface
+    public void onVisualThemeChanged(String visual) {
+        themeBridge.onVisualThemeChanged(visual);
+    }
+
+    @JavascriptInterface
     public String getTheme() {
         return themeBridge.getTheme();
     }

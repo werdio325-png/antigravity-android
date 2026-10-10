@@ -107,8 +107,7 @@ public class MainActivity extends Activity implements WebViewHost.Listener {
 
         themeManager = new ThemeManager(this);
         themeManager.applyToActivity(this);
-        // Keep the launcher icon (activity-alias) aligned with the persisted choice.
-        themeManager.applyLauncherIcon();
+
 
         oauthManager = new OAuthManager();
         runtimeManager = new RuntimeManager(this);
@@ -226,6 +225,7 @@ public class MainActivity extends Activity implements WebViewHost.Listener {
     @Override
     protected void onStop() {
         super.onStop();
+        com.agy.theme.LauncherIconSwitcher.onAppBackgrounded(this);
         if (webViewHost != null) {
             AppLifecycle.pauseTimers(webViewHost.getWebView());
         }
@@ -242,6 +242,11 @@ public class MainActivity extends Activity implements WebViewHost.Listener {
 
     private void refreshTheme() {
         ThemeRefresher.refresh(this, themeManager, rootLayout, splash, webViewHost);
+        if (webViewHost != null && webViewHost.getWebView() != null) {
+            String resolved = themeManager != null ? themeManager.getTheme() : "light";
+            webViewHost.getWebView().evaluateJavascript(
+                    "window.__AG_RESOLVED_THEME__='" + resolved + "'; window.__agOnSystemThemeChanged && window.__agOnSystemThemeChanged();", null);
+        }
     }
 
     @Override
