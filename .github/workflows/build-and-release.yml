@@ -130,11 +130,32 @@ jobs:
             dist/antigravity-bypass.apk
             dist/SHA256SUMS.txt
           body: |
-            ## 🚀 Antigravity for Android (AGY v2) Release
+            <div align="center">
+              <h3>Antigravity for Android</h3>
+              <p>Autonomous AI Coding Environment &bull; Native Bionic Userspace &bull; ARM64</p>
+            </div>
 
-            ### 📦 Included Release APKs:
-            * **`antigravity.apk`** — Standard Production Release (Port 45157).
-            * **`antigravity-bypass.apk`** — Region Bypass Edition (includes eligibility & region gate patch).
+            ---
 
-            ### 🛡️ SHA-256 Checksums:
-            Inspect `SHA256SUMS.txt` below to verify package integrity.
+            ### Packages & Artifacts
+
+            | Package | Description | Default Port |
+            | :--- | :--- | :--- |
+            | **`antigravity.apk`** | Standard production release with embedded native engine | `45157` |
+            | **`antigravity-bypass.apk`** | Region bypass edition with dynamic eligibility gate patch | `45157` |
+            | **`SHA256SUMS.txt`** | Cryptographic checksums for package integrity verification | &mdash; |
+
+            ---
+
+            ### Key Highlights in this Release
+
+            * **Real-time System Theme Synchronization:** Dynamic detection of Android dark/light mode across WebView and React without requiring app reload.
+            * **Flicker-free Startup Bootstrap:** Injected HTML bootstrapper eliminates white flash on cold starts.
+            * **Non-disruptive Dynamic Launcher Icons:** Launcher activity-alias switches cleanly when app is backgrounded, preserving active workspace sessions.
+            * **Adaptive UI Architecture:** Mobile touch controls by default with an on-demand Desktop Mode toggle for Samsung DeX and tablets.
+            * **System-Aware Agent Rules:** Pre-seeded `AGENTS.md` automatically configured in user config on boot.
+
+            ---
+
+            > [!NOTE]
+            > **Seamless Upgrades:** Built with the consistent embedded signing keystore. You can install this update directly over previous v2.x releases without uninstalling or losing local projects.
