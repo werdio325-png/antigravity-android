@@ -11,14 +11,14 @@
 
   <p><font size="6"><b>Antigravity for Android</b></font></p>
 
-  <p><font color="#7d8590">Autonomous agentic development environment built natively for Android and ARM64.</font></p>
+  <p><font color="#7d8590">Autonomous agentic development environment engineered natively for Android and ARM64.</font></p>
 
   <p>
     <code>Android 7.0+</code> &nbsp;&bull;&nbsp;
     <code>ARM64 v8.1-A+</code> &nbsp;&bull;&nbsp;
     <code>Shizuku Ready</code> &nbsp;&bull;&nbsp;
     <code>Native Bionic</code> &nbsp;&bull;&nbsp;
-    <code>Seamless Upgrades</code> &nbsp;&bull;&nbsp;
+    <code>Consistent Keystore</code> &nbsp;&bull;&nbsp;
     <code>Apache 2.0</code>
   </p>
 
@@ -30,19 +30,20 @@
     <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo_benchmark_light.png">
     <img alt="Antigravity Interface in Action" src="docs/assets/demo_benchmark_dark.png" width="100%" style="border-radius: 14px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);" />
   </picture>
+  <p align="center"><font size="2" color="#7d8590">Autonomous execution of a hardware storage benchmark on physical hardware (Linux 6.1, AArch64)</font></p>
 
 </div>
 
 ---
 
-<p><font size="5"><b>Overview</b></font></p>
+<p><font size="5"><b>Architectural Overview</b></font></p>
 
-**Antigravity for Android** brings Google's autonomous AI coding platform natively to smartphones and tablets.
+**Antigravity for Android** brings Google's autonomous agentic coding engine directly to mobile operating systems.
 
-Unlike simple chat wrappers or heavy virtual machines, Antigravity executes **directly inside Android userspace** without PRoot, QEMU, or container translation overhead. Powered by Gemini models, the agent autonomously explores codebases, edits project files, runs local compilers, and tests code directly on your physical mobile hardware.
+Unlike terminal-based chat wrappers or virtualized environments (PRoot, QEMU, chroot), Antigravity executes **natively inside Android userspace (Bionic)** within the application process. Powered by Gemini models, the agent autonomously inspects codebases, edits project trees, executes build tools, and validates results directly on the physical mobile hardware.
 
 > [!NOTE]
-> **Native Performance Without Emulation:** Processes run directly on the device's CPU through a hybrid Bionic/Glibc userspace, leveraging native UFS storage speeds (over 1.2 GB/s) and ARMv8.1-A+ LSE atomic instructions.
+> **Bare-Metal Execution Without Emulation:** Processes run directly on the host CPU via a hybrid Bionic/Glibc loader without virtualization penalties, taking full advantage of UFS storage throughput and ARMv8.1-A+ Large System Extension (LSE) atomics.
 
 ---
 
@@ -51,43 +52,43 @@ Unlike simple chat wrappers or heavy virtual machines, Antigravity executes **di
 <table width="100%" style="border-collapse: separate; border-spacing: 8px; border: none;">
   <tr>
     <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>🤖 Autonomous Gemini Agent</b></font></p>
-      <p><font color="#7d8590">Full development cycle: task decomposition, multi-file code editing, test execution, and automatic bug diagnosis.</font></p>
+      <p><font size="4"><b>Autonomous Gemini Agent</b></font></p>
+      <p><font color="#7d8590">End-to-end development: task planning, multi-file editing, test execution, compilation, and automatic build diagnosis.</font></p>
     </td>
     <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>⚡ Shizuku (Rish) Elevation</b></font></p>
-      <p><font color="#7d8590">ADB shell privileges (<code>uid=2000</code>) without root: direct APK management (<code>pm install</code>), system logs, and shared storage access.</font></p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>📦 Native <code>pkg</code> Manager</b></font></p>
-      <p><font color="#7d8590">Ultra-fast package manager written in pure Bash & AWK. Installs <code>git</code>, <code>python</code>, <code>node</code>, <code>clang</code> from Termux repos in seconds.</font></p>
-    </td>
-    <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>📱 Dual Modes: Mobile & Desktop</b></font></p>
-      <p><font color="#7d8590">Touch-first mobile UI by default, with instant switching to a desktop viewport for tablets, external keyboards, and Samsung DeX.</font></p>
+      <p><font size="4"><b>Shizuku (Rish) Elevation</b></font></p>
+      <p><font color="#7d8590">Privilege elevation to ADB shell level (<code>uid=2000</code>) without root: direct APK management (<code>pm install</code>), system logs, and shared storage access.</font></p>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>🧠 Android Environment Awareness</b></font></p>
-      <p><font color="#7d8590">Built-in system rules (<code>AGENTS.md</code>) teach the agent Android paths, terminal habits, and prevent desktop sandbox traps.</font></p>
+      <p><font size="4"><b>Native <code>pkg</code> Manager</b></font></p>
+      <p><font color="#7d8590">Lightweight package manager (tlx) written in Bash and AWK. Installs development runtimes (<code>git</code>, <code>python</code>, <code>node</code>, <code>clang</code>) from Termux repositories.</font></p>
     </td>
     <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>🔄 Seamless Upgrades</b></font></p>
-      <p><font color="#7d8590">Consistent signing keystore: upgrade APK releases seamlessly without uninstalling or losing conversation history and projects.</font></p>
+      <p><font size="4"><b>Mobile & Desktop Viewports</b></font></p>
+      <p><font color="#7d8590">Touch-first mobile UI by default, with dynamic switching to a desktop viewport with custom User-Agent for tablets, keyboards, and Samsung DeX.</font></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
+      <p><font size="4"><b>Environment Awareness</b></font></p>
+      <p><font color="#7d8590">Auto-seeded system rules (<code>AGENTS.md</code>) instruct the agent on Android filesystem paths, package syntax, and prevent desktop sandbox traps.</font></p>
+    </td>
+    <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
+      <p><font size="4"><b>Seamless Upgrades</b></font></p>
+      <p><font color="#7d8590">Consistent signing keystore: upgrade APK releases in-place without uninstalling or losing conversation history and project data.</font></p>
     </td>
   </tr>
 </table>
 
 ---
 
-<p><font size="5"><b>Step-by-Step Product Walkthrough</b></font></p>
+<p><font size="5"><b>Visual Feature Walkthrough</b></font></p>
 
-### Step 1. The Developer Workspace
+### 1. Developer Workspace
 
-Designed specifically for mobile devices: clean project navigation, seamless session switching, model selection (Gemini 3.8 Flash / Pro), and full light/dark theme support.
+Designed specifically for mobile screens: project sidebar, session switching, Gemini model selector, and system theme synchronization.
 
 <br/>
 
@@ -96,84 +97,88 @@ Designed specifically for mobile devices: clean project navigation, seamless ses
   <source media="(prefers-color-scheme: light)" srcset="docs/assets/workspace_light.png">
   <img alt="Antigravity Workspace" src="docs/assets/workspace_dark.png" width="100%" style="border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.25);" />
 </picture>
+<p align="center"><font size="2" color="#7d8590">Sidebar navigation and active workspace canvas (dark and light themes)</font></p>
 
 <br/>
 
 ---
 
-### Step 2. Adaptive Viewports: Mobile & Desktop Mode
+### 2. Viewport Control: Mobile & Desktop Mode
 
 Inside Appearance settings, toggle **Desktop Mode** on demand:
-* **Mobile Mode (Default):** Touch-friendly controls, optimized for one-handed navigation and virtual keyboards.
-* **Desktop Mode:** Full desktop viewport with wide code views and desktop User-Agent (ideal for tablets, keyboard docks, or Samsung DeX / Motorola Ready For).
-* *Changes reload the workspace instantly on the fly.*
+* **Mobile Mode (Default):** Touch-friendly controls optimized for one-handed operation and virtual keyboards.
+* **Desktop Mode:** Full desktop viewport with wide editor layout and desktop User-Agent (for tablets, physical keyboards, and Samsung DeX).
+* *Changes apply dynamically on the fly via automatic WebView reload.*
 
 <br/>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/settings_desktop_mode_dark.png">
   <source media="(prefers-color-scheme: light)" srcset="docs/assets/settings_desktop_mode_light.png">
-  <img alt="Appearance Settings & Desktop Mode Toggle" src="docs/assets/settings_desktop_mode_dark.png" width="100%" style="border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.25);" />
+  <img alt="Appearance Settings and Desktop Mode Toggle" src="docs/assets/settings_desktop_mode_dark.png" width="100%" style="border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.25);" />
 </picture>
+<p align="center"><font size="2" color="#7d8590">Appearance preferences panel with integrated Desktop Mode toggle</font></p>
 
 <br/>
 
 ---
 
-### Step 3. Autonomous Agent in Action
+### 3. Autonomous Execution in Terminal
 
-The agent doesn't just produce text — it acts as an active engineer: running shell commands within Bionic userspace, creating scratch workspaces, writing test scripts, and inspecting live diagnostics.
+The agent directly drives the environment: executing userspace binaries, creating workspace hierarchies, running compilation tasks, and inspecting diagnostics in real time.
 
 <br/>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo_exec_dark.png">
   <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo_exec_light.png">
-  <img alt="Agent Executing Commands" src="docs/assets/demo_exec_dark.png" width="100%" style="border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.25);" />
+  <img alt="Agent Driving Shell Commands" src="docs/assets/demo_exec_dark.png" width="100%" style="border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.25);" />
 </picture>
+<p align="center"><font size="2" color="#7d8590">Agent provisioning project structure and probing Linux 6.1 kernel parameters</font></p>
 
 <br/>
 
 ---
 
-### Step 4. Hardware Power & Real Results
+### 4. Hardware Throughput & Diagnostics
 
-Real-world test: the agent authored a custom Python storage diagnostic, executed multi-pass sequential and random I/O benchmarks, and formatted results live. Sequential reads topped **1.2 GB/s**, and random 4K writes reached **84,000 IOPS** — showcasing true bare-metal Android performance.
+Real-world test: the agent authored a custom Python I/O benchmark and executed multi-pass tests on physical storage. Sequential reads exceeded **1222 MB/s**, and random writes reached **84,395 IOPS**, proving native UFS throughput without emulation overhead.
 
 <br/>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo_benchmark_dark.png">
   <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo_benchmark_light.png">
-  <img alt="Agent Storage Benchmark Results" src="docs/assets/demo_benchmark_dark.png" width="100%" style="border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.25);" />
+  <img alt="Storage Benchmark Results" src="docs/assets/demo_benchmark_dark.png" width="100%" style="border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.25);" />
 </picture>
+<p align="center"><font size="2" color="#7d8590">Formatted diagnostic report with tabular performance breakdown</font></p>
 
 <br/>
 
 ---
 
-<p><font size="5"><b>Step-by-Step Quick Start</b></font></p>
+<p><font size="5"><b>Installation & Getting Started</b></font></p>
 
 <table width="100%" style="border-collapse: separate; border-spacing: 8px; border: none;">
   <tr>
     <td width="33%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
       <p><font size="4"><b>1. Download APK</b></font></p>
-      <p><font color="#7d8590">Download from <a href="https://github.com/werdio325-png/antigravity-android/releases">Releases</a>:<br/><br/>
-      &bull; <b><code>antigravity.apk</code></b> — standard release.<br/>
+      <p><font color="#7d8590">Releases are available under <a href="https://github.com/werdio325-png/antigravity-android/releases">Releases</a>:<br/><br/>
+      &bull; <b><code>antigravity.apk</code></b> — standard release (port 45157).<br/>
       &bull; <b><code>antigravity-bypass.apk</code></b> — region bypass edition.<br/><br/>
-      <i>Updates install seamlessly over older builds without data loss.</i></font></p>
+      <i>Seamless in-place updates are supported across versions.</i></font></p>
     </td>
     <td width="33%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
       <p><font size="4"><b>2. Grant Permissions</b></font></p>
       <p><font color="#7d8590">Grant storage access (<code>MANAGE_EXTERNAL_STORAGE</code>).<br/><br/>
-      <i>(Optional)</i> Launch <b>Shizuku</b> and grant access for elevated ADB shell operations.</font></p>
+      <i>(Optional)</i> Launch <b>Shizuku</b> and grant access for elevated ADB shell operations without root.</font></p>
     </td>
     <td width="33%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>3. Setup Environment</b></font></p>
-      <p><font color="#7d8590">Ask the agent or run commands in terminal:<br/><br/>
+      <p><font size="4"><b>3. Bootstrap Environment</b></font></p>
+      <p><font color="#7d8590">Install preferred development toolchains via the agent or shell:<br/><br/>
       <code>pkg update</code><br/>
       <code>pkg install git python nodejs</code><br/><br/>
-      Ready to code on mobile!</font></p>
+      The environment is ready for development.</font></p>
     </td>
   </tr>
 </table>
