@@ -149,11 +149,12 @@ jobs:
 
             ### Key Highlights in this Release
 
-            * **Real-time System Theme Synchronization:** Dynamic detection of Android dark/light mode across WebView and React without requiring app reload.
-            * **Flicker-free Startup Bootstrap:** Injected HTML bootstrapper eliminates white flash on cold starts.
-            * **Non-disruptive Dynamic Launcher Icons:** Launcher activity-alias switches cleanly when app is backgrounded, preserving active workspace sessions.
-            * **Adaptive UI Architecture:** Mobile touch controls by default with an on-demand Desktop Mode toggle for Samsung DeX and tablets.
-            * **System-Aware Agent Rules:** Pre-seeded `AGENTS.md` automatically configured in user config on boot.
+            * **Terminal PTY Creation Fix:** Corrected shell path resolution (`SHELL` environment variable pointing to bionic bash bridge) for the native engine, resolving "Failed to create terminal" (`stat /bin/bash: no such file or directory`) on Android.
+            * **Integrated Log Export & Diagnostics:** Added "Copy Logs" and "Save Logs" actions to the startup failure splash overlay, enabling one-tap clipboard copying and direct export to `Downloads/antigravity-core.log` with Android share sheet integration.
+            * **Google DocumentsUI File Picker Support:** Implemented native Storage Access Framework (`ACTION_OPEN_DOCUMENT`) in WebView with multiple file selection for prompt "Add Context" media/file attachments.
+            * **Autonomous Background Micro-Daemon (`agy-daemon`):** Added scheduled triggers for delayed tasks, intervals, GitHub PR/issue tracking, file watching, battery thresholds, and webhook endpoints.
+            * **Notification Management CLI (`agy-notify`):** Native notification posting and management with high-resolution Antigravity application icon.
+            * **Dynamic System Theme & Icon Follow:** Refined launcher icon switching on backgrounding and real-time Android light/dark theme tracking.
 
             ---
 

@@ -35,7 +35,17 @@ public final class LogExporter {
         StringBuilder sb = new StringBuilder();
         sb.append("=== Antigravity Diagnostics ===\n");
         sb.append("Timestamp: ").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date())).append("\n");
-        sb.append("App Version: 2.1.0 (versionCode 3)\n");
+        String verName = "2.2.0";
+        long verCode = 4;
+        if (context != null) {
+            try {
+                android.content.pm.PackageInfo pi = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
+                verName = pi.versionName;
+                verCode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P ? pi.getLongVersionCode() : pi.versionCode;
+            } catch (Exception ignored) {
+            }
+        }
+        sb.append("App Version: ").append(verName).append(" (versionCode ").append(verCode).append(")\n");
         sb.append("Device: ").append(Build.MANUFACTURER).append(" ").append(Build.MODEL)
                 .append(" (").append(Build.DEVICE).append(")\n");
         sb.append("Android OS: ").append(Build.VERSION.RELEASE)
