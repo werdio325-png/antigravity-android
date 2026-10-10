@@ -69,12 +69,12 @@ public final class ThemeController {
 
     /**
      * User explicitly selected a theme mode in Settings.
-     * Updates theme and, if the launcher icon needs changing, in-place switches and exits.
+     * Updates theme and schedules the launcher icon update without abruptly closing the app.
      */
     public boolean setThemeByUser(String theme) {
         boolean changed = setTheme(theme);
         if (changed) {
-            applyLauncherIcon();
+            LauncherIconSwitcher.scheduleSwitch(isLauncherDark());
         }
         return changed;
     }

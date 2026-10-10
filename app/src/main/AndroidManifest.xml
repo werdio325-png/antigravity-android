@@ -57,7 +57,7 @@
 
         <activity
             android:name="com.agy.ui.launcher.LauncherDarkActivity"
-            android:enabled="false"
+            android:enabled="true"
             android:exported="true"
             android:theme="@style/SplashThemeDark"
             android:icon="@mipmap/ic_launcher_dark"
@@ -74,7 +74,7 @@
 
         <activity
             android:name="com.agy.ui.launcher.LauncherLightActivity"
-            android:enabled="true"
+            android:enabled="false"
             android:exported="true"
             android:theme="@style/SplashThemeLight"
             android:icon="@mipmap/ic_launcher_light"

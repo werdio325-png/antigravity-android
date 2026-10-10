@@ -13,16 +13,24 @@ import com.agy.util.MainThreadPost;
 /**
  * Dynamic launcher icon switcher.
  *
- * In-place replaces launcher icons when user explicitly switches theme.
- * Finishes the running activity so the launcher updates immediately without dual icons.
+ * Switches launcher activity-aliases cleanly without killing the running app
+ * or kicking the user out. The switch is applied while the app is in the background
+ * or smoothly with DONT_KILL_APP so the user's workspace session stays uninterrupted.
  */
 public final class LauncherIconSwitcher {
+
+    private static Boolean pendingDark = null;
 
     private LauncherIconSwitcher() {
     }
 
-    public static synchronized void switchInPlaceAndExit(Context context, boolean dark) {
+    public static synchronized void scheduleSwitch(boolean dark) {
+        pendingDark = dark;
+    }
+
+    public static synchronized void apply(Context context, boolean dark) {
         if (context == null) return;
+        pendingDark = null;
         try {
             Context appContext = context.getApplicationContext();
             PackageManager pm = appContext.getPackageManager();
@@ -31,47 +39,24 @@ public final class LauncherIconSwitcher {
             ComponentName toDisable = new ComponentName(appContext,
                     dark ? LauncherLightActivity.class : LauncherDarkActivity.class);
 
-            boolean targetEnabled = isComponentEffectivelyEnabled(pm, target, dark ? false : true);
-            boolean disableEnabled = isComponentEffectivelyEnabled(pm, toDisable, dark ? true : false);
+            boolean targetEnabled = isComponentEffectivelyEnabled(pm, target, dark);
+            boolean disableEnabled = isComponentEffectivelyEnabled(pm, toDisable, !dark);
 
-            // If already in target state, nothing to change and no need to exit
             if (targetEnabled && !disableEnabled) {
                 return;
             }
 
-            // 1. Immediately enable target launcher icon in place
+            // 1. Enable target launcher activity
             pm.setComponentEnabledSetting(target,
                     PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
                     PackageManager.DONT_KILL_APP);
 
-            // 2. Immediately disable old launcher icon in place
+            // 2. Disable old launcher activity
             pm.setComponentEnabledSetting(toDisable,
                     PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
                     PackageManager.DONT_KILL_APP);
-
-            // 3. Cleanly finish running activity so the launcher refreshes immediately
-            if (context instanceof Activity) {
-                final Activity activity = (Activity) context;
-                MainThreadPost.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            activity.finishAffinity();
-                        } catch (Exception e) {
-                            try {
-                                activity.finish();
-                            } catch (Exception ignored) {
-                            }
-                        }
-                    }
-                });
-            }
         } catch (Exception ignored) {
         }
-    }
-
-    public static synchronized void apply(Context context, boolean dark) {
-        switchInPlaceAndExit(context, dark);
     }
 
     private static boolean isComponentEffectivelyEnabled(PackageManager pm, ComponentName component, boolean defaultInManifest) {
@@ -87,7 +72,11 @@ public final class LauncherIconSwitcher {
         return defaultInManifest;
     }
 
-    /** No-op for lifecycle compatibility. */
+    /** Called when the app is backgrounded (onStop) to seamlessly apply launcher changes. */
     public static synchronized void onAppBackgrounded(Context context) {
+        if (pendingDark != null && context != null) {
+            apply(context, pendingDark);
+            pendingDark = null;
+        }
     }
 }
