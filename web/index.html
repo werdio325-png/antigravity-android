@@ -52,6 +52,15 @@
         -webkit-font-smoothing: antialiased;
         overflow: hidden;
       }
+      p, li {
+        unicode-bidi: plaintext;
+        text-align: start;
+      }
+      pre, code {
+        unicode-bidi: isolate;
+        direction: ltr;
+        text-align: left;
+      }
       #root {
         width: 100%;
         height: 100%;
