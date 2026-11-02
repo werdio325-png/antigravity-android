@@ -92,9 +92,6 @@ jobs:
             export AGY_HOME="$PWD/vendor"
           fi
 
-      - name: Build Standard Release APK (dist/antigravity.apk)
-        run: |
-          bash build.sh
 
       - name: Build Region Bypass Release APK (dist/antigravity-region-bypass.apk)
         run: |
@@ -103,15 +100,14 @@ jobs:
       - name: Compute Cryptographic Checksums
         run: |
           cd dist
-          sha256sum antigravity.apk antigravity-region-bypass.apk > SHA256SUMS.txt
+          sha256sum antigravity-region-bypass.apk > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: antigravity-binaries
+          name: Antigravity-Region-Bypass-arm64
           path: |
-            dist/antigravity.apk
             dist/antigravity-region-bypass.apk
             dist/SHA256SUMS.txt
 
