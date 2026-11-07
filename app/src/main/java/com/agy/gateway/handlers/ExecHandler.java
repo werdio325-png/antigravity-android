@@ -24,6 +24,8 @@ import java.util.concurrent.TimeUnit;
 public final class ExecHandler {
 
     private static final String TAG = "ExecHandler";
+    private static final int MAX_OUTPUT_CHARS = 256 * 1024; // 256 KB per stream
+
     private final Context context;
     private final CommandHistory history;
     private final LogRingBuffer logBuffer;
@@ -65,6 +67,8 @@ public final class ExecHandler {
         StringBuilder stdoutBuf = new StringBuilder();
         StringBuilder stderrBuf = new StringBuilder();
         String status = "ERROR";
+        Thread outThread = null;
+        Thread errThread = null;
 
         try {
             ProcessBuilder pb;
@@ -88,26 +92,38 @@ public final class ExecHandler {
             Process proc = pb.start();
 
             // Read stdout and stderr in background threads to avoid buffer deadlocks
-            Thread outThread = new Thread(() -> drainStream(proc.getInputStream(), stdoutBuf), "StdoutDrain");
-            Thread errThread = new Thread(() -> drainStream(proc.getErrorStream(), stderrBuf), "StderrDrain");
+            outThread = new Thread(() -> drainStream(proc.getInputStream(), stdoutBuf), "StdoutDrain-" + cmdId);
+            errThread = new Thread(() -> drainStream(proc.getErrorStream(), stderrBuf), "StderrDrain-" + cmdId);
+            outThread.setDaemon(true);
+            errThread.setDaemon(true);
             outThread.start();
             errThread.start();
 
             boolean finished = proc.waitFor(timeoutMs, TimeUnit.MILLISECONDS);
             if (finished) {
                 exitCode = proc.exitValue();
-                outThread.join(500);
-                errThread.join(500);
+                joinQuietly(outThread, 800);
+                joinQuietly(errThread, 800);
                 status = (exitCode == 0) ? "SUCCESS" : "FAILED";
             } else {
                 proc.destroy();
+                if (!proc.waitFor(500, TimeUnit.MILLISECONDS)) {
+                    proc.destroyForcibly();
+                    proc.waitFor(500, TimeUnit.MILLISECONDS);
+                }
+                interruptQuietly(outThread);
+                interruptQuietly(errThread);
+                joinQuietly(outThread, 300);
+                joinQuietly(errThread, 300);
                 status = "TIMEOUT";
-                stderrBuf.append("\n[Process timed out after ").append(timeoutMs).append("ms]");
+                appendCapped(stderrBuf, "\n[Process timed out after " + timeoutMs + "ms]");
             }
         } catch (Exception e) {
             status = "ERROR";
-            stderrBuf.append("\nExecution exception: ").append(e.getMessage());
+            appendCapped(stderrBuf, "\nExecution exception: " + e.getMessage());
             Log.w(TAG, "exec error: " + e.getMessage());
+            interruptQuietly(outThread);
+            interruptQuietly(errThread);
         }
 
         long durationMs = System.currentTimeMillis() - startTime;
@@ -139,14 +155,46 @@ public final class ExecHandler {
 
     private static void drainStream(InputStream in, StringBuilder out) {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (out.length() > 0) {
-                    out.append("\n");
+            char[] buf = new char[4096];
+            int n;
+            boolean truncated = false;
+            while ((n = reader.read(buf)) != -1) {
+                if (out.length() >= MAX_OUTPUT_CHARS) {
+                    truncated = true;
+                    continue; // keep draining to avoid blocking the process
                 }
-                out.append(line);
+                int remaining = MAX_OUTPUT_CHARS - out.length();
+                out.append(buf, 0, Math.min(n, remaining));
+                if (n > remaining) {
+                    truncated = true;
+                }
+            }
+            if (truncated) {
+                out.append("\n[output truncated]");
             }
         } catch (Exception ignored) {}
+    }
+
+    private static void appendCapped(StringBuilder out, String text) {
+        if (text == null || out == null) return;
+        int remaining = MAX_OUTPUT_CHARS - out.length();
+        if (remaining <= 0) return;
+        if (text.length() <= remaining) {
+            out.append(text);
+        } else {
+            out.append(text, 0, remaining);
+            out.append("\n[output truncated]");
+        }
+    }
+
+    private static void joinQuietly(Thread t, long ms) {
+        if (t == null) return;
+        try { t.join(ms); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
+    }
+
+    private static void interruptQuietly(Thread t) {
+        if (t == null) return;
+        try { t.interrupt(); } catch (Exception ignored) {}
     }
 
     private String resolveRishPath() {

@@ -22,7 +22,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Lightweight embedded HTTP Server listening strictly on 127.0.0.1:45158.
+ * Lightweight embedded HTTP Server listening strictly on 127.0.0.1 (default 45160, build-configurable).
  * Zero external dependencies; exposes the Android System Gateway to the Linux/agent layer.
  */
 public final class SystemGatewayServer {
