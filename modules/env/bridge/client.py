@@ -147,6 +147,14 @@ def get_status(gateway_url: str = None) -> Dict[str, Any]:
     return send_command("status", {}, gateway_url=gateway_url)
 
 
+def doctor(gateway_url: str = None) -> Dict[str, Any]:
+    return send_command("doctor", {}, gateway_url=gateway_url)
+
+
+def repair(gateway_url: str = None, **payload) -> Dict[str, Any]:
+    return send_command("repair", payload or {}, gateway_url=gateway_url)
+
+
 def exec_command(cmd: str, gateway_url: str = None, async_mode: bool = False, poll_interval: float = 0.25,
                  timeout_s: Optional[float] = None, **payload) -> Dict[str, Any]:
     """Run a command. In async_mode, starts then polls until terminal or timeout_s."""

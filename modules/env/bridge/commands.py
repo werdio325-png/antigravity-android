@@ -34,3 +34,9 @@ def system_info() -> Dict[str, Any]:
 
 def status() -> Dict[str, Any]:
     return client.send_command("status")
+
+def doctor() -> Dict[str, Any]:
+    return client.send_command("doctor")
+
+def repair() -> Dict[str, Any]:
+    return client.send_command("repair")

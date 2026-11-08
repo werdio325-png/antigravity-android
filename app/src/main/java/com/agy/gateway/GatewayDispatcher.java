@@ -20,6 +20,7 @@ public final class GatewayDispatcher {
     private final PowerHandler powerHandler;
     private final ClipboardHandler clipboardHandler;
     private final DeviceHandler deviceHandler;
+    private final DoctorHandler doctorHandler;
     private final LogRingBuffer logBuffer;
     private final com.agy.log.CommandHistory commandHistory;
     private final ExecHandler execHandler;
@@ -30,6 +31,7 @@ public final class GatewayDispatcher {
         this.powerHandler = new PowerHandler(context);
         this.clipboardHandler = new ClipboardHandler(context);
         this.deviceHandler = new DeviceHandler(context);
+        this.doctorHandler = new DoctorHandler(context);
         this.logBuffer = logBuffer;
         this.commandHistory = new com.agy.log.CommandHistory();
         this.execHandler = new ExecHandler(context, this.commandHistory, logBuffer);
@@ -114,6 +116,10 @@ public final class GatewayDispatcher {
                     st.put("core", core);
                 } catch (Exception ignored) {}
                 return st;
+            case "doctor":
+                return doctorHandler.doctor();
+            case "repair":
+                return doctorHandler.repair(payload);
             default:
                 JSONObject err = new JSONObject();
                 try {
