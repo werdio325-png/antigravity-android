@@ -34,6 +34,17 @@ def _gateway_candidates(filename):
         f"/data/user/0/com.agy.dev/files/logs/{filename}",
         f"/data/user/0/com.agy/files/logs/{filename}",
     ])
+    try:
+        import glob
+        for pattern in (
+            f"/data/user/*/com.agy/files/logs/{filename}",
+            f"/data/user/*/com.agy.dev/files/logs/{filename}",
+        ):
+            for path in glob.glob(pattern):
+                if path not in candidates:
+                    candidates.append(path)
+    except Exception:
+        pass
     return candidates
 
 def get_gateway_base():

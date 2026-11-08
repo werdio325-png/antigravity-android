@@ -28,6 +28,19 @@ def _gateway_candidates(filename: str):
         f"/data/user/0/com.agy.dev/files/logs/{filename}",
         f"/data/user/0/com.agy/files/logs/{filename}",
     ])
+
+    # Best-effort discovery for work profiles / secondary Android users.
+    try:
+        import glob
+        for pattern in (
+            f"/data/user/*/com.agy/files/logs/{filename}",
+            f"/data/user/*/com.agy.dev/files/logs/{filename}",
+        ):
+            for path in glob.glob(pattern):
+                if path not in candidates:
+                    candidates.append(path)
+    except Exception:
+        pass
     return candidates
 
 
@@ -127,6 +140,11 @@ def exec_status(cmd_id: str, gateway_url: str = None, stdout_offset: int = 0, st
 def exec_cancel(cmd_id: str, gateway_url: str = None) -> Dict[str, Any]:
     """Request cancellation of an async/running command."""
     return send_command("exec_cancel", {"id": cmd_id}, gateway_url=gateway_url)
+
+
+def get_status(gateway_url: str = None) -> Dict[str, Any]:
+    """Fetch gateway/core health status."""
+    return send_command("status", {}, gateway_url=gateway_url)
 
 
 def exec_command(cmd: str, gateway_url: str = None, async_mode: bool = False, poll_interval: float = 0.25,

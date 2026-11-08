@@ -81,6 +81,24 @@ def cmd_info(args):
         print(f"  Memory Free:  {res.get('memory_free_mb', '?')} MB")
 
 
+def cmd_status(args):
+    res = client.send_command("status")
+    if args.json or not res.get("ok"):
+        print(json.dumps(res, indent=2))
+        if not res.get("ok"):
+            sys.exit(1)
+        return
+    core = res.get("core") or {}
+    ready = core.get("ready")
+    state = "READY" if ready else ("RESTARTING" if core.get("restarting") else "STARTING/NOT READY")
+    print("=== Antigravity Status ===")
+    if res.get("app_version"):
+        print(f"  App:          {res.get('app_version')}")
+    print(f"  Core:         {state}")
+    if core.get("last_error"):
+        print(f"  Last error:   {core.get('last_error')}")
+
+
 def cmd_clipboard(args):
     if args.action == "set":
         text = args.text or sys.stdin.read()
@@ -134,6 +152,10 @@ def main():
     # info
     p_info = subparsers.add_parser("info")
     p_info.set_defaults(func=cmd_info)
+
+    # status
+    p_status = subparsers.add_parser("status")
+    p_status.set_defaults(func=cmd_status)
 
     # clipboard
     p_clip = subparsers.add_parser("clipboard")

@@ -31,3 +31,6 @@ def clipboard_get() -> Dict[str, Any]:
 
 def system_info() -> Dict[str, Any]:
     return client.send_command("system_info")
+
+def status() -> Dict[str, Any]:
+    return client.send_command("status")
