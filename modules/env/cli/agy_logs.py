@@ -17,30 +17,34 @@ if MODULES_ENV_DIR not in sys.path:
     sys.path.insert(0, MODULES_ENV_DIR)
 
 try:
-    from bridge.client import resolve_gateway_url
+    from bridge.client import resolve_gateway_url, resolve_gateway_token
 except ImportError:
     try:
-        from modules.env.bridge.client import resolve_gateway_url
+        from modules.env.bridge.client import resolve_gateway_url, resolve_gateway_token
     except ImportError:
         resolve_gateway_url = None
+        resolve_gateway_token = None
+
+def _gateway_candidates(filename):
+    home = os.environ.get("HOME")
+    candidates = []
+    if home:
+        candidates.append(os.path.join(home, "logs", filename))
+    candidates.extend([
+        f"/data/user/0/com.agy.dev/files/logs/{filename}",
+        f"/data/user/0/com.agy/files/logs/{filename}",
+    ])
+    return candidates
 
 def get_gateway_base():
     if resolve_gateway_url:
         return resolve_gateway_url().rstrip("/")
     if "AGY_GATEWAY_URL" in os.environ:
         return os.environ["AGY_GATEWAY_URL"].rstrip("/")
-    home = os.environ.get("HOME")
-    candidates = []
-    if home:
-        candidates.append(os.path.join(home, "logs", "gateway.port"))
-    candidates.extend([
-        "/data/user/0/com.agy.dev/files/logs/gateway.port",
-        "/data/user/0/com.agy/files/logs/gateway.port"
-    ])
-    for pfile in candidates:
+    for pfile in _gateway_candidates("gateway.port"):
         if os.path.isfile(pfile):
             try:
-                with open(pfile, "r") as f:
+                with open(pfile, "r", encoding="utf-8") as f:
                     p = f.read().strip()
                     if p.isdigit():
                         return f"http://127.0.0.1:{p}/gateway"
@@ -48,6 +52,28 @@ def get_gateway_base():
                 pass
     is_dev = os.environ.get("DEV_MODE") == "1" or os.environ.get("AGY_APPLICATION_ID") == "com.agy.dev"
     return "http://127.0.0.1:45161/gateway" if is_dev else "http://127.0.0.1:45160/gateway"
+
+def get_gateway_token():
+    token = os.environ.get("AGY_GATEWAY_TOKEN")
+    if token and token.strip():
+        return token.strip()
+    if resolve_gateway_token:
+        try:
+            token = resolve_gateway_token()
+            if token:
+                return token
+        except Exception:
+            pass
+    for tfile in _gateway_candidates("gateway.token"):
+        if os.path.isfile(tfile):
+            try:
+                with open(tfile, "r", encoding="utf-8") as f:
+                    token = f.read().strip()
+                    if token:
+                        return token
+            except Exception:
+                pass
+    return None
 
 GATEWAY_BASE = get_gateway_base()
 GATEWAY_LOGS_URL = f"{GATEWAY_BASE}/logs"
@@ -66,7 +92,11 @@ CLR_GRAY = "\033[90m"
 
 def fetch_from_gateway(url):
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "agy-logs"})
+        headers = {"User-Agent": "agy-logs"}
+        token = get_gateway_token()
+        if token:
+            headers["X-Agy-Gateway-Token"] = token
+        req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=1.0) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except Exception:
