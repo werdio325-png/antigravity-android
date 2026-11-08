@@ -76,6 +76,7 @@ def get_gateway_token():
     return None
 
 GATEWAY_BASE = get_gateway_base()
+GATEWAY_STATUS_URL = f"{GATEWAY_BASE}/status"
 GATEWAY_LOGS_URL = f"{GATEWAY_BASE}/logs"
 GATEWAY_COMMANDS_URL = f"{GATEWAY_BASE}/commands"
 GATEWAY_CRASH_URL = f"{GATEWAY_BASE}/crash"
@@ -172,6 +173,46 @@ def format_log_entry(entry):
         color = CLR_GRAY
 
     return f"{CLR_GRAY}[{time_str}]{CLR_RESET} {color}[{level:5s}]{CLR_RESET} {CLR_BLUE}[{channel}]{CLR_RESET} {msg}"
+
+
+def _yesno(v):
+    return "yes" if v else "no"
+
+
+def show_status(as_json=False):
+    data = fetch_from_gateway(GATEWAY_STATUS_URL)
+    if as_json:
+        print(json.dumps(data or {"ok": False, "error": "unavailable"}, indent=2))
+        return
+    if not data:
+        print("[INFO] Gateway status unavailable. Is the app/service running?")
+        return
+    if not data.get("ok"):
+        print(f"[ERROR] Status error: {data.get('error', 'unknown')}")
+        return
+
+    core = data.get("core") or {}
+    env = data.get("env") or {}
+    mem = data.get("memory") or {}
+    ready = core.get("ready")
+    state = "READY" if ready else ("RESTARTING" if core.get("restarting") else "STARTING/NOT READY")
+    state_clr = CLR_GREEN if ready else CLR_YELLOW
+    print(f"\n{CLR_BLUE}=== Antigravity Status ==={CLR_RESET}")
+    if data.get("app_version"):
+        print(f"  App version:   {data.get('app_version')}")
+    if data.get("core_version"):
+        print(f"  Core version:  {data.get('core_version')}")
+    if data.get("gateway_port"):
+        print(f"  Gateway port:  {data.get('gateway_port')}")
+    print(f"  Core state:    {state_clr}{state}{CLR_RESET}")
+    if core.get("last_error"):
+        print(f"  Last error:    {CLR_RED}{core.get('last_error')}{CLR_RESET}")
+    print(f"  Env tools:     usr bash={_yesno(env.get('usr_bash'))}, runtime={_yesno(env.get('runtime_dir'))}, web={_yesno(env.get('web_dir'))}")
+    if env.get("storage_free_mb") is not None:
+        print(f"  Storage free:  {env.get('storage_free_mb')} MB")
+    if mem.get("heap_used_mb") is not None:
+        print(f"  App memory:    {mem.get('heap_used_mb')} / {mem.get('heap_max_mb')} MB (heap)")
+    print()
 
 
 def show_crash(as_json=False):
@@ -335,9 +376,14 @@ def main():
     parser.add_argument("--commands", "-c", action="store_true", help="Display recent command executions and responses")
     parser.add_argument("--cmd-id", help="Display full details and responses for a specific command ID")
     parser.add_argument("--crash", action="store_true", help="Display details of the most recent crash")
+    parser.add_argument("--status", action="store_true", help="Display gateway/core health status")
     parser.add_argument("--json", action="store_true", help="Output in raw JSON format")
 
     args = parser.parse_args()
+
+    if args.status:
+        show_status(args.json)
+        return
 
     if args.commands:
         show_commands(args.tail, args.json)

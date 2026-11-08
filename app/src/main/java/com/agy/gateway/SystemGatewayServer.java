@@ -3,6 +3,8 @@ package com.agy.gateway;
 import android.content.Context;
 import android.util.Log;
 
+import com.agy.BuildConfig;
+import com.agy.core.CoreRuntimeState;
 import com.agy.log.CrashRecorder;
 import com.agy.log.LogRingBuffer;
 import com.agy.util.AtomicFileWriter;
@@ -212,10 +214,8 @@ public final class SystemGatewayServer {
                     statusText = "Unauthorized";
                     responseJson.put("ok", false);
                     responseJson.put("error", "unauthorized");
-                } else if (path.startsWith("/gateway/status")) {
-                    responseJson.put("ok", true);
-                    responseJson.put("status", "online");
-                    responseJson.put("port", port);
+                } else if (path.startsWith("/gateway/status") || path.startsWith("/gateway/health")) {
+                    responseJson = buildStatusJson();
                 } else if (path.startsWith("/gateway/logs")) {
                     responseJson.put("ok", true);
                     responseJson.put("logs", LogRingBuffer.toJsonArray(logBuffer.getRecent(50)));
@@ -256,6 +256,52 @@ public final class SystemGatewayServer {
         } catch (Exception e) {
             Log.d(TAG, "client error: " + e.getMessage());
         }
+    }
+
+    private JSONObject buildStatusJson() {
+        JSONObject resp = new JSONObject();
+        try {
+            resp.put("ok", true);
+            resp.put("status", "online");
+            resp.put("gateway_port", port);
+            try { resp.put("app_version", BuildConfig.APP_VERSION_NAME); } catch (Throwable ignored) {}
+            try { resp.put("core_version", BuildConfig.CORE_VERSION); } catch (Throwable ignored) {}
+            try { resp.put("package", BuildConfig.APPLICATION_ID); } catch (Throwable ignored) {}
+
+            JSONObject core = new JSONObject();
+            boolean ready = CoreRuntimeState.serverUrl != null && !CoreRuntimeState.serverUrl.trim().isEmpty();
+            core.put("ready", ready);
+            core.put("restarting", CoreRuntimeState.restarting);
+            core.put("service_active", CoreRuntimeState.serviceActive);
+            core.put("https_port", CoreRuntimeState.httpsPort);
+            core.put("ready_generation", CoreRuntimeState.readyGeneration);
+            if (CoreRuntimeState.lastError != null) {
+                core.put("last_error", CoreRuntimeState.lastError);
+            }
+            resp.put("core", core);
+
+            File files = context.getFilesDir();
+            JSONObject env = new JSONObject();
+            env.put("files_dir", files.getAbsolutePath());
+            env.put("usr_bash", new File(files, "usr/bin/bash").isFile());
+            env.put("runtime_dir", new File(files, "runtime").isDirectory());
+            env.put("web_dir", new File(files, "web").isDirectory());
+            env.put("storage_free_mb", files.getUsableSpace() / (1024 * 1024));
+            resp.put("env", env);
+
+            Runtime rt = Runtime.getRuntime();
+            JSONObject mem = new JSONObject();
+            long max = rt.maxMemory();
+            long total = rt.totalMemory();
+            long free = rt.freeMemory();
+            long used = total - free;
+            mem.put("heap_used_mb", used / (1024 * 1024));
+            mem.put("heap_max_mb", max / (1024 * 1024));
+            resp.put("memory", mem);
+        } catch (Exception e) {
+            try { resp.put("ok", false); resp.put("error", e.getMessage()); } catch (Exception ignored) {}
+        }
+        return resp;
     }
 
     private boolean isAuthorized(Map<String, String> headers) {
