@@ -104,3 +104,58 @@ def send_command(command: str, payload: Dict[str, Any] = None, gateway_url: str 
             except Exception:
                 pass
         return {"ok": False, "fallback": True, "error": str(e), "packet": packet}
+
+
+def exec_start(cmd: str, gateway_url: str = None, **payload) -> Dict[str, Any]:
+    """Start a command asynchronously; returns an id for polling/cancel."""
+    p = {"cmd": cmd}
+    p.update(payload)
+    return send_command("exec_start", p, gateway_url=gateway_url)
+
+
+def exec_status(cmd_id: str, gateway_url: str = None, stdout_offset: int = 0, stderr_offset: int = 0,
+                include_output: bool = True) -> Dict[str, Any]:
+    """Poll status/output for an async command."""
+    return send_command("exec_status", {
+        "id": cmd_id,
+        "stdout_offset": stdout_offset,
+        "stderr_offset": stderr_offset,
+        "include_output": include_output,
+    }, gateway_url=gateway_url)
+
+
+def exec_cancel(cmd_id: str, gateway_url: str = None) -> Dict[str, Any]:
+    """Request cancellation of an async/running command."""
+    return send_command("exec_cancel", {"id": cmd_id}, gateway_url=gateway_url)
+
+
+def exec_command(cmd: str, gateway_url: str = None, async_mode: bool = False, poll_interval: float = 0.25,
+                 timeout_s: Optional[float] = None, **payload) -> Dict[str, Any]:
+    """Run a command. In async_mode, starts then polls until terminal or timeout_s."""
+    p = {"cmd": cmd}
+    p.update(payload)
+    if not async_mode:
+        return send_command("exec", p, gateway_url=gateway_url)
+    start = exec_start(cmd, gateway_url=gateway_url, **payload)
+    cmd_id = start.get("id")
+    if not start.get("ok") or not cmd_id:
+        return start
+    import time
+    deadline = (time.time() + timeout_s) if timeout_s else None
+    out_off = 0
+    err_off = 0
+    last = start
+    while True:
+        if deadline and time.time() > deadline:
+            exec_cancel(cmd_id, gateway_url=gateway_url)
+            last["timeout"] = True
+            return last
+        time.sleep(poll_interval)
+        last = exec_status(cmd_id, gateway_url=gateway_url, stdout_offset=out_off, stderr_offset=err_off)
+        if not last.get("ok"):
+            return last
+        # keep full accumulated output for caller convenience
+        out_off = 0
+        err_off = 0
+        if not last.get("running", False):
+            return last

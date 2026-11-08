@@ -62,6 +62,13 @@ public final class GatewayDispatcher {
                 return logsResp;
             case "exec":
                 return execHandler.handle(payload);
+            case "exec_start":
+                return execHandler.start(payload);
+            case "exec_status":
+            case "exec_poll":
+                return execHandler.status(payload);
+            case "exec_cancel":
+                return execHandler.cancel(payload);
             case "commands":
                 JSONObject cmdResp = new JSONObject();
                 try {
