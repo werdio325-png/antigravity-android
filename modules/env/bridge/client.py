@@ -142,6 +142,10 @@ def exec_cancel(cmd_id: str, gateway_url: str = None) -> Dict[str, Any]:
     return send_command("exec_cancel", {"id": cmd_id}, gateway_url=gateway_url)
 
 
+def exec_list(active_only: bool = False, limit: int = 20, gateway_url: str = None) -> Dict[str, Any]:
+    return send_command("exec_list", {"active_only": active_only, "limit": limit}, gateway_url=gateway_url)
+
+
 def get_status(gateway_url: str = None) -> Dict[str, Any]:
     """Fetch gateway/core health status."""
     return send_command("status", {}, gateway_url=gateway_url)

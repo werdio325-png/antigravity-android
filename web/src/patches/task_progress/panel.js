@@ -44,15 +44,17 @@
     fab.id='ag-task-fab'; fab.type='button'; fab.innerHTML='Tugas <span class="dot" id="ag-task-dot" style="display:none"></span>';
     var panel = document.createElement('div');
     panel.id='ag-task-panel';
-    panel.innerHTML='<div class="hd"><span>Monitor Tugas</span><button class="btn" id="ag-task-close" type="button">Tutup</button></div>'
+    panel.innerHTML='<div class="hd"><span>Monitor Tugas</span><span style="display:flex;gap:8px"><button class="btn" id="ag-task-doctor" type="button">Cek Kesehatan</button><button class="btn" id="ag-task-close" type="button">Tutup</button></span></div>'
       +'<div class="bd"><div class="row"><input class="cmd" id="ag-task-cmd" placeholder="Contoh: echo halo" />'
       +'<button class="btn primary" id="ag-task-run" type="button">Jalankan</button></div>'
-      +'<div class="meta">Perintah berjalan lewat layanan aplikasi: progres diperbarui otomatis, dan bisa dibatalkan.</div>'
+      +'<div class="meta">Perintah berjalan lewat layanan aplikasi: progres diperbarui otomatis, tugas aktif bisa terdeteksi, dan bisa dibatalkan.</div>'
+      +'<div id="ag-task-doctor-out" class="meta" style="margin-top:8px"></div>'
       +'<div id="ag-task-list"></div></div>';
     document.body.appendChild(fab);
     document.body.appendChild(panel);
     fab.onclick=function(){ state.open=!state.open; panel.classList.toggle('open', state.open); };
     panel.querySelector('#ag-task-close').onclick=function(){ state.open=false; panel.classList.remove('open'); };
+    panel.querySelector('#ag-task-doctor').onclick=function(){ showDoctor(); };
     panel.querySelector('#ag-task-run').onclick=function(){
       var inp=panel.querySelector('#ag-task-cmd'); var cmd=(inp.value||'').trim();
       if (!cmd) return;
@@ -60,6 +62,17 @@
       if (res && res.ok && res.id){ track(res.id, cmd); inp.value=''; }
       else { alert('Gagal mulai tugas: ' + (res && res.error || 'layanan belum siap / kunci ditolak')); }
     };
+  }
+  function showDoctor(){
+    var out = document.getElementById('ag-task-doctor-out'); if(!out) return;
+    out.textContent = 'Memeriksa kondisi...';
+    var res = gw({command:'doctor', payload:{}});
+    if(!res || !res.ok){ out.innerHTML='<span class="bad">Gagal cek kesehatan: '+esc(res&&res.error||'tidak tersedia')+'</span>'; return; }
+    var s=res.summary||{};
+    var lines=['Ringkasan: OK '+(s.ok||0)+', Perlu perhatian '+(s.warn||0)+', Bermasalah '+(s.error||0)];
+    (res.checks||[]).forEach(function(c){ if(c.level!=='ok') lines.push('• '+(c.title||c.id)+(c.fix?(' — Saran: '+c.fix):'')); });
+    if(lines.length===1) lines.push('Semua pemeriksaan utama terlihat baik.');
+    out.innerHTML = '<pre style="max-height:120px">'+esc(lines.join('\n'))+'</pre>';
   }
   function statusClass(st){ st=String(st||''); if(st==='SUCCESS') return 'ok'; if(st==='RUNNING'||st==='CANCELLING'||st==='STARTING') return 'warn'; return 'bad'; }
   function statusLabel(st){ st=String(st||''); if(st==='RUNNING') return 'Sedang berjalan'; if(st==='SUCCESS') return 'Selesai'; if(st==='FAILED') return 'Gagal'; if(st==='CANCELLED') return 'Dibatalkan'; if(st==='TIMEOUT') return 'Terlalu lama'; if(st==='CANCELLING') return 'Membatalkan'; return st||'?'; }
@@ -121,8 +134,33 @@
     if (state.pollers[id]) clearInterval(state.pollers[id]);
     state.pollers[id] = setInterval(function(){ poll(id,false); }, 900);
   }
-  function init(){ try{ ensureUI(); render(); }catch(e){} }
+  function discover(){
+    try {
+      var res = gw({command:'exec_list', payload:{active_only:false, limit:12}});
+      if (!res || !res.ok || !res.tasks) return;
+      (res.tasks||[]).forEach(function(it){
+        if (!it || !it.id) return;
+        var t = state.tasks[it.id];
+        if (!t) {
+          t = state.tasks[it.id] = {id:it.id, cmd:it.cmd||'', status:it.status, running:!!it.running, started:Date.now()-(it.duration_ms||0), stdout:'', stderr:'', outOff:0, errOff:0, duration_ms:it.duration_ms||0};
+          if (t.running && !state.pollers[it.id]) { poll(it.id,false); state.pollers[it.id]=setInterval(function(){ poll(it.id,false); }, 1200); }
+        } else {
+          if (it.status) t.status = it.status;
+          if (typeof it.running==='boolean') t.running = it.running;
+          if (it.cmd && !t.cmd) t.cmd = it.cmd;
+          if (typeof it.duration_ms==='number') t.duration_ms = it.duration_ms;
+          if (!t.running && state.pollers[it.id]) { clearInterval(state.pollers[it.id]); delete state.pollers[it.id]; }
+          if (t.running && !state.pollers[it.id]) { state.pollers[it.id]=setInterval(function(){ poll(it.id,false); }, 1200); }
+        }
+      });
+      if (state.open) render();
+      else { var dot=document.getElementById('ag-task-dot'); if(dot){ var has=Object.keys(state.tasks).some(function(id){return state.tasks[id]&&state.tasks[id].running;}); dot.style.display=has?'inline-block':'none'; } }
+    } catch(e){}
+  }
+  function init(){
+    try{ ensureUI(); render(); discover(); setInterval(discover, 5000); }catch(e){}
+  }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
-  window.__agTaskProgress = { __installed:true, track:track, poll:poll, gateway:gw, state:state };
+  window.__agTaskProgress = { __installed:true, track:track, poll:poll, discover:discover, gateway:gw, state:state };
 })();
 

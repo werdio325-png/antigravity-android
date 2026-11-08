@@ -132,6 +132,31 @@ public final class ExecHandler {
         return resp;
     }
 
+    public JSONObject list(JSONObject payload) {
+        cleanupTasks();
+        boolean activeOnly = payload != null && payload.optBoolean("active_only", false);
+        int limit = payload != null ? Math.max(1, Math.min(payload.optInt("limit", 20), 100)) : 20;
+        org.json.JSONArray arr = new org.json.JSONArray();
+        try {
+            int n = 0;
+            for (ExecTask t : tasks.values()) {
+                if (n >= limit) break;
+                if (activeOnly && t.isTerminal()) continue;
+                JSONObject o = new JSONObject();
+                o.put("id", t.id);
+                o.put("status", t.getStatus());
+                o.put("running", !t.isTerminal());
+                o.put("cmd", t.cmdText());
+                o.put("duration_ms", t.durationMs());
+                arr.put(o);
+                n++;
+            }
+        } catch (Exception ignored) {}
+        JSONObject resp = new JSONObject();
+        try { resp.put("ok", true); resp.put("tasks", arr); } catch (Exception ignored) {}
+        return resp;
+    }
+
     private void cleanupTasks() {
         long now = System.currentTimeMillis();
         if (tasks.size() > MAX_RETAINED_TASKS) {
@@ -203,9 +228,9 @@ public final class ExecHandler {
         }
 
         String getStatus() { return status; }
-        boolean isTerminal() {
-            return !"RUNNING".equals(status);
-        }
+        boolean isTerminal() { return !"RUNNING".equals(status) && !"CANCELLING".equals(status); }
+        String cmdText() { return spec.cmd; }
+        long durationMs() { return Math.max(0, (finishedAt > 0 ? finishedAt : System.currentTimeMillis()) - startTime); }
 
         void runBlocking() {
             if (BuildConfig.DEBUG) {

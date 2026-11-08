@@ -75,6 +75,9 @@ public final class GatewayDispatcher {
                 return execHandler.status(payload);
             case "exec_cancel":
                 return execHandler.cancel(payload);
+            case "exec_list":
+            case "tasks":
+                return execHandler.list(payload);
             case "commands":
                 JSONObject cmdResp = new JSONObject();
                 try {
