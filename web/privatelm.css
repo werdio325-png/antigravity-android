@@ -97,8 +97,8 @@ html, body {
 
 /* ── Apple-Style Scrollbars ── */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -111,26 +111,14 @@ html, body {
   background: rgba(142, 142, 147, 0.5);
 }
 
-/* ── PrivateLM Capsule Composer (Input Bar) ── */
-/* Container capsule styling */
-textarea {
+/* ── Prompt Composer Textarea (Scoped so it doesn't break code blocks) ── */
+form textarea,
+div:has(> button[type="submit"]) textarea,
+textarea[placeholder*="Ask"],
+textarea[placeholder*="prompt"] {
   font-family: var(--app-font) !important;
   font-size: 15px !important;
   line-height: 1.45 !important;
-}
-
-/* Rounding and border polish for inputs & cards */
-.rounded-xl,
-.rounded-2xl,
-.rounded-lg {
-  border-radius: 16px !important;
-}
-
-/* Rounded Buttons */
-button {
-  font-family: var(--app-font) !important;
-  font-weight: 500 !important;
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 /* Primary Action Buttons: Apple Pill Shape */
@@ -149,27 +137,119 @@ button[type="submit"]:active,
   opacity: 0.9 !important;
 }
 
-/* ── Code Blocks (PrivateLM Theme) ── */
-pre,
-code[class*="language-"],
-pre[class*="language-"] {
-  background-color: var(--surface-high) !important;
-  border: 0.5px solid var(--border) !important;
+/* ── Command Runner Block (Fix for Screenshot 2: bash agy-code) ── */
+.group\/run-command {
+  background-color: #161618 !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 12px !important;
+  margin: 6px 0 !important;
+  overflow: hidden !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+.group\/run-command > div:first-child {
+  background-color: #1e1e20 !important;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.08) !important;
+  padding: 6px 12px !important;
+}
+
+.group\/run-command textarea,
+.group\/run-command [data-testid="permission-target-editor"],
+.group\/run-command code,
+.group\/run-command span {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace !important;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+}
+
+/* ── Code Blocks (Fix double border/padding nesting) ── */
+pre {
+  background-color: #18181a !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 10px !important;
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace !important;
   font-size: 13px !important;
   line-height: 1.5 !important;
 }
 
-/* ── Dialogs, Sheets & Menus ── */
-[role="dialog"],
-[role="menu"],
-[data-testid*="popup"],
-.bg-card {
-  background-color: var(--card) !important;
-  border: 0.5px solid var(--border) !important;
-  border-radius: 18px !important;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45) !important;
+pre code,
+pre > code[class*="language-"] {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+
+:not(pre) > code {
+  background-color: var(--surface-high) !important;
+  padding: 2px 6px !important;
+  border-radius: 6px !important;
+  font-size: 12.5px !important;
+}
+
+/* ── Bottom Sheet & Settings Drawer (Fix for Screenshot 1) ── */
+/* Deep blur backdrop so top header doesn't clash/bleed through */
+.aux-drawer-backdrop {
+  background-color: rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  z-index: 50 !important;
+}
+
+/* Drawer popup: proper Apple Sheet curve, safe top margin, and surface tone */
+.aux-drawer-popup,
+[data-testid="bottom-sheet"] {
+  background-color: #1C1C1E !important;
+  border-top-left-radius: 20px !important;
+  border-top-right-radius: 20px !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
+  max-height: 85vh !important;
+  margin-top: 15vh !important;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.8) !important;
+  z-index: 55 !important;
+}
+
+/* Drag handle on top of sheet */
+.aux-drawer-popup > div:first-child [role="presentation"],
+[data-testid="bottom-sheet"] [role="presentation"],
+.aux-drawer-popup .bg-muted-foreground\/30,
+.aux-drawer-popup .bg-muted-foreground\/40 {
+  background-color: rgba(255, 255, 255, 0.3) !important;
+  width: 36px !important;
+  height: 4px !important;
+  border-radius: 2px !important;
+}
+
+/* Apple Settings Inset List Rows */
+.aux-drawer-popup button,
+[data-testid="bottom-sheet"] button {
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.07) !important;
+  padding: 13px 16px !important;
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  font-size: 15px !important;
+  transition: background-color 0.12s ease !important;
+}
+
+.aux-drawer-popup button:active,
+[data-testid="bottom-sheet"] button:active {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.aux-drawer-popup h1,
+.aux-drawer-popup h2,
+[data-testid="bottom-sheet"] h1,
+[data-testid="bottom-sheet"] h2 {
+  color: #8E8E93 !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
 }
 
 /* ==========================================================================
