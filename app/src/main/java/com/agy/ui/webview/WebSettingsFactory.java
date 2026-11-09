@@ -31,6 +31,7 @@ public final class WebSettingsFactory {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
+        settings.setRenderPriority(WebSettings.RenderPriority.HIGH);
         settings.setSupportZoom(true);
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
