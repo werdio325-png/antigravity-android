@@ -22,6 +22,9 @@ public final class FileModeUtil {
             return;
         }
         for (File file : files) {
+            if (com.agy.install.TextFileDetector.isSymlink(file)) {
+                continue;
+            }
             if (file.isDirectory()) {
                 recursiveSetReadableExecutable(file);
                 continue;
@@ -56,6 +59,9 @@ public final class FileModeUtil {
             return;
         }
         for (File file : files) {
+            if (com.agy.install.TextFileDetector.isSymlink(file)) {
+                continue;
+            }
             if (file.isDirectory()) {
                 recursiveSetExec(file);
             } else {

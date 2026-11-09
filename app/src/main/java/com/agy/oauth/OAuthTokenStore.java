@@ -62,16 +62,16 @@ public final class OAuthTokenStore {
         }
         int at = t.indexOf("\"token\"");
         if (at < 0) {
-            return false;
+            return true;
         }
         int colon = t.indexOf(':', at);
         if (colon < 0) {
-            return false;
+            return true;
         }
         int i = colon + 1;
         while (i < t.length() && Character.isWhitespace(t.charAt(i))) {
             i++;
         }
-        return t.startsWith("null", i);
+        return t.startsWith("null", i) || t.startsWith("\"\"", i);
     }
 }

@@ -256,6 +256,7 @@ public final class ExecHandler {
                 pb.environment().remove("LD_LIBRARY_PATH");
 
                 process = pb.start();
+                try { process.getOutputStream().close(); } catch (Exception ignored) {}
                 outThread = new Thread(() -> drainStream(process.getInputStream(), stdoutBuf), "StdoutDrain-" + id);
                 errThread = new Thread(() -> drainStream(process.getErrorStream(), stderrBuf), "StderrDrain-" + id);
                 outThread.setDaemon(true); errThread.setDaemon(true);
@@ -300,6 +301,7 @@ public final class ExecHandler {
         }
 
         void cancel() {
+            if (isTerminal()) return;
             cancelled = true;
             status = "CANCELLING";
             terminateProcess(process);
@@ -407,6 +409,9 @@ public final class ExecHandler {
         } catch (Exception ignored) {
             try { proc.destroyForcibly(); } catch (Exception ignored2) {}
         }
+        try { if (proc.getInputStream() != null) proc.getInputStream().close(); } catch (Exception ignored) {}
+        try { if (proc.getErrorStream() != null) proc.getErrorStream().close(); } catch (Exception ignored) {}
+        try { if (proc.getOutputStream() != null) proc.getOutputStream().close(); } catch (Exception ignored) {}
     }
 
     private static void joinQuietly(Thread t, long ms) {

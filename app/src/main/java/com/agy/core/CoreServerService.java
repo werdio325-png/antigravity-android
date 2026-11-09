@@ -33,6 +33,7 @@ public final class CoreServerService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        ForegroundNotification.start(this);
         CoreRuntimeState.serviceActive = true;
         runtime = new RuntimeManager(this);
         logBuffer = new com.agy.log.LogRingBuffer();
@@ -49,7 +50,6 @@ public final class CoreServerService extends Service {
         CoreRuntimeState.lastError = null;
         CoreRuntimeState.serverUrl = null;
 
-        ForegroundNotification.start(this);
         wakeLock = new WakeLockHolder();
         wakeLock.acquire(this);
 

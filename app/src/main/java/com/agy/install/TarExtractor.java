@@ -35,6 +35,7 @@ public final class TarExtractor {
     public static int untar(InputStream in, File dest) throws IOException {
         byte[] header = new byte[512];
         String pendingName = null;
+        String pendingLink = null;
         int links = 0;
         while (TarHeader.readBlock(in, header)) {
             if (TarHeader.isZeroBlock(header)) {
@@ -53,13 +54,21 @@ public final class TarExtractor {
                 pendingName = new String(readEntry(in, size), StandardCharsets.UTF_8).trim();
                 continue;
             }
-            if (type == 'K' || type == 'x' || type == 'g') {
+            if (type == 'K') {
+                pendingLink = new String(readEntry(in, size), StandardCharsets.UTF_8).trim();
+                continue;
+            }
+            if (type == 'x' || type == 'g') {
                 skipEntry(in, size);
                 continue;
             }
             if (pendingName != null) {
                 name = pendingName;
                 pendingName = null;
+            }
+            if (pendingLink != null) {
+                link = pendingLink;
+                pendingLink = null;
             }
             if (dirPrefix != null && !dirPrefix.isEmpty()) {
                 name = dirPrefix + "/" + name;
@@ -112,6 +121,12 @@ public final class TarExtractor {
             Matcher matcher = EnvPaths.TERMUX_ANY_PREFIX.matcher(target);
             if (!matcher.lookingAt()) {
                 throw new IOException("absolute tar symlink escapes env prefix: " + target);
+            }
+            String remainder = target.substring(matcher.end());
+            for (String part : remainder.split("/")) {
+                if ("..".equals(part)) {
+                    throw new IOException("absolute tar symlink contains path traversal: " + target);
+                }
             }
             return;
         }
