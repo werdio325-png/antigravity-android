@@ -8,9 +8,8 @@
   /* Dynamic Fluid Dimensions (Zero Magic Pixel Cutoffs) */
   --layout-content-max: min(94vw, 920px);
   --composer-input-max: min(94vw, 860px);
-  --modal-sheet-max-width: min(94vw, 620px);
-  --modal-sheet-max-height: 85dvh;
-  --modal-sheet-top-margin: calc(100dvh - var(--modal-sheet-max-height));
+  --modal-sheet-max-width: min(92vw, 600px);
+  --modal-sheet-max-height: 86dvh;
   --sidebar-width: clamp(260px, 28vw, 320px);
   --touch-target-size: clamp(38px, 4vw, 44px);
   --top-bar-height: clamp(50px, 5.5vw, 56px);
@@ -20,9 +19,6 @@
   --font-reading-line: 1.65;
   --font-code-size: clamp(12.5px, 0.35vw + 11.5px, 14px);
   --font-composer-size: clamp(14.5px, 0.4vw + 13.5px, 16px);
-  --font-heading-1: clamp(20px, 1vw + 17px, 25px);
-  --font-heading-2: clamp(17px, 0.8vw + 14px, 21px);
-  --font-heading-3: clamp(15px, 0.5vw + 13px, 18px);
 
   /* Smooth Curves */
   --radius-capsule: 9999px;
@@ -77,7 +73,7 @@ body.dark-theme,
   --text-secondary: #98989D !important;
   --accent-glow: #0A84FF !important;
 
-  /* Specific Component Tones */
+  /* Component Tones */
   --code-bg: #18181a !important;
   --code-border: rgba(255, 255, 255, 0.1) !important;
   --cmd-bg: #161618 !important;
@@ -88,6 +84,7 @@ body.dark-theme,
   --backdrop: rgba(0, 0, 0, 0.85) !important;
   --divider: rgba(255, 255, 255, 0.08) !important;
   --hover-bg: rgba(255, 255, 255, 0.07) !important;
+  --switch-bg-off: #39393D !important;
 
   /* Semantics */
   --success: #34C759 !important;
@@ -133,7 +130,7 @@ body.light-theme,
   --text-secondary: #8E8E93 !important;
   --accent-glow: #007AFF !important;
 
-  /* Specific Component Tones */
+  /* Component Tones */
   --code-bg: #F5F5F7 !important;
   --code-border: rgba(0, 0, 0, 0.1) !important;
   --cmd-bg: #F7F7F9 !important;
@@ -141,10 +138,12 @@ body.light-theme,
   --sheet-bg: #FFFFFF !important;
   --sheet-border: rgba(0, 0, 0, 0.12) !important;
   --sheet-handle: rgba(0, 0, 0, 0.25) !important;
-  --backdrop: rgba(0, 0, 0, 0.45) !important;
+  --backdrop: rgba(0, 0, 0, 0.5) !important;
   --divider: rgba(0, 0, 0, 0.08) !important;
   --hover-bg: rgba(0, 0, 0, 0.05) !important;
+  --switch-bg-off: #E5E5EA !important;
 
+  /* Semantics */
   --success: #34C759 !important;
   --warning: #FF9500 !important;
   --error: #FF3B30 !important;
@@ -155,8 +154,6 @@ html, body {
   background-color: var(--bg-main) !important;
   color: var(--text-primary) !important;
   font-family: var(--app-font) !important;
-  font-size: var(--font-reading-size) !important;
-  line-height: var(--font-reading-line) !important;
   letter-spacing: -0.011em !important;
   -webkit-font-smoothing: antialiased !important;
   text-rendering: optimizeLegibility !important;
@@ -260,7 +257,7 @@ pre > code[class*="language-"] {
   font-size: calc(var(--font-code-size) * 0.92) !important;
 }
 
-/* ── 8. MODAL SHEETS & SETTINGS DRAWER ── */
+/* ── 8. MODAL SHEETS & SETTINGS DRAWER (SCROLLABLE & CENTERED) ── */
 .aux-drawer-backdrop,
 [data-testid="bottom-sheet-backdrop"] {
   background-color: var(--backdrop) !important;
@@ -281,16 +278,34 @@ pre > code[class*="language-"] {
   border-right: none !important;
   border-bottom: none !important;
   max-height: var(--modal-sheet-max-height) !important;
-  margin-top: var(--modal-sheet-top-margin) !important;
   box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.4) !important;
   z-index: 55 !important;
   color: var(--text-primary) !important;
+  touch-action: pan-y !important;
+  pointer-events: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
 
+/* Ensure inner scroll containers inside settings can scroll freely */
+.aux-drawer-popup [class*="overflow-y-auto"],
+[data-testid="bottom-sheet"] [class*="overflow-y-auto"],
+.aux-drawer-popup .flex-1.overflow-y-auto,
+[data-testid="bottom-sheet"] .flex-1.overflow-y-auto {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+  overscroll-behavior-y: contain !important;
+  pointer-events: auto !important;
+  min-height: 0 !important;
+}
+
+/* Drag handle on top of sheet */
 .aux-drawer-popup > div:first-child [role="presentation"],
 [data-testid="bottom-sheet"] [role="presentation"],
 .aux-drawer-popup .bg-muted-foreground\/30,
-.aux-drawer-popup .bg-muted-foreground\/40 {
+.aux-drawer-popup .bg-muted-foreground\/40,
+[data-testid="bottom-sheet-grabber"] {
   background-color: var(--sheet-handle) !important;
   width: 36px !important;
   height: 4px !important;
@@ -303,8 +318,10 @@ pre > code[class*="language-"] {
   color: var(--text-primary) !important;
 }
 
-.aux-drawer-popup button,
-[data-testid="bottom-sheet"] button {
+/* Apple Settings List Navigation Rows */
+button[data-testid*="settings-nav-item"],
+button[data-testid*="nav-item"],
+.aux-drawer-popup [role="menuitem"]:not([role="switch"]) {
   border-bottom: 0.5px solid var(--divider) !important;
   padding: 13px 16px !important;
   border-radius: 0 !important;
@@ -314,11 +331,12 @@ pre > code[class*="language-"] {
   transition: background-color 0.12s ease !important;
 }
 
-.aux-drawer-popup button:active,
-[data-testid="bottom-sheet"] button:active {
+button[data-testid*="settings-nav-item"]:active,
+button[data-testid*="nav-item"]:active {
   background-color: var(--hover-bg) !important;
 }
 
+/* Section Headings in Settings */
 .aux-drawer-popup h1,
 .aux-drawer-popup h2,
 [data-testid="bottom-sheet"] h1,
@@ -328,6 +346,41 @@ pre > code[class*="language-"] {
   font-size: 13px !important;
   text-transform: uppercase !important;
   letter-spacing: 0.04em !important;
+}
+
+/* ── 9. APPLE TOGGLE SWITCHES (Dark & Light Mode Fix) ── */
+button[role="switch"],
+button[data-state*="checked"],
+button[data-state*="unchecked"] {
+  background-color: var(--switch-bg-off) !important;
+  border-radius: var(--radius-capsule) !important;
+  border: 1px solid var(--border) !important;
+  min-width: 48px !important;
+  width: 48px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 2px !important;
+  box-shadow: none !important;
+  transition: background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  cursor: pointer !important;
+}
+
+button[role="switch"][data-state="checked"],
+button[role="switch"][aria-checked="true"] {
+  background-color: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
+
+button[role="switch"] > span,
+button[role="switch"] > div {
+  background-color: #ffffff !important;
+  border-radius: var(--radius-capsule) !important;
+  width: 22px !important;
+  height: 22px !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 /* Badge styling for plugin & MCP errors */
@@ -340,15 +393,13 @@ pre > code[class*="language-"] {
   padding: 8px 12px !important;
   border-radius: 10px !important;
   margin-top: 6px !important;
-  font-size: calc(var(--font-reading-size) * 0.78) !important;
+  font-size: 12px !important;
   line-height: 1.45 !important;
 }
 
-/* ── 9. FLUID RESPONSIVE CONTAINER QUERIES (TABLETS & WIDE SCREENS) ── */
+/* ── 10. FLUID RESPONSIVE CONTAINER QUERIES (TABLETS & WIDE SCREENS) ── */
 @media (min-width: 600px) {
-  /* Fluid Reading Column */
-  main,
-  #root > div,
+  /* Fluid Reading Column (Target ONLY content container, not the root shell) */
   .conversation-container,
   [data-testid="conversation-container"] {
     max-width: var(--layout-content-max) !important;
@@ -384,15 +435,15 @@ pre > code[class*="language-"] {
     padding-right: clamp(16px, 2vw, 24px) !important;
   }
 
-  /* Fluid Centered Card Modal for Tablets */
+  /* Fluid Centered Card Modal for Tablets (Natural Flex Centering) */
   .aux-drawer-popup,
   [data-testid="bottom-sheet"] {
     max-width: var(--modal-sheet-max-width) !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    border-radius: var(--radius-dialog) !important;
+    width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    border-radius: var(--radius-dialog) var(--radius-dialog) 0 0 !important;
     border: 1px solid var(--sheet-border) !important;
-    margin-bottom: 24px !important;
     box-shadow: 0 16px 50px rgba(0, 0, 0, 0.4) !important;
   }
 
@@ -407,31 +458,14 @@ pre > code[class*="language-"] {
   }
 }
 
-/* ── 10. 120HZ / 60FPS BUTTERY SMOOTHNESS & GPU ACCELERATION ENGINE ── */
-/* Inertial momentum touch scrolling */
-html,
-body,
-#root,
-main,
+/* ── 11. 120HZ / 60FPS SMOOTHNESS & INERTIAL TOUCH SCROLLING ── */
+/* Momentum touch scrolling without artificial smooth-scroll locks */
 .scrollable,
 [data-testid*="scroll"],
 .overflow-y-auto,
-.overflow-auto,
-.overflow-x-auto {
+.overflow-auto {
   -webkit-overflow-scrolling: touch !important;
   overscroll-behavior-y: contain !important;
-  scroll-behavior: smooth !important;
-}
-
-/* Promote main viewport to dedicated GPU compositing layer (Zero stutter) */
-#root,
-main,
-.conversation-container,
-[data-testid="conversation-container"] {
-  transform: translate3d(0, 0, 0);
-  -webkit-transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
 }
 
 /* Instant touch response: eliminate 300ms tap lag */
@@ -446,7 +480,7 @@ label {
   -webkit-tap-highlight-color: transparent !important;
 }
 
-/* Off-screen DOM rendering acceleration (60-70% less lag in long conversations) */
+/* Off-screen DOM rendering acceleration */
 .message-row,
 [data-role="user"],
 [data-role="assistant"],
@@ -455,12 +489,4 @@ label {
   content-visibility: auto !important;
   contain-intrinsic-size: 0 90px !important;
   contain: layout style paint !important;
-}
-
-/* Silky smooth cubic-bezier transitions */
-.transition-all,
-.transition-colors,
-.transition-opacity,
-.transition-transform {
-  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
