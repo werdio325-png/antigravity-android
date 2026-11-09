@@ -189,10 +189,11 @@ pre > code[class*="language-"] {
 
 /* ── Bottom Sheet & Settings Drawer ── */
 /* Deep blur backdrop so top header doesn't clash/bleed through */
-.aux-drawer-backdrop {
-  background-color: rgba(0, 0, 0, 0.75) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
+.aux-drawer-backdrop,
+[data-testid="bottom-sheet-backdrop"] {
+  background-color: rgba(0, 0, 0, 0.88) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
   z-index: 50 !important;
 }
 
@@ -212,6 +213,26 @@ pre > code[class*="language-"] {
   margin-top: 15vh !important;
   box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.8) !important;
   z-index: 55 !important;
+}
+
+/* Settings sub-page header (< Back) */
+.sticky.top-0 {
+  background-color: #1C1C1E !important;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Clean badge styling for plugin & MCP error messages */
+.text-red-500.break-words,
+[class*="text-red-500"][class*="break-words"],
+.text-red-600.break-words {
+  background-color: rgba(255, 59, 48, 0.08) !important;
+  border: 0.5px solid rgba(255, 59, 48, 0.28) !important;
+  color: #ff6961 !important;
+  padding: 8px 12px !important;
+  border-radius: 10px !important;
+  margin-top: 6px !important;
+  font-size: 11.5px !important;
+  line-height: 1.45 !important;
 }
 
 /* Drag handle on top of sheet */
