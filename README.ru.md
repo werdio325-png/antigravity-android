@@ -10,7 +10,10 @@
 
   # Antigravity для Android
 
-  **Автономная среда разработки на базе ИИ, работающая нативно на Android и ARM64.**
+> [!WARNING]
+> **Проект временно приостановлен на несколько месяцев из-за занятости разработчика.**
+
+**Автономная среда разработки на базе ИИ, работающая нативно на Android и ARM64.**
 
   [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](https://android.com)
   [![Arch](https://img.shields.io/badge/ARM64-v8.0--A%2B-blue?style=flat-square)](https://arm.com)
