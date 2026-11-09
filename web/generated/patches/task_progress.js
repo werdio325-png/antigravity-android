@@ -22,9 +22,10 @@
   function ensureUI(){
     if (document.getElementById('ag-task-fab')) return;
     var style = document.createElement('style');
-    style.textContent = '#ag-task-fab{position:fixed;right:14px;bottom:14px;z-index:2147483000;border:0;border-radius:999px;padding:10px 14px;background:#2563eb;color:#fff;font:600 13px/1.2 system-ui;box-shadow:0 6px 20px rgba(0,0,0,.25)}'
-      +'#ag-task-fab .dot{display:inline-block;width:8px;height:8px;border-radius:99px;background:#22c55e;margin-left:6px;vertical-align:middle}'
-      +'#ag-task-panel{position:fixed;right:14px;bottom:64px;z-index:2147483000;width:min(94vw,440px);max-height:62vh;overflow:auto;background:rgba(15,23,42,.97);color:#e5e7eb;border:1px solid rgba(148,163,184,.25);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35);font:13px/1.35 system-ui;display:none}'
+    style.textContent = '#ag-task-fab{position:fixed;top:70px;right:14px;z-index:2147483000;border:0;border-radius:999px;padding:7px 12px;background:#2563eb;color:#fff;font:600 12px/1.2 system-ui;box-shadow:0 4px 16px rgba(0,0,0,.3);cursor:grab;touch-action:none;user-select:none}'
+      +'#ag-task-fab:active{cursor:grabbing;opacity:.9}'
+      +'#ag-task-fab .dot{display:inline-block;width:7px;height:7px;border-radius:99px;background:#22c55e;margin-left:5px;vertical-align:middle}'
+      +'#ag-task-panel{position:fixed;top:60px;right:14px;z-index:2147483000;width:min(94vw,420px);max-height:60vh;overflow:auto;background:rgba(15,23,42,.97);color:#e5e7eb;border:1px solid rgba(148,163,184,.25);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35);font:13px/1.35 system-ui;display:none}'
       +'#ag-task-panel.open{display:block}'
       +'#ag-task-panel .hd{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid rgba(148,163,184,.18);font-weight:600;position:sticky;top:0;background:rgba(15,23,42,.98)}'
       +'#ag-task-panel .bd{padding:10px 12px}'
@@ -35,13 +36,13 @@
       +'#ag-task-panel .btn.primary{background:#2563eb}.btn.danger{background:#b91c1c}'
       +'#ag-task-panel .task{border:1px solid rgba(148,163,184,.18);border-radius:10px;padding:8px 10px;margin-top:8px;background:rgba(255,255,255,.02)}'
       +'#ag-task-panel .meta{font-size:12px;color:#94a3b8;word-break:break-word}'
-      +'#ag-task-panel pre{margin:6px 0 0;white-space:pre-wrap;word-break:break-word;max-height:150px;overflow:auto;font:12px/1.3 ui-monospace,monospace;color:#cbd5e1;background:rgba(0,0,0,.18);padding:8px;border-radius:8px}'
+      +'#ag-task-panel pre{margin:6px 0 0;white-space:pre-wrap;word-break:break-word;max-height:140px;overflow:auto;font:12px/1.3 ui-monospace,monospace;color:#cbd5e1;background:rgba(0,0,0,.18);padding:8px;border-radius:8px}'
       +'#ag-task-panel pre.err{color:#fecaca}'
       +'#ag-task-panel .st{font-weight:700}.ok{color:#4ade80}.warn{color:#fbbf24}.bad{color:#f87171}'
       +'#ag-task-panel .actions{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}';
     document.head.appendChild(style);
     var fab = document.createElement('button');
-    fab.id='ag-task-fab'; fab.type='button'; fab.innerHTML='Tugas <span class="dot" id="ag-task-dot" style="display:none"></span>';
+    fab.id='ag-task-fab'; fab.type='button'; fab.innerHTML='⚡ Tugas <span class="dot" id="ag-task-dot" style="display:none"></span>';
     var panel = document.createElement('div');
     panel.id='ag-task-panel';
     panel.innerHTML='<div class="hd"><span>Monitor Tugas</span><span style="display:flex;gap:8px"><button class="btn" id="ag-task-doctor" type="button">Cek Kesehatan</button><button class="btn" id="ag-task-close" type="button">Tutup</button></span></div>'
@@ -52,7 +53,61 @@
       +'<div id="ag-task-list"></div></div>';
     document.body.appendChild(fab);
     document.body.appendChild(panel);
-    fab.onclick=function(){ state.open=!state.open; panel.classList.toggle('open', state.open); };
+
+    // Make FAB draggable on touch/mouse and remember position
+    (function initDrag(){
+      try {
+        var saved = localStorage.getItem('ag_task_fab_pos');
+        if (saved) {
+          var p = JSON.parse(saved);
+          if (p && typeof p.top === 'number' && typeof p.left === 'number') {
+            fab.style.top = Math.max(10, Math.min(window.innerHeight - 50, p.top)) + 'px';
+            fab.style.left = Math.max(10, Math.min(window.innerWidth - 80, p.left)) + 'px';
+            fab.style.right = 'auto';
+            fab.style.bottom = 'auto';
+          }
+        }
+      } catch(e){}
+
+      var startX = 0, startY = 0, origX = 0, origY = 0, dragged = false;
+      function onStart(e){
+        var pt = e.touches ? e.touches[0] : e;
+        startX = pt.clientX; startY = pt.clientY;
+        var r = fab.getBoundingClientRect();
+        origX = r.left; origY = r.top;
+        dragged = false;
+      }
+      function onMove(e){
+        var pt = e.touches ? e.touches[0] : e;
+        var dx = pt.clientX - startX;
+        var dy = pt.clientY - startY;
+        if (Math.abs(dx) > 4 || Math.abs(dy) > 4) dragged = true;
+        if (!dragged) return;
+        var nx = Math.max(10, Math.min(window.innerWidth - fab.offsetWidth - 10, origX + dx));
+        var ny = Math.max(10, Math.min(window.innerHeight - fab.offsetHeight - 10, origY + dy));
+        fab.style.left = nx + 'px';
+        fab.style.top = ny + 'px';
+        fab.style.right = 'auto';
+        fab.style.bottom = 'auto';
+      }
+      function onEnd(){
+        if (dragged) {
+          try {
+            var r = fab.getBoundingClientRect();
+            localStorage.setItem('ag_task_fab_pos', JSON.stringify({ top: Math.round(r.top), left: Math.round(r.left) }));
+          } catch(e){}
+        }
+      }
+      fab.addEventListener('touchstart', onStart, { passive: true });
+      window.addEventListener('touchmove', onMove, { passive: false });
+      window.addEventListener('touchend', onEnd, { passive: true });
+      fab.onclick = function(e){
+        if (dragged) { dragged = false; return; }
+        state.open = !state.open;
+        panel.classList.toggle('open', state.open);
+      };
+    })();
+
     panel.querySelector('#ag-task-close').onclick=function(){ state.open=false; panel.classList.remove('open'); };
     panel.querySelector('#ag-task-doctor').onclick=function(){ showDoctor(); };
     panel.querySelector('#ag-task-run').onclick=function(){
