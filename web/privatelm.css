@@ -1,0 +1,226 @@
+/* ==========================================================================
+   PrivateLM (Apple System Dark/Light) Theme & Responsive Tablet UI
+   Inspired by: orailnoor/cross-platform-llm-client
+   ========================================================================== */
+
+:root {
+  /* ── Apple OLED Dark Mode Palette (PrivateLM Default) ── */
+  --bg-main: #000000 !important;
+  --background: #000000 !important;
+  --foreground: #f5f5f7 !important;
+
+  /* Primary Blue (Apple System Blue) */
+  --primary: #0A84FF !important;
+  --primary-foreground: #ffffff !important;
+  --primary-dim: #007AFF !important;
+  --link: #0A84FF !important;
+
+  /* Surfaces & Cards */
+  --surface: #1C1C1E !important;
+  --surface-high: #2C2C2E !important;
+  --bg-card: #1C1C1E !important;
+  --card: #1C1C1E !important;
+  --card-border: rgba(255, 255, 255, 0.08) !important;
+
+  /* Secondary & Muted */
+  --secondary: #1C1C1E !important;
+  --secondary-foreground: #98989D !important;
+  --muted: #141416 !important;
+  --muted-foreground: #8E8E93 !important;
+  --placeholder: #636366 !important;
+  --border: rgba(255, 255, 255, 0.08) !important;
+
+  /* Sidebars & Panels */
+  --sidebar: #000000 !important;
+  --sidebar-secondary: #141416 !important;
+  --sidebar-muted: #1C1C1E !important;
+
+  /* Text & Accent */
+  --text-primary: #ffffff !important;
+  --text-secondary: #98989D !important;
+  --accent-glow: #0A84FF !important;
+
+  /* Semantics */
+  --success: #34C759 !important;
+  --warning: #FF9500 !important;
+  --error: #FF3B30 !important;
+
+  /* Typography */
+  --app-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* ── Light Mode (Apple iOS System Light) ── */
+html.light,
+.theme-light,
+.vscode-light,
+[data-theme="light"] {
+  --bg-main: #ffffff !important;
+  --background: #ffffff !important;
+  --foreground: #1c1c1e !important;
+
+  --primary: #007AFF !important;
+  --primary-foreground: #ffffff !important;
+  --primary-dim: #0A84FF !important;
+  --link: #007AFF !important;
+
+  --surface: #F2F2F7 !important;
+  --surface-high: #E5E5EA !important;
+  --bg-card: #F2F2F7 !important;
+  --card: #FFFFFF !important;
+  --card-border: rgba(0, 0, 0, 0.08) !important;
+
+  --secondary: #F2F2F7 !important;
+  --secondary-foreground: #3C3C43 !important;
+  --muted: #F5F5F7 !important;
+  --muted-foreground: #8E8E93 !important;
+  --placeholder: #8E8E93 !important;
+  --border: rgba(0, 0, 0, 0.08) !important;
+
+  --sidebar: #F2F2F7 !important;
+  --sidebar-secondary: #E5E5EA !important;
+  --sidebar-muted: #E5E5EA !important;
+
+  --text-primary: #1c1c1e !important;
+  --text-secondary: #8E8E93 !important;
+  --accent-glow: #007AFF !important;
+}
+
+/* ── Global Base Polish ── */
+html, body {
+  background-color: var(--bg-main) !important;
+  color: var(--text-primary) !important;
+  font-family: var(--app-font) !important;
+  letter-spacing: -0.011em !important;
+  -webkit-font-smoothing: antialiased !important;
+  text-rendering: optimizeLegibility !important;
+}
+
+/* ── Apple-Style Scrollbars ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(142, 142, 147, 0.3);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(142, 142, 147, 0.5);
+}
+
+/* ── PrivateLM Capsule Composer (Input Bar) ── */
+/* Container capsule styling */
+textarea {
+  font-family: var(--app-font) !important;
+  font-size: 15px !important;
+  line-height: 1.45 !important;
+}
+
+/* Rounding and border polish for inputs & cards */
+.rounded-xl,
+.rounded-2xl,
+.rounded-lg {
+  border-radius: 16px !important;
+}
+
+/* Rounded Buttons */
+button {
+  font-family: var(--app-font) !important;
+  font-weight: 500 !important;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Primary Action Buttons: Apple Pill Shape */
+button[type="submit"],
+.bg-primary,
+button.bg-primary {
+  background-color: var(--primary) !important;
+  color: #ffffff !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 2px 8px rgba(10, 132, 255, 0.28) !important;
+}
+
+button[type="submit"]:active,
+.bg-primary:active {
+  transform: scale(0.96) !important;
+  opacity: 0.9 !important;
+}
+
+/* ── Code Blocks (PrivateLM Theme) ── */
+pre,
+code[class*="language-"],
+pre[class*="language-"] {
+  background-color: var(--surface-high) !important;
+  border: 0.5px solid var(--border) !important;
+  border-radius: 12px !important;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}
+
+/* ── Dialogs, Sheets & Menus ── */
+[role="dialog"],
+[role="menu"],
+[data-testid*="popup"],
+.bg-card {
+  background-color: var(--card) !important;
+  border: 0.5px solid var(--border) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45) !important;
+}
+
+/* ==========================================================================
+   TABLET & LARGE SCREEN RESPONSIVENESS (>= 768px)
+   Adapts for iPad, Android Tablets (Samsung Tab, Xiaomi Pad) & Landscape View
+   ========================================================================== */
+
+@media (min-width: 768px) {
+  /* Center chat conversations with comfortable reading margins */
+  main,
+  #root > div,
+  .conversation-container,
+  [data-testid="conversation-container"] {
+    max-width: 900px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    width: 100% !important;
+  }
+
+  /* Two-column feel: sidebar gets distinct border and clean structure */
+  aside,
+  [data-testid="sidebar"],
+  nav[aria-label*="sidebar"],
+  .sidebar {
+    width: 280px !important;
+    border-right: 0.5px solid var(--border) !important;
+    background-color: var(--sidebar) !important;
+  }
+
+  /* Input composer on tablet: comfortable pill centered at bottom */
+  form:has(textarea),
+  div:has(> textarea) {
+    max-width: 860px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+
+  /* Generous touch targets for tablet fingers */
+  button,
+  [role="button"] {
+    min-height: 38px !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  /* Full split-view on wide tablet landscape screens */
+  main,
+  .conversation-container,
+  [data-testid="conversation-container"] {
+    max-width: 980px !important;
+  }
+}
