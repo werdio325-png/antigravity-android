@@ -3,8 +3,14 @@
    Inspired by: orailnoor/cross-platform-llm-client
    ========================================================================== */
 
-:root {
-  /* ── Apple OLED Dark Mode Palette (PrivateLM Default) ── */
+/* ── 1. DARK MODE (Apple OLED Dark - Default) ── */
+:root,
+html.dark,
+html.theme-dark,
+body.dark,
+body.theme-dark,
+body.dark-theme,
+[data-theme="dark"] {
   --bg-main: #000000 !important;
   --background: #000000 !important;
   --foreground: #f5f5f7 !important;
@@ -20,7 +26,7 @@
   --surface-high: #2C2C2E !important;
   --bg-card: #1C1C1E !important;
   --card: #1C1C1E !important;
-  --card-border: rgba(255, 255, 255, 0.08) !important;
+  --card-border: rgba(255, 255, 255, 0.1) !important;
 
   /* Secondary & Muted */
   --secondary: #1C1C1E !important;
@@ -28,7 +34,7 @@
   --muted: #141416 !important;
   --muted-foreground: #8E8E93 !important;
   --placeholder: #636366 !important;
-  --border: rgba(255, 255, 255, 0.08) !important;
+  --border: rgba(255, 255, 255, 0.1) !important;
 
   /* Sidebars & Panels */
   --sidebar: #000000 !important;
@@ -40,6 +46,18 @@
   --text-secondary: #98989D !important;
   --accent-glow: #0A84FF !important;
 
+  /* Specific Component Tones */
+  --code-bg: #18181a !important;
+  --code-border: rgba(255, 255, 255, 0.1) !important;
+  --cmd-bg: #161618 !important;
+  --cmd-header-bg: #1e1e20 !important;
+  --sheet-bg: #1C1C1E !important;
+  --sheet-border: rgba(255, 255, 255, 0.14) !important;
+  --sheet-handle: rgba(255, 255, 255, 0.3) !important;
+  --backdrop: rgba(0, 0, 0, 0.85) !important;
+  --divider: rgba(255, 255, 255, 0.08) !important;
+  --hover-bg: rgba(255, 255, 255, 0.07) !important;
+
   /* Semantics */
   --success: #34C759 !important;
   --warning: #FF9500 !important;
@@ -49,13 +67,16 @@
   --app-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* ── Light Mode (Apple iOS System Light) ── */
+/* ── 2. LIGHT MODE (Apple iOS System Light) ── */
 html.light,
-.theme-light,
+html.theme-light,
+body.light,
+body.theme-light,
+body.light-theme,
 .vscode-light,
 [data-theme="light"] {
-  --bg-main: #ffffff !important;
-  --background: #ffffff !important;
+  --bg-main: #FFFFFF !important;
+  --background: #FFFFFF !important;
   --foreground: #1c1c1e !important;
 
   --primary: #007AFF !important;
@@ -67,14 +88,14 @@ html.light,
   --surface-high: #E5E5EA !important;
   --bg-card: #F2F2F7 !important;
   --card: #FFFFFF !important;
-  --card-border: rgba(0, 0, 0, 0.08) !important;
+  --card-border: rgba(0, 0, 0, 0.1) !important;
 
   --secondary: #F2F2F7 !important;
   --secondary-foreground: #3C3C43 !important;
   --muted: #F5F5F7 !important;
   --muted-foreground: #8E8E93 !important;
   --placeholder: #8E8E93 !important;
-  --border: rgba(0, 0, 0, 0.08) !important;
+  --border: rgba(0, 0, 0, 0.1) !important;
 
   --sidebar: #F2F2F7 !important;
   --sidebar-secondary: #E5E5EA !important;
@@ -83,6 +104,22 @@ html.light,
   --text-primary: #1c1c1e !important;
   --text-secondary: #8E8E93 !important;
   --accent-glow: #007AFF !important;
+
+  /* Specific Component Tones */
+  --code-bg: #F5F5F7 !important;
+  --code-border: rgba(0, 0, 0, 0.1) !important;
+  --cmd-bg: #F7F7F9 !important;
+  --cmd-header-bg: #EBEBF0 !important;
+  --sheet-bg: #FFFFFF !important;
+  --sheet-border: rgba(0, 0, 0, 0.12) !important;
+  --sheet-handle: rgba(0, 0, 0, 0.25) !important;
+  --backdrop: rgba(0, 0, 0, 0.45) !important;
+  --divider: rgba(0, 0, 0, 0.08) !important;
+  --hover-bg: rgba(0, 0, 0, 0.05) !important;
+
+  --success: #34C759 !important;
+  --warning: #FF9500 !important;
+  --error: #FF3B30 !important;
 }
 
 /* ── Global Base Polish ── */
@@ -104,11 +141,11 @@ html, body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(142, 142, 147, 0.3);
+  background: rgba(142, 142, 147, 0.35);
   border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(142, 142, 147, 0.5);
+  background: rgba(142, 142, 147, 0.55);
 }
 
 /* ── Prompt Composer Textarea (Scoped so it doesn't break code blocks) ── */
@@ -119,6 +156,7 @@ textarea[placeholder*="prompt"] {
   font-family: var(--app-font) !important;
   font-size: 15px !important;
   line-height: 1.45 !important;
+  color: var(--text-primary) !important;
 }
 
 /* Primary Action Buttons: Apple Pill Shape */
@@ -126,7 +164,7 @@ button[type="submit"],
 .bg-primary,
 button.bg-primary {
   background-color: var(--primary) !important;
-  color: #ffffff !important;
+  color: var(--primary-foreground) !important;
   border-radius: 9999px !important;
   box-shadow: 0 2px 8px rgba(10, 132, 255, 0.28) !important;
 }
@@ -137,20 +175,21 @@ button[type="submit"]:active,
   opacity: 0.9 !important;
 }
 
-/* ── Command Runner Block (Fix for bash agy-code) ── */
+/* ── Command Runner Block (Dynamic for both Dark & Light) ── */
 .group\/run-command {
-  background-color: #161618 !important;
-  border: 0.5px solid rgba(255, 255, 255, 0.12) !important;
+  background-color: var(--cmd-bg) !important;
+  border: 0.5px solid var(--border) !important;
   border-radius: 12px !important;
   margin: 6px 0 !important;
   overflow: hidden !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
 }
 
 .group\/run-command > div:first-child {
-  background-color: #1e1e20 !important;
-  border-bottom: 0.5px solid rgba(255, 255, 255, 0.08) !important;
+  background-color: var(--cmd-header-bg) !important;
+  border-bottom: 0.5px solid var(--divider) !important;
   padding: 6px 12px !important;
+  color: var(--text-secondary) !important;
 }
 
 .group\/run-command textarea,
@@ -160,16 +199,18 @@ button[type="submit"]:active,
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace !important;
   font-size: 13px !important;
   line-height: 1.4 !important;
+  color: var(--text-primary) !important;
 }
 
-/* ── Code Blocks (Clean styling without nesting glitches) ── */
+/* ── Code Blocks (Dynamic for both Dark & Light) ── */
 pre {
-  background-color: #18181a !important;
-  border: 0.5px solid rgba(255, 255, 255, 0.08) !important;
+  background-color: var(--code-bg) !important;
+  border: 0.5px solid var(--code-border) !important;
   border-radius: 10px !important;
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace !important;
   font-size: 13px !important;
   line-height: 1.5 !important;
+  color: var(--text-primary) !important;
 }
 
 pre code,
@@ -178,47 +219,88 @@ pre > code[class*="language-"] {
   border: none !important;
   border-radius: 0 !important;
   padding: 0 !important;
+  color: inherit !important;
 }
 
 :not(pre) > code {
   background-color: var(--surface-high) !important;
+  color: var(--text-primary) !important;
   padding: 2px 6px !important;
   border-radius: 6px !important;
   font-size: 12.5px !important;
 }
 
-/* ── Bottom Sheet & Settings Drawer ── */
-/* Deep blur backdrop so top header doesn't clash/bleed through */
+/* ── Bottom Sheet & Settings Drawer (Dynamic for both Dark & Light) ── */
 .aux-drawer-backdrop,
 [data-testid="bottom-sheet-backdrop"] {
-  background-color: rgba(0, 0, 0, 0.88) !important;
+  background-color: var(--backdrop) !important;
   backdrop-filter: blur(20px) !important;
   -webkit-backdrop-filter: blur(20px) !important;
   z-index: 50 !important;
 }
 
-/* Drawer popup: proper Apple Sheet curve, safe top margin, and surface tone */
 .aux-drawer-popup,
 [data-testid="bottom-sheet"] {
-  background-color: #1C1C1E !important;
+  background-color: var(--sheet-bg) !important;
   border-top-left-radius: 20px !important;
   border-top-right-radius: 20px !important;
   border-bottom-left-radius: 0 !important;
   border-bottom-right-radius: 0 !important;
-  border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-top: 1px solid var(--sheet-border) !important;
   border-left: none !important;
   border-right: none !important;
   border-bottom: none !important;
   max-height: 85vh !important;
   margin-top: 15vh !important;
-  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.8) !important;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.4) !important;
   z-index: 55 !important;
+  color: var(--text-primary) !important;
+}
+
+/* Drag handle on top of sheet */
+.aux-drawer-popup > div:first-child [role="presentation"],
+[data-testid="bottom-sheet"] [role="presentation"],
+.aux-drawer-popup .bg-muted-foreground\/30,
+.aux-drawer-popup .bg-muted-foreground\/40 {
+  background-color: var(--sheet-handle) !important;
+  width: 36px !important;
+  height: 4px !important;
+  border-radius: 2px !important;
 }
 
 /* Settings sub-page header (< Back) */
 .sticky.top-0 {
-  background-color: #1C1C1E !important;
-  border-bottom: 0.5px solid rgba(255, 255, 255, 0.08) !important;
+  background-color: var(--sheet-bg) !important;
+  border-bottom: 0.5px solid var(--divider) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Apple Settings Inset List Rows */
+.aux-drawer-popup button,
+[data-testid="bottom-sheet"] button {
+  border-bottom: 0.5px solid var(--divider) !important;
+  padding: 13px 16px !important;
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  font-size: 15px !important;
+  color: var(--text-primary) !important;
+  transition: background-color 0.12s ease !important;
+}
+
+.aux-drawer-popup button:active,
+[data-testid="bottom-sheet"] button:active {
+  background-color: var(--hover-bg) !important;
+}
+
+.aux-drawer-popup h1,
+.aux-drawer-popup h2,
+[data-testid="bottom-sheet"] h1,
+[data-testid="bottom-sheet"] h2 {
+  color: var(--text-secondary) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
 }
 
 /* Clean badge styling for plugin & MCP error messages */
@@ -227,50 +309,12 @@ pre > code[class*="language-"] {
 .text-red-600.break-words {
   background-color: rgba(255, 59, 48, 0.08) !important;
   border: 0.5px solid rgba(255, 59, 48, 0.28) !important;
-  color: #ff6961 !important;
+  color: var(--error) !important;
   padding: 8px 12px !important;
   border-radius: 10px !important;
   margin-top: 6px !important;
   font-size: 11.5px !important;
   line-height: 1.45 !important;
-}
-
-/* Drag handle on top of sheet */
-.aux-drawer-popup > div:first-child [role="presentation"],
-[data-testid="bottom-sheet"] [role="presentation"],
-.aux-drawer-popup .bg-muted-foreground\/30,
-.aux-drawer-popup .bg-muted-foreground\/40 {
-  background-color: rgba(255, 255, 255, 0.3) !important;
-  width: 36px !important;
-  height: 4px !important;
-  border-radius: 2px !important;
-}
-
-/* Apple Settings Inset List Rows */
-.aux-drawer-popup button,
-[data-testid="bottom-sheet"] button {
-  border-bottom: 0.5px solid rgba(255, 255, 255, 0.07) !important;
-  padding: 13px 16px !important;
-  border-radius: 0 !important;
-  background-color: transparent !important;
-  font-size: 15px !important;
-  transition: background-color 0.12s ease !important;
-}
-
-.aux-drawer-popup button:active,
-[data-testid="bottom-sheet"] button:active {
-  background-color: rgba(255, 255, 255, 0.08) !important;
-}
-
-.aux-drawer-popup h1,
-.aux-drawer-popup h2,
-[data-testid="bottom-sheet"] h1,
-[data-testid="bottom-sheet"] h2 {
-  color: #8E8E93 !important;
-  font-weight: 600 !important;
-  font-size: 13px !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.04em !important;
 }
 
 /* ==========================================================================
@@ -280,13 +324,11 @@ pre > code[class*="language-"] {
 
 /* ── Small Tablets & Foldables (>= 600px) ── */
 @media (min-width: 600px) {
-  /* Scale typography for comfortable reading distance */
   body, p, .prose {
     font-size: 15.5px !important;
     line-height: 1.62 !important;
   }
 
-  /* Chat composer: comfortable breathing room */
   form:has(textarea),
   div:has(> textarea) {
     max-width: 720px !important;
@@ -297,7 +339,6 @@ pre > code[class*="language-"] {
 
 /* ── Standard Tablets (iPad 10-11", Galaxy Tab S8/S9, Xiaomi Pad) (>= 768px) ── */
 @media (min-width: 768px) {
-  /* 1. Typography: Crisp, readable text for arm-length tablet viewing */
   body, p, .prose {
     font-size: 16px !important;
     line-height: 1.68 !important;
@@ -324,7 +365,6 @@ pre > code[class*="language-"] {
     margin-bottom: 8px !important;
   }
 
-  /* Code blocks: comfortably proportioned on tablet screen */
   pre {
     font-size: 14px !important;
     line-height: 1.55 !important;
@@ -337,7 +377,7 @@ pre > code[class*="language-"] {
     padding: 3px 7px !important;
   }
 
-  /* 2. Chat Conversation Viewport: Centered Reading Column */
+  /* Centered Reading Column */
   main,
   #root > div,
   .conversation-container,
@@ -350,7 +390,7 @@ pre > code[class*="language-"] {
     padding-right: 20px !important;
   }
 
-  /* 3. Input Composer: Centered Floating Capsule on Tablet */
+  /* Centered Floating Capsule Input */
   form:has(textarea),
   div:has(> textarea) {
     max-width: 820px !important;
@@ -368,7 +408,7 @@ pre > code[class*="language-"] {
     min-height: 44px !important;
   }
 
-  /* 4. Touch Targets: Apple 44px standard for easy finger tap */
+  /* Apple 44px standard touch targets */
   button,
   [role="button"] {
     min-height: 42px !important;
@@ -383,7 +423,6 @@ pre > code[class*="language-"] {
     min-height: 40px !important;
   }
 
-  /* 5. Header / Navigation Bar on Tablet */
   header,
   nav[role="navigation"],
   .top-nav {
@@ -393,17 +432,17 @@ pre > code[class*="language-"] {
     font-size: 15px !important;
   }
 
-  /* 6. Settings Modal on Tablet: Centered Card Dialog (Not giant stretched sheet) */
+  /* Centered Card Dialog for Settings on Tablet */
   .aux-drawer-popup,
   [data-testid="bottom-sheet"] {
     max-width: 580px !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
     border-radius: 20px !important;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    border: 1px solid var(--sheet-border) !important;
     margin-bottom: 30px !important;
     max-height: 80vh !important;
-    box-shadow: 0 16px 50px rgba(0, 0, 0, 0.8) !important;
+    box-shadow: 0 16px 50px rgba(0, 0, 0, 0.4) !important;
   }
 
   .aux-drawer-popup button,
@@ -412,7 +451,7 @@ pre > code[class*="language-"] {
     font-size: 16px !important;
   }
 
-  /* 7. Sidebar: Proportional two-column split view */
+  /* Proportional sidebar */
   aside,
   [data-testid="sidebar"],
   nav[aria-label*="sidebar"],
@@ -422,7 +461,6 @@ pre > code[class*="language-"] {
     background-color: var(--sidebar) !important;
   }
 
-  /* 8. Command Runner block on Tablet */
   .group\/run-command {
     border-radius: 14px !important;
     margin: 10px 0 !important;
@@ -447,7 +485,6 @@ pre > code[class*="language-"] {
     line-height: 1.7 !important;
   }
 
-  /* Generous centered conversation width */
   main,
   #root > div,
   .conversation-container,
@@ -460,7 +497,6 @@ pre > code[class*="language-"] {
     max-width: 900px !important;
   }
 
-  /* Sidebar expanded comfortably on large tablet landscape */
   aside,
   [data-testid="sidebar"],
   nav[aria-label*="sidebar"],
