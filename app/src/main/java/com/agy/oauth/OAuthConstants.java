@@ -14,7 +14,7 @@ public final class OAuthConstants {
     public static final String EXTRA_TOOLBAR_COLOR =
             "android.support.customtabs.extra.TOOLBAR_COLOR";
     public static final String EXTRA_APP_ID = "com.android.browser.application_id";
-    public static final int TOOLBAR_COLOR_DARK = 0xFF101010;
+    public static final int TOOLBAR_COLOR_DARK = com.agy.theme.ThemeColors.COLOR_DARK;
 
     public static final String CALLBACK_SCHEME = BuildConfig.OAUTH_SCHEME;
     /** Host emitted by the official antigravity.google success page. */

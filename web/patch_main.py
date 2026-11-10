@@ -58,19 +58,33 @@ def patch_main(file_path):
         + orig_hook
     )
 
-    # Detect switch and setting item components
-    # Look for setting item component used with rightElement or contrast setting
-    item_comp = "v3"
-    switch_comp = "dX"
+    # Detect switch and setting item components dynamically from the bundle
+    item_comp = None
+    switch_comp = None
     re_idx = content.find('rightElement:')
     if re_idx != -1:
-        re_window = content[max(0, re_idx - 150):min(len(content), re_idx + 150)]
+        re_window = content[max(0, re_idx - 300):min(len(content), re_idx + 300)]
         item_m = re.search(r'([A-Za-z0-9_$]+)\.createElement\(([A-Za-z0-9_$]+),\{label:[^,]+,description:[^,]+,rightElement:', re_window)
         if item_m:
             item_comp = item_m.group(2)
         sw_m = re.search(r'rightElement:[A-Za-z0-9_$]+\.createElement\(([A-Za-z0-9_$]+),\{checked:', re_window)
         if sw_m:
             switch_comp = sw_m.group(1)
+
+    # Secondary dynamic discovery if first window pattern didn't match
+    if not item_comp:
+        general_item_m = re.search(r'\.createElement\(([A-Za-z0-9_$]+),\{label:[^,]+,description:[^,]+,', content)
+        if general_item_m:
+            item_comp = general_item_m.group(1)
+
+    if not switch_comp:
+        general_sw_m = re.search(r'\.createElement\(([A-Za-z0-9_$]+),\{checked:[A-Za-z0-9_$]+,onCheckedChange:', content)
+        if general_sw_m:
+            switch_comp = general_sw_m.group(1)
+
+    if not item_comp or not switch_comp:
+        print(f"[web-patch] could not dynamically resolve components: item_comp={item_comp}, switch_comp={switch_comp}", file=sys.stderr)
+        return False
 
     orig_theme = theme_match.group(0)
     injected_theme = (

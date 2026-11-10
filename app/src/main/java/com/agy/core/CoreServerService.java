@@ -33,6 +33,8 @@ public final class CoreServerService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        ForegroundNotification.start(this);
+        CoreRuntimeState.serviceActive = true;
         runtime = new RuntimeManager(this);
         logBuffer = new com.agy.log.LogRingBuffer();
         gatewayServer = new com.agy.gateway.SystemGatewayServer(this, logBuffer, com.agy.BuildConfig.GATEWAY_PORT);
@@ -48,7 +50,6 @@ public final class CoreServerService extends Service {
         CoreRuntimeState.lastError = null;
         CoreRuntimeState.serverUrl = null;
 
-        ForegroundNotification.start(this);
         wakeLock = new WakeLockHolder();
         wakeLock.acquire(this);
 
@@ -64,20 +65,39 @@ public final class CoreServerService extends Service {
 
     private void startBackgroundDaemon() {
         new Thread(() -> {
-            try {
-                // Give runtime environment a brief moment to stabilize
-                Thread.sleep(1500);
+            // Env install (phase 2) can take longer on first run; retry until the
+            // daemon binary appears or the service is destroyed.
+            final int maxAttempts = 20;
+            final long delayMs = 3000;
+            for (int attempt = 1; attempt <= maxAttempts && CoreRuntimeState.serviceActive && !destroyed; attempt++) {
+                try {
+                    Thread.sleep(attempt == 1 ? 1500 : delayMs);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
                 File daemonBin = new File(getFilesDir(), "usr/bin/agy-daemon");
-                if (daemonBin.canExecute()) {
-                    Log.i(TAG, "Starting autonomous background daemon...");
+                if (!daemonBin.isFile()) {
+                    continue;
+                }
+                if (!daemonBin.canExecute() && !daemonBin.setExecutable(true, false)) {
+                    Log.w(TAG, "agy-daemon exists but is not executable");
+                    continue;
+                }
+                try {
+                    Log.i(TAG, "Starting autonomous background daemon (attempt " + attempt + ")...");
                     ProcessBuilder pb = new ProcessBuilder(daemonBin.getAbsolutePath(), "start");
                     pb.directory(getFilesDir());
                     pb.environment().put("PATH", getFilesDir().getAbsolutePath() + "/usr/bin:" + System.getenv("PATH"));
                     pb.environment().put("HOME", getFilesDir().getAbsolutePath());
                     pb.start();
+                    return;
+                } catch (Exception e) {
+                    Log.w(TAG, "Failed to start agy-daemon (attempt " + attempt + "): " + e.getMessage());
                 }
-            } catch (Exception e) {
-                Log.w(TAG, "Failed to start agy-daemon: " + e.getMessage());
+            }
+            if (CoreRuntimeState.serviceActive && !destroyed) {
+                Log.w(TAG, "agy-daemon not started: binary missing or failed after retries");
             }
         }, "AgyDaemonStarter").start();
     }
@@ -136,6 +156,7 @@ public final class CoreServerService extends Service {
             gatewayServer.stop();
         }
         destroyed = true;
+        CoreRuntimeState.serviceActive = false;
         mainHandler.removeCallbacksAndMessages(null);
         // Intentional stop: the watchdog must not treat the exit as a crash.
         if (supervisor != null) {

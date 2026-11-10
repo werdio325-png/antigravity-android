@@ -21,6 +21,7 @@ count=0
 # 1. Fix app-private prefixes
 while IFS= read -r -d '' f; do
     [ -n "$f" ] || continue
+    [ -L "$f" ] && continue
     tmp="$f.agyfix.$$"
     if sed -E "s@$PATTERN@$esc@g" "$f" > "$tmp" 2>/dev/null; then
         if cmp -s "$f" "$tmp"; then
@@ -39,8 +40,9 @@ done < <(grep -rIlZ -E -e "$PATTERN" -- "${targets[@]}" 2>/dev/null)
 # 2. Fix /usr/bin/env shebangs to $PREFIX/bin/
 while IFS= read -r -d '' f; do
     [ -n "$f" ] || continue
+    [ -L "$f" ] && continue
     tmp="$f.agyfix.$$"
-    if sed -E "1s@^#! */usr/bin/env[[:space:]]+([^[:space:]]+)@#!$esc/bin/\\1@" "$f" > "$tmp" 2>/dev/null; then
+    if sed -E "1s@^#! */usr/bin/env[[:space:]]+(-S[[:space:]]+)?([^[:space:]]+)@#!$esc/bin/\\2@" "$f" > "$tmp" 2>/dev/null; then
         if cmp -s "$f" "$tmp"; then
             rm -f "$tmp"
         else

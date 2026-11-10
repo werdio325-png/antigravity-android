@@ -20,7 +20,7 @@ public final class ThemeRefresher {
             theme.applyToActivity(activity);
         }
         if (rootLayout != null) {
-            rootLayout.setBackgroundColor(theme != null ? theme.getBackgroundColor() : 0xFF101010);
+            rootLayout.setBackgroundColor(theme != null ? theme.getBackgroundColor() : com.agy.theme.ThemeColors.COLOR_DARK);
         }
         if (splash != null) {
             splash.refresh();

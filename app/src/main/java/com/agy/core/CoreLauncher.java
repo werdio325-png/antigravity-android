@@ -75,6 +75,10 @@ public final class CoreLauncher {
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {
+                if (!CoreRuntimeState.serviceActive) {
+                    Log.i(TAG, "Skipping deferred env install: service no longer active");
+                    return;
+                }
                 runtime.installEnvInBackground();
             }
         }, 3500);

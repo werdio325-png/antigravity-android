@@ -81,6 +81,52 @@ def cmd_info(args):
         print(f"  Memory Free:  {res.get('memory_free_mb', '?')} MB")
 
 
+def cmd_status(args):
+    res = client.send_command("status")
+    if args.json or not res.get("ok"):
+        print(json.dumps(res, indent=2))
+        if not res.get("ok"):
+            sys.exit(1)
+        return
+    core = res.get("core") or {}
+    ready = core.get("ready")
+    state = "READY" if ready else ("RESTARTING" if core.get("restarting") else "STARTING/NOT READY")
+    print("=== Antigravity Status ===")
+    if res.get("app_version"):
+        print(f"  App:          {res.get('app_version')}")
+    print(f"  Core:         {state}")
+    if core.get("last_error"):
+        print(f"  Last error:   {core.get('last_error')}")
+
+
+def cmd_doctor(args):
+    if getattr(args, 'repair', False):
+        res = client.send_command("repair", {})
+    else:
+        res = client.send_command("doctor", {})
+    if args.json or not res.get("ok"):
+        print(json.dumps(res, indent=2))
+        if not res.get("ok"):
+            sys.exit(1)
+        return
+    if res.get("actions"):
+        print("=== Perbaikan Aman ===")
+        for a in res.get("actions") or []:
+            mark = "OK" if a.get("ok") else "GAGAL"
+            print(f"  [{mark}] {a.get('action')}: {a.get('detail','')}")
+        if res.get("note"):
+            print(f"  Catatan: {res.get('note')}")
+        return
+    summary = res.get("summary") or {}
+    print("=== Cek Kesehatan Antigravity ===")
+    print(f"  Ringkasan: OK={summary.get('ok',0)}, Perlu perhatian={summary.get('warn',0)}, Bermasalah={summary.get('error',0)}")
+    for c in res.get("checks") or []:
+        lv = c.get("level", "ok").upper()
+        print(f"  [{lv}] {c.get('title','')}")
+        if c.get("detail"): print(f"        {c.get('detail')}")
+        if c.get("fix"): print(f"        Saran: {c.get('fix')}")
+
+
 def cmd_clipboard(args):
     if args.action == "set":
         text = args.text or sys.stdin.read()
@@ -134,6 +180,15 @@ def main():
     # info
     p_info = subparsers.add_parser("info")
     p_info.set_defaults(func=cmd_info)
+
+    # status
+    p_status = subparsers.add_parser("status")
+    p_status.set_defaults(func=cmd_status)
+
+    # doctor
+    p_doc = subparsers.add_parser("doctor")
+    p_doc.add_argument("--repair", action="store_true", help="Run limited safe repairs")
+    p_doc.set_defaults(func=cmd_doctor)
 
     # clipboard
     p_clip = subparsers.add_parser("clipboard")

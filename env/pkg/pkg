@@ -260,7 +260,7 @@ cmd_remove() {
     for name in "${pkgs[@]}"; do
         if ! db_exists "$name"; then warn "Package '$name' is not installed, so not removed"; continue; fi
         printf 'Removing %s (%s) ...\n' "$name" "$(db_get "$name" version)"
-        db_files "$name" | while IFS= read -r p; do
+        cat "$(db_files "$name")" 2>/dev/null | while IFS= read -r p; do
             [ -n "$p" ] || continue
             rm -f "$PREFIX/$p"
             dir="$(dirname "$p")"

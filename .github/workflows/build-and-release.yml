@@ -5,6 +5,8 @@ on:
     tags:
       - 'v*'
     branches:
+      - main
+      - master
       - dev
   workflow_dispatch:
     inputs:
@@ -107,13 +109,15 @@ jobs:
           cat SHA256SUMS.txt
 
       - name: Upload Build Artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: antigravity-binaries
+          name: antigravity-binaries-${{ github.sha }}
           path: |
             dist/antigravity.apk
             dist/antigravity-region-bypass.apk
             dist/SHA256SUMS.txt
+          if-no-files-found: warn
 
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')

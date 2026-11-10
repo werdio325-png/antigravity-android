@@ -56,3 +56,4 @@ src/patches/startup_ready/console-hook.js
 src/patches/startup_ready/detect-ui.js
 src/patches/startup_ready/arm.js
 src/patches/startup_ready/public-api.js
+

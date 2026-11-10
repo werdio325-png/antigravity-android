@@ -36,11 +36,20 @@ function installFetchRewrite() {
   var origFetch = global.fetch.bind(global);
 
   function fetchWithStartupRetry(u, opts, retries) {
+    var method = String((opts && opts.method) || 'GET').toUpperCase();
+    var idempotent = (method === 'GET' || method === 'HEAD' || method === 'OPTIONS');
+    var attempts = retries;
+    if (!idempotent) {
+      // Avoid replaying non-idempotent RPCs (POST/PUT/PATCH/DELETE), which can
+      // duplicate side effects if the request reached the server but the
+      // response was lost during startup/network churn.
+      attempts = 0;
+    }
     return origFetch(u, opts).catch(function (err) {
-      if (retries > 0) {
+      if (attempts > 0) {
         return new Promise(function (resolve) {
           setTimeout(function () {
-            resolve(fetchWithStartupRetry(u, opts, retries - 1));
+            resolve(fetchWithStartupRetry(u, opts, attempts - 1));
           }, 120);
         });
       }

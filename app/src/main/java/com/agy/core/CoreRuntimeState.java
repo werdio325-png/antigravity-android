@@ -19,4 +19,7 @@ public final class CoreRuntimeState {
     public static volatile boolean restarting = false;
     /** Bumped on every successful ready; the UI reloads the app when it changes. */
     public static volatile int readyGeneration = 0;
+
+    /** True while CoreServerService is alive (used to guard deferred background work). */
+    public static volatile boolean serviceActive = false;
 }
