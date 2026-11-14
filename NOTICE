@@ -1,0 +1,32 @@
+Continuum — Android fork of Antigravity for Android
+==================================================
+
+This product is a modified fork of "Antigravity for Android":
+
+    https://github.com/werdio325-png/antigravity-android
+
+Copyright (c) the Antigravity for Android contributors.
+Licensed under the Apache License, Version 2.0.
+
+Modifications for this fork (application identity, engine compatibility layer,
+in-app updater, release and upstream-sync automation) are Copyright (c) the
+Continuum contributors and are likewise licensed under the Apache License 2.0.
+
+The fork keeps upstream's Apache-2.0 license text unmodified in LICENSE and
+retains the original project's notices and attribution.
+
+Third-party components
+----------------------
+
+* language_server (Antigravity engine) — Copyright Google LLC. Redistributed
+  unmodified except for the length-preserving patches already present upstream;
+  see modules/patches/ for the exact patch set applied at build time.
+* Antigravity web interface bundle (web/main.js) — Copyright Google LLC,
+  redistributed as bundled by the upstream project.
+* glibc loader and libraries (modules/core/glibc) — GNU LGPL / GPL with the
+  respective upstream notices; redistributed unmodified.
+* Android SDK build artifacts referenced by tools/ remain under their own terms.
+
+No Google trademarks are claimed. "Gemini", "Antigravity" and related marks belong
+to Google LLC. Model availability is decided by Google's servers for the signed-in
+account; this fork neither bypasses nor alters that.

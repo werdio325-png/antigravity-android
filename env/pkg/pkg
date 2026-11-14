@@ -1,4 +1,4 @@
-#!/data/data/com.agy/files/usr/bin/bash
+#!/data/data/dev.continuum.antigravity/files/usr/bin/bash
 # pkg -- self-written package manager for the tlx environment.
 set -uo pipefail
 

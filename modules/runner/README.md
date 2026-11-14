@@ -203,7 +203,7 @@ stateDiagram-v2
 
 ### Проблема 8: Динамическое определение APP_ID (Устранено)
 - **Файлы:** `start_core.sh`, `stop_core.sh`, `test_e2e.sh`
-- **Реализовано:** Значение `APP_ID` (`com.agy` vs `com.agy.dev`) определяется динамически по переменной `AGY_APPLICATION_ID`, регулярному выражению из `$HOME` (`/data/user/0/<app_id>`), либо проверке существования директорий приложения.
+- **Реализовано:** Значение `APP_ID` (`dev.continuum.antigravity` vs `dev.continuum.antigravity.dev`) определяется динамически по переменной `AGY_APPLICATION_ID`, регулярному выражению из `$HOME` (`/data/user/0/<app_id>`), либо проверке существования директорий приложения.
 
 ---
 
@@ -247,14 +247,14 @@ bash test_all_modules.sh
 
 # 3. Ручной изолированный запуск компонентов:
 # Подготовка рантайма:
-python3 modules/runner/prepare_runtime.py /data/user/0/com.agy.dev/files/standalone_runtime
+python3 modules/runner/prepare_runtime.py /data/user/0/dev.continuum.antigravity.dev/files/standalone_runtime
 
 # Запуск ядра на выбранном порту:
-bash modules/runner/start_core.sh /data/user/0/com.agy.dev/files/standalone_runtime 45159
+bash modules/runner/start_core.sh /data/user/0/dev.continuum.antigravity.dev/files/standalone_runtime 45159
 
 # Проверка доступности (с таймаутом 10 сек):
 python3 modules/runner/probe_server.py 45159 10
 
 # Корректная остановка:
-bash modules/runner/stop_core.sh /data/user/0/com.agy.dev/files/standalone_runtime
+bash modules/runner/stop_core.sh /data/user/0/dev.continuum.antigravity.dev/files/standalone_runtime
 ```

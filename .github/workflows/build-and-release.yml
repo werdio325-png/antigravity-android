@@ -1,4 +1,7 @@
-name: Build and Release Antigravity APKs
+name: Build Continuum APK
+
+# Runs the repository's test suites, builds a signed ARM64 APK, verifies it and
+# publishes a versioned GitHub Release that the in-app updater reads.
 
 on:
   push:
@@ -6,159 +9,176 @@ on:
       - 'v*'
     branches:
       - dev
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release Tag (e.g. v2.4.1)'
+        description: 'Release tag (e.g. v3.0.0); leave empty to build only'
         required: false
-        default: 'v2.4.1'
+        default: ''
       draft:
-        description: 'Create Draft Release'
+        description: 'Create a draft release'
         type: boolean
-        default: false
+        default: true
       prerelease:
-        description: 'Mark as Pre-release'
+        description: 'Mark as pre-release'
         type: boolean
         default: false
-      vendor_url:
-        description: 'Optional direct URL to download vendor inputs archive (core, glibc, certs, seed, shims)'
-        required: false
 
 permissions:
   contents: write
 
-jobs:
-  build:
-    name: Build Both Release Editions
-    runs-on: ubuntu-latest
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout Source Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: ACP adapter protocol tests
+        run: bash tools/acp_test/run.sh
+      - name: Engine compatibility layer tests
+        run: python3 -m unittest discover -s modules/engine/tests -p 'test_*.py' -v
+      - name: Binary patch pipeline tests
+        run: python3 -m unittest discover -s modules/patches/tests -p 'test_*.py' -v
+      - name: Core unpack/bundle tests
+        run: bash modules/core/tests/run_all.sh
+      - name: Environment overlay tests
+        run: bash modules/env/tests/run_all.sh
+      - name: I/O shim tests
+        run: bash modules/io/tests/run_all.sh
+      - name: Web bundle build and syntax checks
+        run: bash web/tests/selftest.sh
+
+  build:
+    name: Build and verify ARM64 APK
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          lfs: true
 
-      - name: Setup Java JDK (Java 17)
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Python 3
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install Android Build Tools & System Utilities
+      - name: Install Android build tools
         run: |
+          set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y aapt zipalign apksigner file zip unzip gzip
+          sudo apt-get install -y --no-install-recommends aapt zipalign apksigner file zip unzip
+          command -v aapt && aapt version || true
+          command -v zipalign || true
+          command -v apksigner || true
 
-      - name: Prepare Vendor Inputs & Signing Keystore
+      - name: Ensure committed build inputs
+        run: |
+          set -euo pipefail
+          test -f tools/android.jar || {
+            echo "::error::tools/android.jar missing - commit it or restore it before building"; exit 1; }
+          test -f tools/r8.jar || {
+            echo "::error::tools/r8.jar missing - commit it or restore it before building"; exit 1; }
+          test -f modules/core/pristine/language_server.tar.gz || {
+            echo "::error::pristine engine archive missing"; exit 1; }
+
+      - name: Restore the fork signing key
+        id: key
         env:
-          VENDOR_URL: ${{ inputs.vendor_url || secrets.VENDOR_DOWNLOAD_URL }}
+          KEYSTORE_B64: ${{ secrets.CONTINUUM_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.CONTINUUM_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.CONTINUUM_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.CONTINUUM_KEY_PASSWORD }}
         run: |
-          mkdir -p tools
-          
-          # 1. Generate debug keystore if absent
-          if [ ! -f "tools/debug.keystore" ]; then
-            echo "[CI] Generating debug keystore..."
-            keytool -genkey -v -keystore tools/debug.keystore \
-              -storepass android -alias androiddebugkey -keypass android \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
+          set -euo pipefail
+          if [ -z "${KEYSTORE_B64}" ]; then
+            if [ "${{ github.event_name }}" = "pull_request" ] || [ -n "${{ github.event.inputs.tag_name }}" ] || [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+              echo "::error::CONTINUUM_KEYSTORE_BASE64 is not configured; release builds must be signed with the fork key."
+              exit 1
+            fi
+            echo "::warning::No release key configured - building a debug-signed test APK (not for release)."
+            echo "dev_mode=1" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "dev_mode=" >> "$GITHUB_OUTPUT"
+          mkdir -p keys
+          printf '%s' "${KEYSTORE_B64}" | base64 --decode > keys/continuum-release.jks
+          cat > keys/keystore.properties <<EOF
+          storeFile=keys/continuum-release.jks
+          storePassword=${KEYSTORE_PASSWORD}
+          keyAlias=${KEY_ALIAS:-continuum}
+          keyPassword=${KEY_PASSWORD:-${KEYSTORE_PASSWORD}}
+          EOF
+          echo "[CI] release key restored"
 
-          # 2. Setup Android API 28 android.jar if absent
-          if [ ! -f "tools/android.jar" ]; then
-            echo "[CI] Fetching android.jar (API 28)..."
-            curl -fsSL -o tools/android.jar "https://github.com/Sable/android-platforms/raw/master/android-28/android.jar" || \
-            curl -fsSL -o tools/android.jar "https://raw.githubusercontent.com/iBotPeaches/platform_frameworks_base/master/android-28.jar"
-          fi
+      - name: Build APK
+        env:
+          ALLOW_DEBUG_SIGNING: ${{ steps.key.outputs.dev_mode }}
+        run: bash build.sh
 
-          # 3. Setup R8 / D8 compiler jar if absent
-          if [ ! -f "tools/r8.jar" ]; then
-            echo "[CI] Fetching r8.jar..."
-            curl -fsSL -o tools/r8.jar "https://dl.google.com/dl/android/maven2/com/android/tools/r8/8.2.42/r8-8.2.42.jar"
-          fi
+      - name: Verify package, version and ARM64 payload
+        # Key-less builds keep the release package id and stay non-debuggable;
+        # only the signing certificate is the public AOSP debug key.
+        run: bash tools/verify_apk.sh dist/continuum.apk
 
-          # 4. Handle optional external vendor archive override
-          if [ -n "$VENDOR_URL" ]; then
-            echo "[CI] Downloading vendor inputs from $VENDOR_URL..."
-            mkdir -p vendor
-            curl -fsSL -o vendor.tar.gz "$VENDOR_URL"
-            tar -xzf vendor.tar.gz -C vendor
-            export AGY_HOME="$PWD/vendor"
-          fi
-
-      - name: Build Standard Release APK (dist/antigravity.apk)
+      - name: Cross-check release tag against app version
+        if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.tag_name != ''
         run: |
-          bash build.sh
+          set -euo pipefail
+          TAG="${{ github.event.inputs.tag_name || github.ref_name }}"
+          TAG_VERSION="${TAG#v}"
+          CONFIG_VERSION="$(grep '^APP_VERSION_NAME=' config/app.env | cut -d= -f2)"
+          if [ "$TAG_VERSION" != "$CONFIG_VERSION" ]; then
+            echo "::error::tag $TAG does not match config/app.env APP_VERSION_NAME=$CONFIG_VERSION"
+            exit 1
+          fi
+          echo "tag and app version agree: $TAG_VERSION"
 
-      - name: Build Region Bypass Release APK (dist/antigravity-region-bypass.apk)
+      - name: Generate checksums
         run: |
-          bash build.sh --region-bypass
-
-      - name: Compute Cryptographic Checksums
-        run: |
+          set -euo pipefail
           cd dist
-          sha256sum antigravity.apk antigravity-region-bypass.apk > SHA256SUMS.txt
+          sha256sum continuum.apk > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      - name: Upload Build Artifacts
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: antigravity-binaries
+          name: continuum-apk
           path: |
-            dist/antigravity.apk
-            dist/antigravity-region-bypass.apk
+            dist/continuum.apk
             dist/SHA256SUMS.txt
+          if-no-files-found: error
 
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.tag_name != ''
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
-          name: ${{ format('Antigravity for Android {0}', github.event.inputs.tag_name || github.ref_name) }}
-          draft: ${{ github.event.inputs.draft || false }}
-          prerelease: ${{ github.event.inputs.prerelease || false }}
+          name: ${{ format('Continuum {0}', github.event.inputs.tag_name || github.ref_name) }}
+          draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft || false }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
           make_latest: true
           files: |
-            dist/antigravity.apk
-            dist/antigravity-region-bypass.apk
+            dist/continuum.apk
             dist/SHA256SUMS.txt
-          body: |
-            <div align="center">
-              <h3>Antigravity for Android</h3>
-              <p>Autonomous AI Coding Environment &bull; Native Bionic Userspace &bull; ARM64</p>
-            </div>
-
-            ---
-
-            ### Packages & Artifacts
-
-            | Package | Description |
-            | :--- | :--- |
-            | **`antigravity.apk`** | Standard production release with native bionic engine (com.agy, port 45157) |
-            | **`antigravity-region-bypass.apk`** | Region bypass edition with account eligibility check bypass (com.agy, port 45157) |
-            | **`SHA256SUMS.txt`** | Cryptographic checksums for package integrity verification |
-
-            ---
-
-            ### Key Highlights in this Release
-
-            * **Built-in Web Terminal & PTY Support (PR #19):** Enabled native built-in web terminal on Android userspace via length-preserving PTY shell binary patching (`/bin/bash` -> `/bin///sh`), resilient prioritized shell fallback hierarchy (`$PREFIX/bin/bash` -> `runtime/bin/bash` -> `/system/bin/sh`), and proper `TERM=xterm-256color` / `TERMINFO` environment configuration.
-            * **AAPT Build Reliability:** Fixed `aapt` crash with `SIGABRT (134)` on Android ARM64 userspace builds by ensuring `ANDROID_DATA` environment export.
-            * **Security Hardening (Issue #6):** Completely removed hardcoded `android:debuggable="true"` from production builds, preventing unauthorized access to OAuth credentials and internal user files via `run-as`. Dev builds now isolate debuggable flags to `--dev` builds.
-            * **Media & File Picker Overhaul (Issue #8):** Replaced SAF-only document picker with universal native Android chooser. Users can now attach photos, videos, and files directly from Gallery, Google Photos, or File Managers with automatic persistent URI permissions.
-            * **OAuth & Browser Redirection Streamlined:** Completely eliminated 80ms disk polling and temporary files. Direct stdout capture and clean native browser intent dispatching without AIDL overhead or IPC deadlocks.
-            * **ARMv8.0-A CPU Architecture & SIMD Emulation:** Added transparent atomic & SIMD emulation (`liblse_compat.so`) for FEAT_LSE, FEAT_RDM, and FEAT_FCMA, resolving `FATAL ERROR: This binary was compiled with lse enabled` and `SIGILL` crashes on Snapdragon 685 (Cortex-A53 / Redmi Note 12).
-            * **Torch / Flashlight Hardware Bridge:** Integrated hardware torch control bridge and CLI utility (`torch on/off`).
-            * **Integrated Log Export & Diagnostics:** Added "Copy Logs" and "Save Logs" actions to the startup failure splash overlay for one-tap troubleshooting.
-            * **Autonomous Background Micro-Daemon (`agy-daemon`):** Background task engine with triggers for delays, intervals, file watching, and GitHub notifications.
-
-            ---
-
-            > [!NOTE]
-            > **Seamless Upgrades:** Built with the consistent embedded signing keystore. You can install this update directly over previous v2.x releases without uninstalling or losing local projects.
+          body_path: RELEASE_NOTES.md

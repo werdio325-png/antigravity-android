@@ -34,8 +34,8 @@ def get_gateway_base():
     if home:
         candidates.append(os.path.join(home, "logs", "gateway.port"))
     candidates.extend([
-        "/data/user/0/com.agy.dev/files/logs/gateway.port",
-        "/data/user/0/com.agy/files/logs/gateway.port"
+        "/data/user/0/dev.continuum.antigravity.dev/files/logs/gateway.port",
+        "/data/user/0/dev.continuum.antigravity/files/logs/gateway.port"
     ])
     for pfile in candidates:
         if os.path.isfile(pfile):
@@ -46,7 +46,7 @@ def get_gateway_base():
                         return f"http://127.0.0.1:{p}/gateway"
             except Exception:
                 pass
-    is_dev = os.environ.get("DEV_MODE") == "1" or os.environ.get("AGY_APPLICATION_ID") == "com.agy.dev"
+    is_dev = os.environ.get("DEV_MODE") == "1" or os.environ.get("AGY_APPLICATION_ID") == "dev.continuum.antigravity.dev"
     return "http://127.0.0.1:45161/gateway" if is_dev else "http://127.0.0.1:45160/gateway"
 
 GATEWAY_BASE = get_gateway_base()
@@ -86,13 +86,13 @@ def _find_commands_log():
     except Exception:
         pass
     candidates.extend([
-        "/data/user/0/com.agy.dev/files/logs/commands.jsonl",
-        "/data/user/0/com.agy/files/logs/commands.jsonl"
+        "/data/user/0/dev.continuum.antigravity.dev/files/logs/commands.jsonl",
+        "/data/user/0/dev.continuum.antigravity/files/logs/commands.jsonl"
     ])
     for p in candidates:
         if os.path.isfile(p):
             return p
-    return candidates[0] if candidates else "/data/user/0/com.agy/files/logs/commands.jsonl"
+    return candidates[0] if candidates else "/data/user/0/dev.continuum.antigravity/files/logs/commands.jsonl"
 
 
 def read_file_fallback(max_lines=50):
@@ -110,9 +110,9 @@ def read_file_fallback(max_lines=50):
         pass
     candidates.extend([
         os.path.expanduser("~/.gemini/logs/core.log"),
-        "/data/user/0/com.agy.dev/files/logs/core.log",
-        "/data/user/0/com.agy/files/logs/core.log",
-        "/data/user/0/com.agy/files/standalone_runtime/core_output.log"
+        "/data/user/0/dev.continuum.antigravity.dev/files/logs/core.log",
+        "/data/user/0/dev.continuum.antigravity/files/logs/core.log",
+        "/data/user/0/dev.continuum.antigravity/files/standalone_runtime/core_output.log"
     ])
     for path in candidates:
         if os.path.isfile(path):
@@ -162,8 +162,8 @@ def show_crash(as_json=False):
         except Exception:
             pass
         crashes_dirs.extend([
-            "/data/user/0/com.agy.dev/files/logs/crashes",
-            "/data/user/0/com.agy/files/logs/crashes"
+            "/data/user/0/dev.continuum.antigravity.dev/files/logs/crashes",
+            "/data/user/0/dev.continuum.antigravity/files/logs/crashes"
         ])
         for crashes_dir in crashes_dirs:
             if os.path.isdir(crashes_dir):

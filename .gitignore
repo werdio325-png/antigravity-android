@@ -33,3 +33,9 @@ standalone_runtime/
 *~
 .idea/
 .vscode/
+
+# Fork signing material — NEVER commit private keys or credentials
+keys/
+*.jks
+*.keystore
+!tools/debug.keystore

@@ -63,6 +63,10 @@ class TestShims(unittest.TestCase):
             self.assertEqual(res.stdout.strip(), "")
 
     def test_06_browser_delegates_to_xdg_open(self):
+        # The shims target Android and start with #!/system/bin/sh; executing the
+        # delegate by path needs that interpreter, which only exists on-device.
+        if not os.access("/system/bin/sh", os.X_OK):
+            self.skipTest("needs the Android shell at /system/bin/sh (shim shebang)")
         # Create a temp dir with xdg-open and delegate shims
         tmp = tempfile.mkdtemp()
         try:

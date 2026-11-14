@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder values. build/res/values/gen.xml, generated from
+     config/app.env, overrides these through the aapt resource overlay. -->
 <resources>
-    <string name="app_name">Antigravity Dev</string>
-    <integer name="https_server_port">45158</integer>
-    <integer name="gateway_port">45161</integer>
+    <string name="app_name">Continuum</string>
+    <integer name="https_server_port">45167</integer>
+    <integer name="gateway_port">45170</integer>
     <string name="oauth_scheme">antigravity</string>
 </resources>

@@ -1,119 +1,91 @@
 <div align="center">
 
-  <p>
-    <b>English</b> &nbsp;&bull;&nbsp; <a href="README.ru.md">Русский</a>
-  </p>
+# Continuum
 
-  <br/>
+**An independent, maintained Android fork of [Antigravity for Android](https://github.com/werdio325-png/antigravity-android).**
 
-  <img src="docs/assets/logo.png" alt="Antigravity" width="88" height="88" style="border-radius: 20px;" />
-
-  # Antigravity for Android
-
-> [!WARNING]
-> **Проект временно приостановлен на несколько месяцев из-за занятости разработчика.**  
-> *(Project is temporarily on hold for several months due to developer workload).*
-
-**Autonomous AI development environment running natively on Android & ARM64.**
-
-  [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](https://android.com)
-  [![Arch](https://img.shields.io/badge/ARM64-v8.0--A%2B-blue?style=flat-square)](https://arm.com)
-  [![Release](https://img.shields.io/badge/Version-2.4.1-blueviolet?style=flat-square)](https://github.com/werdio325-png/antigravity-android/releases)
-  [![License](https://img.shields.io/badge/License-Apache_2.0-orange?style=flat-square)](LICENSE)
-
-  <br/>
-
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/hero_light.png">
-    <img alt="Antigravity Interface" src="docs/assets/hero_dark.png" width="100%" style="border-radius: 12px; border: 1px solid rgba(128,128,128,0.2);" />
-  </picture>
+Runs Google's Antigravity engine natively on Android/ARM64 — no PRoot, no VM — and
+keeps the app honest about which Gemini models the embedded engine can actually
+reach.
 
 </div>
 
 ---
 
-### Overview
+## What this fork is
 
-**Antigravity for Android** brings autonomous agentic coding directly to mobile hardware.
+Continuum is a fork, not a rebrand of a download. It keeps the whole upstream
+runtime (native Bionic engine, glibc loader, shims, WebView UI, OAuth, terminal,
+workspaces) and changes only the things a fork must own:
 
-No PRoot, chroot, or virtualization overhead. Antigravity runs **bare-metal inside native Android userspace (Bionic)**, unleashing the full read/write speed of UFS storage and physical CPU cores. Driven by Gemini models, the agent inspects repositories, authors code across multiple files, compiles binaries, and runs tests completely on-device.
+| Area | Upstream | Continuum |
+| :--- | :--- | :--- |
+| App name | Antigravity for Android | **Continuum** (`Continuum Dev` for dev builds) |
+| Application id | `com.agy` | `dev.continuum.antigravity` (`.dev` for dev builds) |
+| Engine port | 45157 | **45167 / 45168** so both apps can run side by side |
+| Gateway port | 45160 | **45170 / 45171** |
+| Signing | shared debug key | **separate release key**, fail-closed in CI |
+| Region bypass edition | shipped | **removed** — `--region-bypass` exits with an error |
+| Model availability | fixed, unexplained | **read from the embedded engine**, explained per row |
+| Updates | manual APK download | **in-app updater** from this repo's GitHub Releases |
+| Upstream tracking | manual | scheduled workflow that opens reviewable PRs |
 
----
+Installing Continuum does not touch an existing Antigravity installation: different
+package id, different ports, different signing key, separate data directory.
 
-### Highlights in v2.4
+## Model availability — what actually happens
 
-* **Modular Core:** Clean separation into 6 standalone subsystems (`modules/*`) with independent test suites.
-* **Native Splash:** Canvas-based dot animation saving ~40 MB RAM with instant startup.
-* **Desktop Mode:** Instant toggle in Appearance settings for tablets, external keyboards, and Samsung DeX.
-* **Universal ARMv8.0-A Support:** Built-in transparent atomic & SIMD emulation (`liblse_compat.so`) for older CPUs.
-* **Background Micro-Daemon:** Ultra-lightweight `agy-daemon` (<10 MB RAM) with cron scheduler, file watcher, and AI task queue.
+Continuum never invents a model and never pretends one is available.
 
----
+`modules/engine` reads the model catalogue **out of the embedded engine binary**
+at build time and ships it as `assets/runtime/engine_info.json`. The UI then:
 
-### Key Features
+* lists what the engine reports (no hardcoded model table),
+* marks a row **“engine”** when this engine build has no such model id at all,
+* marks a row **“account”** when the engine knows the model but the menu is
+  disabled — that decision belongs to Google's servers and the signed-in account,
+* leaves enabled rows untouched.
 
-* **Autonomous Agent:** Plans tasks, edits code across project trees, executes shell tools, and fixes build errors.
-* **Elevated Control (Shizuku):** Direct ADB-level operations (`uid=2000`) without root for package installs and system diagnostics.
-* **Built-in `pkg` Manager:** Fast package manager installing development runtimes (`git`, `python`, `node`, `clang`) from Termux repos.
-* **Adaptive Viewports:** Seamless touch-first mobile UI with optional desktop layout.
-* **In-Place Upgrades:** Consistent keystore guarantees updating APKs without losing sessions or workspace data.
+So a model absent from the engine (as `gemini-4-hydrogen` is in the currently
+embedded 2.11.0 build) is reported as needing a newer engine, while a model the
+engine knows but the account cannot use is reported as an account matter. Neither
+case is faked, and no eligibility, entitlement or regional check is bypassed.
 
----
+Details and evidence: [docs/AUDIT.md](docs/AUDIT.md).
 
-### Quick Start
+## In-app updates
 
-1. **Download APK** from [Releases](https://github.com/werdio325-png/antigravity-android/releases):
-   * `antigravity.apk` — standard release (original Google account checks).
-   * `antigravity-region-bypass.apk` — release with account eligibility check bypass.
-2. **Grant Storage Permission** (`All Files Access`). *(Optional: enable Shizuku for ADB access)*.
-3. **Install Runtimes** via terminal or agent:
-   ```bash
-   pkg update && pkg install git python nodejs
-   ```
+The **Updates** button opens a panel with the installed version, the latest release
+from this repository, its changelog and download size. Downloading verifies the
+release's published SHA-256 before anything is offered for installation, and
+installation goes through Android's own package installer — the user can cancel,
+and updates can be postponed. Nothing installs silently, and user data (workspaces,
+projects, tokens) is preserved because the package id and signing key stay stable.
 
----
-
-### Building & Testing
+## Build
 
 ```bash
-# Build standard release APK (dist/antigravity.apk):
-bash build.sh
-
-# Build release APK with region bypass (dist/antigravity-region-bypass.apk):
-bash build.sh --region-bypass
-
-# Run all test suites:
-bash test_all_modules.sh
+bash tools/gen_keys.sh   # once: creates the fork release key (git-ignored)
+bash build.sh            # -> dist/continuum.apk
+bash tools/verify_apk.sh dist/continuum.apk
 ```
 
----
+Requirements, toolchain layout and dev builds: [docs/BUILDING.md](docs/BUILDING.md).
+Release process and CI secrets: [docs/RELEASING.md](docs/RELEASING.md).
 
-### Repository Structure
+## Status
 
-```text
-antigravity/
-├── config/             # App constants, environment paths, and AI rules
-├── modules/            # Decoupled core modules (v2.4+)
-│   ├── core/           # Binary unpacking, glibc loader, shims, SHA-256 manifest
-│   ├── patches/        # Binary patch engine (syscall emulation, resolv, SIGILL)
-│   ├── io/             # High-performance I/O Bus: event broker, FIFO pipes, sockets
-│   ├── env/            # Path resolver, diagnostics, Flight Recorder logs, CLI
-│   ├── builder/        # Gradle-free APK builder (javac, D8, aapt, zipalign, apksigner)
-│   └── runner/         # Standalone runtime preparation, port probe, E2E tests
-├── app/                # Android host app (native splash, WebView, system bridges)
-├── web/                # Local web frontend, desktop mode toggle, themes
-├── env/                # Bionic userspace, Termux overlay, pkg manager, liblse_compat
-├── docs/assets/        # Screenshots, banners, and diagrams
-├── build.sh            # Root APK build script
-└── test_all_modules.sh # Test suite for all 6 modules
-```
+The engine/patch/runtime/build stages are verified in this repository (tests +
+signed APK build). Device behaviour on the target Galaxy A54 (Android 16) — login,
+PTY, long agent runs, installer flow — has **not** been executed here, because no
+device or emulator is available in the build environment. See
+[docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) for the exact test matrix
+and what remains.
 
-> [!TIP]
-> Each module in `modules/`, `app/`, `web/`, and `env/` includes its own dedicated `README.md` with in-depth technical documentation.
+## License and attribution
 
----
-
-<div align="center">
-  <sub>Licensed under the <a href="LICENSE">Apache 2.0 License</a></sub>
-</div>
+Continuum is distributed under the **Apache License 2.0**, the same license as the
+upstream project. Upstream copyright and attribution are retained; see
+[NOTICE](NOTICE) and [LICENSE](LICENSE). The embedded `language_server` binary and
+the Antigravity web UI remain Google's; this fork only patches and packages them
+as the upstream project already does.

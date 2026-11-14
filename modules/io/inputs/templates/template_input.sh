@@ -6,7 +6,7 @@
 # 3. Output to the AGY bus FIFO pipe or stdout.
 # ==============================================================================
 
-FIFO_PATH="${AGY_BUS_FIFO:-/data/user/0/com.agy/files/runtime/agy_bus.pipe}"
+FIFO_PATH="${AGY_BUS_FIFO:-/data/user/0/dev.continuum.antigravity/files/runtime/agy_bus.pipe}"
 
 # Resolve safe path if targeting FUSE storage (/storage or /sdcard)
 case "$FIFO_PATH" in
@@ -15,8 +15,8 @@ case "$FIFO_PATH" in
         SAFE_DIR="${AGY_RUNTIME_DIR:-}"
         if [ -z "$SAFE_DIR" ] || [ ! -d "$SAFE_DIR" ]; then
             for candidate in \
-                "/data/user/0/com.agy/files/runtime" \
-                "/data/user/0/com.agy.dev/files/runtime" \
+                "/data/user/0/dev.continuum.antigravity/files/runtime" \
+                "/data/user/0/dev.continuum.antigravity.dev/files/runtime" \
                 "$TMPDIR" \
                 "/tmp"; do
                 if [ -n "$candidate" ]; then

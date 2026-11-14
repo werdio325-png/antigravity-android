@@ -39,8 +39,8 @@ echo "ANTIGRAVITY_OPEN_URL: $URL"
 
 # Direct intent / broadcast fallback for terminal and standalone commands
 if [ -x /system/bin/am ]; then
-  /system/bin/am broadcast -a com.agy.ACTION_OPEN_URL -p com.agy --es url "$URL" >/dev/null 2>&1 || true
-  /system/bin/am broadcast -a com.agy.ACTION_OPEN_URL -p com.agy.dev --es url "$URL" >/dev/null 2>&1 || true
+  /system/bin/am broadcast -a dev.continuum.antigravity.ACTION_OPEN_URL -p dev.continuum.antigravity --es url "$URL" >/dev/null 2>&1 || true
+  /system/bin/am broadcast -a dev.continuum.antigravity.ACTION_OPEN_URL -p dev.continuum.antigravity.dev --es url "$URL" >/dev/null 2>&1 || true
   /system/bin/am start -a android.intent.action.VIEW -d "$URL" >/dev/null 2>&1 || true
 fi
 

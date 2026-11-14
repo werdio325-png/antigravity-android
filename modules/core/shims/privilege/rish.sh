@@ -23,5 +23,5 @@ if [ "$SDK" -ge 34 ]; then
 fi
 
 # Bundled with the AGY app: default to its own package id.
-[ -z "$RISH_APPLICATION_ID" ] && export RISH_APPLICATION_ID="com.agy"
+[ -z "$RISH_APPLICATION_ID" ] && export RISH_APPLICATION_ID="dev.continuum.antigravity"
 exec env -u LD_PRELOAD -u LD_LIBRARY_PATH /system/bin/app_process -Djava.class.path="$DEX" /system/bin --nice-name=rish rikka.shizuku.shell.ShizukuShellLoader "$@"

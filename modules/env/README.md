@@ -136,12 +136,12 @@ modules/env/
 ## 4. Контекст и динамический резолвер путей (`context/`)
 
 ### 4.1. `path_resolver.py`
-Отвечает за устранение жестких привязок к имени пакета (`com.agy` vs `com.agy.dev` vs кастомные сборки):
+Отвечает за устранение жестких привязок к имени пакета (`dev.continuum.antigravity` vs `dev.continuum.antigravity.dev` vs кастомные сборки):
 - `get_application_id() -> str`: Определение идентификатора пакета по приоритетам:
   1. Переменная окружения `AGY_APPLICATION_ID`
   2. Переменная окружения `APPLICATION_ID`
-  3. Флаг `DEV_MODE == "1"` (возвращает `com.agy.dev`)
-  4. По умолчанию: `com.agy`
+  3. Флаг `DEV_MODE == "1"` (возвращает `dev.continuum.antigravity.dev`)
+  4. По умолчанию: `dev.continuum.antigravity`
 - `load_paths(custom_spec=None, app_id=None) -> Dict[str, str]`: Загрузка и интерполяция путей из `paths.json` с гарантированным получением абсолютных путей через `os.path.abspath(os.path.expanduser(...))`.
 - `resolve_subpath(key: str, rel_path: str, custom_spec=None, app_id=None) -> str`: Безопасное присоединение подпутей. Для предотвращения сброса корневого каталога при передаче ведущего слэша (`/bin/tool`) вызывается `rel_path.lstrip("/")`.
 
@@ -211,8 +211,8 @@ def record_crash_snapshot(error_msg: str, dump_path: str, extra_context: Dict[st
 ### 7.1. IPC-клиент (`bridge/client.py`)
 - `resolve_gateway_url() -> str`:
   1. Проверяет переменную окружения `AGY_GATEWAY_URL`.
-  2. Ищет файл динамического порта `gateway.port` в `$HOME/logs/gateway.port`, `app_root/logs/gateway.port` и стандартных директориях `com.agy.dev` / `com.agy`.
-  3. При отсутствии файла выбирает порт по умолчанию: `45161` для `DEV_MODE=1` / `com.agy.dev`, либо `45160` для production.
+  2. Ищет файл динамического порта `gateway.port` в `$HOME/logs/gateway.port`, `app_root/logs/gateway.port` и стандартных директориях `dev.continuum.antigravity.dev` / `dev.continuum.antigravity`.
+  3. При отсутствии файла выбирает порт по умолчанию: `45161` для `DEV_MODE=1` / `dev.continuum.antigravity.dev`, либо `45160` для production.
 - `send_command(command: str, payload: dict = None, gateway_url: str = None) -> dict`:
   - Отправляет HTTP POST запрос с JSON-конвертом `{command, payload}` на эндпоинт `/gateway`.
   - Автоматический failover: при недоступности основного порта выполняет попытку переподключения на альтернативный порт (`45160` <-> `45161`).
@@ -327,8 +327,8 @@ bash modules/env/tests/run_all.sh
 В ходе глубокого аудита исходного кода подсистемы `modules/env` были обнаружены и устранены критические архитектурные дефекты, ошибки путей в Android и проблемы типизации:
 
 ### 11.1. Критический хардкод путей в `preflight.py`
-- **Проблема**: В сигнатуре функции `run_preflight` аргумент по умолчанию был жестко зафиксирован: `app_root: str = "/data/user/0/com.agy/files"`.
-- **Следствие**: В дебаг-сборках (`com.agy.dev`) или любых пользовательских пакетах вызов `run_preflight()` без аргументов проверял несуществующий каталог production-пакета `com.agy`. В результате `os.path.exists()` возвращал `False`, `free_mb = 0`, и префлайт-чекер безусловно рапортовал об ошибке `ok: False`, блокируя запуск ядра.
+- **Проблема**: В сигнатуре функции `run_preflight` аргумент по умолчанию был жестко зафиксирован: `app_root: str = "/data/user/0/dev.continuum.antigravity/files"`.
+- **Следствие**: В дебаг-сборках (`dev.continuum.antigravity.dev`) или любых пользовательских пакетах вызов `run_preflight()` без аргументов проверял несуществующий каталог production-пакета `dev.continuum.antigravity`. В результате `os.path.exists()` возвращал `False`, `free_mb = 0`, и префлайт-чекер безусловно рапортовал об ошибке `ok: False`, блокируя запуск ядра.
 - **Исправление**: Параметр изменен на `app_root: Optional[str] = None`. Добавлено каскадное динамическое определение каталога через `path_resolver.load_paths()["app_root"]` -> `$HOME` -> fallback.
 
 ### 11.2. Ошибка типизации `NameError: Optional` в `bridge/commands.py`
@@ -337,18 +337,18 @@ bash modules/env/tests/run_all.sh
 - **Исправление**: Добавлен явный импорт `from typing import Dict, Any, Optional`, а также реализованы недостающие методы `clipboard_get()`, `cancel_notify()` и `system_info()`.
 
 ### 11.3. Подавление логирования и хардкод в `cmd/runner.py`
-- **Проблема**: Путь `LOG_DIR` был жестко задан как `/data/user/0/com.agy/files/logs`.
-- **Следствие**: При работе в окружении `com.agy.dev` создание директории или запись в `commands.jsonl` завершалась отказом в доступе (`PermissionDenied`), который молча глушился блоком `except Exception: pass`. Все команды, запущенные через `runner.py`, теряли историю аудита.
+- **Проблема**: Путь `LOG_DIR` был жестко задан как `/data/user/0/dev.continuum.antigravity/files/logs`.
+- **Следствие**: При работе в окружении `dev.continuum.antigravity.dev` создание директории или запись в `commands.jsonl` завершалась отказом в доступе (`PermissionDenied`), который молча глушился блоком `except Exception: pass`. Все команды, запущенные через `runner.py`, теряли историю аудита.
 - **Исправление**: Реализована функция `_resolve_log_dir()`, приоритетно использующая `$HOME/logs` и `path_resolver`.
 
 ### 11.4. Недоступность логов и дампов сбоев в `cli/agy_logs.py`
-- **Проблема**: Пути к файлам `commands.jsonl`, `logs/core.log` и каталогу `logs/crashes` были жестко привязаны к `com.agy`. При этом в `read_file_fallback` проверялся путь `~/.gemini/logs/core.log`, тогда как реальный файл создается в `$HOME/logs/core.log`.
+- **Проблема**: Пути к файлам `commands.jsonl`, `logs/core.log` и каталогу `logs/crashes` были жестко привязаны к `dev.continuum.antigravity`. При этом в `read_file_fallback` проверялся путь `~/.gemini/logs/core.log`, тогда как реальный файл создается в `$HOME/logs/core.log`.
 - **Следствие**: Если шлюз Android Gateway был оффлайн, команда `agy_logs.py` не могла обнаружить ни один лог-файл и выводила пустоту.
 - **Исправление**: Внедрена функция `_find_commands_log()`, пути объединены с динамическим резолвером, а в список кандидатов `core.log` добавлен `$HOME/logs/core.log`.
 
 ### 11.5. Дублирование логики поиска порта Gateway
 - **Проблема**: Функция `resolve_gateway_url()` в `bridge/client.py` и `get_gateway_base()` в `cli/agy_logs.py` содержали идентичный дублированный код, причем обе функции проверяли только статические пути к `gateway.port`.
-- **Исправление**: `agy_logs.py` теперь импортирует централизованный метод из `bridge.client`, а сам резолвер порта проверяет `$HOME/logs/gateway.port` и флаг окружения `AGY_APPLICATION_ID == "com.agy.dev"`.
+- **Исправление**: `agy_logs.py` теперь импортирует централизованный метод из `bridge.client`, а сам резолвер порта проверяет `$HOME/logs/gateway.port` и флаг окружения `AGY_APPLICATION_ID == "dev.continuum.antigravity.dev"`.
 
 ### 11.6. Отсутствие `$PREFIX` и `$GIT_CONFIG_NOSYSTEM` в `env_builder.py`
 - **Проблема**: Переменная `PREFIX` (`/data/user/0/{package}/files/usr`) является ключевой переменной окружения в Android userland (Termux / AGY). Несмотря на наличие ключа `"prefix"` в `paths.json`, `env_builder.py` не устанавливал `PREFIX`. Также отсутствовал флаг `GIT_CONFIG_NOSYSTEM=1`.

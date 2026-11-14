@@ -14,7 +14,7 @@ MESSAGE=$(echo "$RAW_JSON" | grep -o '"message"[[:space:]]*:[[:space:]]*"[^"]*' 
 if command -v agy-notify >/dev/null 2>&1; then
     agy-notify post -t "Antigravity: $EVENT_NAME" -m "$MESSAGE" >/dev/null 2>&1 || true
 elif [ -x /system/bin/am ]; then
-    /system/bin/am broadcast -a com.agy.ACTION_NOTIFY --es title "Antigravity" --es message "$MESSAGE" >/dev/null 2>&1 || true
+    /system/bin/am broadcast -a dev.continuum.antigravity.ACTION_NOTIFY --es title "Antigravity" --es message "$MESSAGE" >/dev/null 2>&1 || true
 else
     echo "[NOTIFY] $EVENT_NAME: $MESSAGE"
 fi

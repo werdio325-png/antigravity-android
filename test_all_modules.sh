@@ -13,22 +13,25 @@ echo -e "\n${BLUE}==============================================================
 echo -e "${BLUE}  ANTIGRAVITY V2 - FULL MODULAR TEST SUITE (Level 999999+1)     ${NC}"
 echo -e "${BLUE}================================================================${NC}\n"
 
-echo -e "${BLUE}>>> [1/6] Testing modules/core...${NC}"
+echo -e "${BLUE}>>> [1/7] Testing modules/core...${NC}"
 bash "$PROJECT_ROOT/modules/core/tests/run_all.sh"
 
-echo -e "\n${BLUE}>>> [2/6] Testing modules/patches...${NC}"
+echo -e "\n${BLUE}>>> [2/7] Testing modules/patches...${NC}"
 bash "$PROJECT_ROOT/modules/patches/tests/run_all.sh"
 
-echo -e "\n${BLUE}>>> [3/6] Testing modules/io...${NC}"
+echo -e "\n${BLUE}>>> [3/7] Testing modules/io...${NC}"
 bash "$PROJECT_ROOT/modules/io/tests/run_all.sh"
 
-echo -e "\n${BLUE}>>> [4/6] Testing modules/env...${NC}"
+echo -e "\n${BLUE}>>> [4/7] Testing modules/env...${NC}"
 bash "$PROJECT_ROOT/modules/env/tests/run_all.sh"
 
-echo -e "\n${BLUE}>>> [5/6] Testing modules/builder...${NC}"
+echo -e "\n${BLUE}>>> [5/7] Testing modules/builder...${NC}"
 bash "$PROJECT_ROOT/modules/builder/tests/run_all.sh"
 
-echo -e "\n${BLUE}>>> [6/6] Running Live E2E Server & Runtime Test...${NC}"
+echo -e "\n${BLUE}>>> [6/7] Testing modules/engine...${NC}"
+bash "$PROJECT_ROOT/modules/engine/tests/run_all.sh"
+
+echo -e "\n${BLUE}>>> [7/7] Running Live E2E Server & Runtime Test...${NC}"
 bash "$PROJECT_ROOT/modules/runner/test_e2e.sh"
 
 echo -e "\n${GREEN}================================================================${NC}"

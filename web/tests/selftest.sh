@@ -36,4 +36,11 @@ for f in "$TMP"/web/generated/boot/*.js "$TMP"/web/generated/patches/*.js; do
     fi
 done
 
+# Session sync logic (stale-state regression): resume, dead stream, dedupe, budget.
+if command -v node >/dev/null 2>&1; then
+    node "$TMP/web/tests/sync_test.js"
+else
+    echo "[!] node not available; skipping session sync tests" >&2
+fi
+
 echo "web build selftest: OK"

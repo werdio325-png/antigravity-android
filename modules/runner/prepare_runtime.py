@@ -4,6 +4,7 @@ prepare_runtime.py - Assembles a fully patched, verified runtime in destination 
 """
 import sys
 import os
+import json
 import shutil
 import tempfile
 
@@ -13,15 +14,18 @@ sys.path.insert(0, os.path.join(MODULES_DIR, "core", "unpack"))
 sys.path.insert(0, os.path.join(MODULES_DIR, "core", "bundle"))
 sys.path.insert(0, os.path.join(MODULES_DIR, "core", "manifest"))
 sys.path.insert(0, os.path.join(MODULES_DIR, "patches"))
+sys.path.insert(0, os.path.join(MODULES_DIR, "engine"))
 
 import extractor
 import assemble
+import manifest_builder
 import manifest_verifier
 import pipeline
+import engine_probe
 
 TARGET_SHA_FULL = "1d9750dd874faf2db976756dbb3476e72c2b29779793331f324151d0cb940bb7"
 TARGET_SHA_NO_BYPASS = "401c73945b2fca57bd1620ca792ed8952eb704c406d1314f4d307e736f5a5a22"
-DEFAULT_DEST = "/data/user/0/com.agy/files/standalone_runtime"
+DEFAULT_DEST = "/data/user/0/dev.continuum.antigravity/files/standalone_runtime"
 
 def prepare(dest_runtime_dir: str = DEFAULT_DEST, no_bypass: bool = False) -> bool:
     no_bypass = no_bypass or (os.environ.get("NO_BYPASS") == "1") or (os.environ.get("SKIP_GATES") == "1")
@@ -35,7 +39,7 @@ def prepare(dest_runtime_dir: str = DEFAULT_DEST, no_bypass: bool = False) -> bo
     archive_path = os.path.join(core_dir, "pristine", "language_server.tar.gz")
 
     tmp_dir = tempfile.mkdtemp(prefix="agy_staging_")
-    app_base = "/data/user/0/com.agy.dev" if os.path.exists("/data/user/0/com.agy.dev") and os.access("/data/user/0/com.agy.dev", os.W_OK) else "/data/user/0/com.agy"
+    app_base = "/data/user/0/dev.continuum.antigravity.dev" if os.path.exists("/data/user/0/dev.continuum.antigravity.dev") and os.access("/data/user/0/dev.continuum.antigravity.dev", os.W_OK) else "/data/user/0/dev.continuum.antigravity"
     cache_dir = os.environ.get("AGY_CACHE_DIR", os.path.join(app_base, "cache") if os.access(app_base, os.W_OK) else os.path.join(tempfile.gettempdir(), "agy_cache"))
     os.makedirs(cache_dir, exist_ok=True)
     target_sha = TARGET_SHA_NO_BYPASS if no_bypass else TARGET_SHA_FULL
@@ -81,6 +85,22 @@ def prepare(dest_runtime_dir: str = DEFAULT_DEST, no_bypass: bool = False) -> bo
         
         manifest = assemble.assemble_runtime(staged_bin, core_dir, dest_runtime_dir)
         print(f"  [OK] Runtime assembled with {len(manifest['files'])} files.")
+
+        # 3b. Describe the engine that is actually embedded (version, build tag,
+        # model catalogue) so the app never hardcodes a model list.
+        info = engine_probe.probe(binary=staged_bin, patch_scan=False)
+        info["patches"] = {
+            "compatible": True,
+            "source": "build-pipeline",
+            "no_bypass": bool(no_bypass),
+        }
+        with open(os.path.join(dest_runtime_dir, "engine_info.json"), "w", encoding="utf-8") as f:
+            json.dump(info, f, indent=2, sort_keys=True)
+            f.write("\n")
+        manifest = manifest_builder.build_manifest(
+            dest_runtime_dir, os.path.join(dest_runtime_dir, "manifest.json"))
+        print(f"  [OK] Engine info: {info['engine']['version']} "
+              f"({info['engine']['build_tag']}), {info['catalog']['model_count']} models.")
 
         # 4. Verify cryptographic manifest
         print("\n[4/4] Verifying destination integrity...")

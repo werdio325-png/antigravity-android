@@ -25,8 +25,8 @@ def resolve_gateway_url() -> str:
         pass
 
     candidates.extend([
-        "/data/user/0/com.agy.dev/files/logs/gateway.port",
-        "/data/user/0/com.agy/files/logs/gateway.port"
+        "/data/user/0/dev.continuum.antigravity.dev/files/logs/gateway.port",
+        "/data/user/0/dev.continuum.antigravity/files/logs/gateway.port"
     ])
 
     for pfile in candidates:
@@ -41,8 +41,8 @@ def resolve_gateway_url() -> str:
 
     is_dev = (
         os.environ.get("DEV_MODE") == "1"
-        or os.environ.get("AGY_APPLICATION_ID") == "com.agy.dev"
-        or "com.agy.dev" in (os.environ.get("HOME") or "")
+        or os.environ.get("AGY_APPLICATION_ID") == "dev.continuum.antigravity.dev"
+        or "dev.continuum.antigravity.dev" in (os.environ.get("HOME") or "")
     )
     return "http://127.0.0.1:45161/gateway" if is_dev else "http://127.0.0.1:45160/gateway"
 

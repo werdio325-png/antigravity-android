@@ -75,7 +75,7 @@ env/
 
 ### Размещение в памяти и песочнице Android
 
-При запуске приложения Android класс `com.agy.install.EnvInstaller` распаковывает ассеты в изолированное файловое пространство приложения:
+При запуске приложения Android класс `dev.continuum.antigravity.install.EnvInstaller` распаковывает ассеты в изолированное файловое пространство приложения:
 - **`$HOME`**: `/data/user/<id>/<package_id>/files` (или `/data/data/<package_id>/files` на старых версиях Android).
 - **`$PREFIX`**: `$HOME/usr` — корень Bionic rootfs.
 - **`$PREFIX/bin`**: исполняемые файлы (`bash`, `sh`, `git`, `pkg`, `agy-daemon` и др.).
@@ -121,7 +121,7 @@ env/
 
 ## 3. Динамическая Трансляция Путей Termux/Android
 
-Поскольку пакеты Termux собираются с жестко зашитым путем `/data/data/com.termux/files/usr`, а приложение AGY работает в произвольном контексте (например, `/data/user/0/com.agy/files/usr` или `/data/user/10/com.agy.dev/files/usr`), применяется трехуровневая система адаптации:
+Поскольку пакеты Termux собираются с жестко зашитым путем `/data/data/com.termux/files/usr`, а приложение AGY работает в произвольном контексте (например, `/data/user/0/dev.continuum.antigravity/files/usr` или `/data/user/10/dev.continuum.antigravity.dev/files/usr`), применяется трехуровневая система адаптации:
 
 ### Уровни переписывания
 ```
@@ -206,9 +206,9 @@ env/
   Исправлено вычисление пути `HOME`:
   Ранее ошибочно использовалось `export HOME="${HOME:-/data/user/0/$(basename "$(dirname "$PREFIX")")/files}"`, приводившее к пути вида `/data/user/0/files/files`.
   Исправлено на стандартное и корректное: `export HOME="${HOME:-$(dirname "$PREFIX")}"`.
-- **Шебанги `com.agy`:**
+- **Шебанги `dev.continuum.antigravity`:**
   В файлах `env/pkg/pkg`, `env/overlay/bin/agy-fix-paths`, `env/overlay/bin/agy-notify`, `env/overlay/bin/agy-upgrade` первой строкой указан шебанг:
-  `#!/data/data/com.agy/files/usr/bin/bash` или `#!/data/user/0/com.agy/files/usr/bin/bash`.
+  `#!/data/data/dev.continuum.antigravity/files/usr/bin/bash` или `#!/data/user/0/dev.continuum.antigravity/files/usr/bin/bash`.
   `TermuxShebangRewriter` перезаписывает их при установке APK.
 
 ### 3. Оверхед генерации мостов в `pkg/pkg` [ИСПРАВЛЕНО - Заход 1]
@@ -221,7 +221,7 @@ env/
 
 ### 5. Дублирование кода нормализации путей
 Логика замены путей Termux на активный `$PREFIX` дублируется в 4 независимых местах:
-1. `com.agy.install.TermuxPrefixRewriter` / `TermuxShebangRewriter` (Java);
+1. `dev.continuum.antigravity.install.TermuxPrefixRewriter` / `TermuxShebangRewriter` (Java);
 2. `env/pkg/lib/util.sh` -> функция `rewrite_prefix` (Bash/sed);
 3. `env/overlay/bin/agy-fix-paths` (Bash/sed);
 4. `env/bootstrap/patch-prefix.py` (Python).

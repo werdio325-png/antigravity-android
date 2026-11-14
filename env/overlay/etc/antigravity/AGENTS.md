@@ -9,10 +9,10 @@
 ## 1. Platform & Environment Identity
 
 - **Platform:** Native Android (Linux kernel 6.1+, ARM64 / `aarch64` architecture, **ARMv8.0-A+ baseline** with ARMv8.0 LSE emulation and native ARMv8.1-A+ LSE atomics).
-- **Application Context:** Runs directly inside the Antigravity (`com.agy`) sandbox.
+- **Application Context:** Runs directly inside the Antigravity (`dev.continuum.antigravity`) sandbox.
 - **Key Filesystem Paths:**
-  - Application Root (`$HOME`): `/data/user/0/com.agy/files` (or app-private `files/` directory).
-  - Linux Userspace Prefix (`$PREFIX`): `$HOME/usr` (`/data/user/0/com.agy/files/usr`).
+  - Application Root (`$HOME`): `/data/user/0/dev.continuum.antigravity/files` (or app-private `files/` directory).
+  - Linux Userspace Prefix (`$PREFIX`): `$HOME/usr` (`/data/user/0/dev.continuum.antigravity/files/usr`).
   - Binary Directory: `$PREFIX/bin`.
   - Runtime Internals: `$HOME/runtime/bin`.
   - External / Shared Storage: `/storage/emulated/0` (Projects typically reside in `/storage/emulated/0/Documents/`).

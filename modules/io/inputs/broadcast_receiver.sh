@@ -2,9 +2,9 @@
 # broadcast_receiver.sh - Translates Android Intent extras into an Antigravity event envelope.
 # Usage: broadcast_receiver.sh <action> <extra_json_or_msg> [destination_fifo]
 
-ACTION="${1:-com.agy.ACTION_DEFAULT}"
+ACTION="${1:-dev.continuum.antigravity.ACTION_DEFAULT}"
 PAYLOAD="${2:-{}}"
-FIFO="${3:-/data/user/0/com.agy/files/runtime/agy_bus.pipe}"
+FIFO="${3:-/data/user/0/dev.continuum.antigravity/files/runtime/agy_bus.pipe}"
 
 # Resolve safe path if targeting FUSE storage (/storage or /sdcard)
 case "$FIFO" in
@@ -13,8 +13,8 @@ case "$FIFO" in
         SAFE_DIR="${AGY_RUNTIME_DIR:-}"
         if [ -z "$SAFE_DIR" ] || [ ! -d "$SAFE_DIR" ]; then
             for candidate in \
-                "/data/user/0/com.agy/files/runtime" \
-                "/data/user/0/com.agy.dev/files/runtime" \
+                "/data/user/0/dev.continuum.antigravity/files/runtime" \
+                "/data/user/0/dev.continuum.antigravity.dev/files/runtime" \
                 "$TMPDIR" \
                 "/tmp"; do
                 if [ -n "$candidate" ]; then

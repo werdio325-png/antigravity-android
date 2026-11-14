@@ -163,11 +163,11 @@
 1. **Android Tray Notifier (`outputs/notify_tray.sh`)**
    - Принимает JSON события из `stdin`.
    - Извлекает имя события и текст сообщения.
-   - Отправляет системное уведомление Android через утилиту `agy-notify` или через `am broadcast -a com.agy.ACTION_NOTIFY`.
+   - Отправляет системное уведомление Android через утилиту `agy-notify` или через `am broadcast -a dev.continuum.antigravity.ACTION_NOTIFY`.
 
 2. **Android Browser Intent Emitter (`outputs/broadcast_emitter.sh`)**
    - Принимает событие `core.url.open`.
-   - Извлекает поле `url` и отправляет Android Broadcast `com.agy.ACTION_OPEN_URL` для открытия во внешнем браузере или Custom Tabs.
+   - Извлекает поле `url` и отправляет Android Broadcast `dev.continuum.antigravity.ACTION_OPEN_URL` для открытия во внешнем браузере или Custom Tabs.
 
 3. **Persistent JSONL Logger (`outputs/file_sink.py`)**
    - Записывает каждое входящее событие в append-only файл логов (по умолчанию `~/.gemini/events.jsonl` или переменную `AGY_EVENT_LOG`).

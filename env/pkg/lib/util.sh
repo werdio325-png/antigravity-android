@@ -1,4 +1,4 @@
-#!/data/data/com.agy/files/usr/bin/bash
+#!/data/data/dev.continuum.antigravity/files/usr/bin/bash
 # util.sh -- shared helpers for pkg.
 
 PKG_VERSION="0.1.0"

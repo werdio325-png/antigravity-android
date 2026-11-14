@@ -1,66 +1,51 @@
-# Antigravity for Android v2.4.1
+## Continuum 3.2.0-alpha.1 — official Antigravity CLI + ACP foundation
 
-## Спецификация пакетов релиза
+**Pre-release.** This is an alpha: the ACP backend exists and is tested against the
+protocol, but it has not been run against Google's real CLI on a device, and the
+conversation UI still belongs to the embedded engine. Do not treat it as a working
+ACP chat client.
 
-| Файл пакета | Идентификатор приложения | Порт рантайма | Описание |
-| :--- | :--- | :--- | :--- |
-| **`antigravity.apk`** | `com.agy` | 45157 | Стандартная редакция с оригинальными проверками Google (чистая версия без модификаций кода аутентификации). |
-| **`antigravity-region-bypass.apk`** | `com.agy` | 45157 | Редакция с обходом проверки учетных записей (позволяет авторизоваться под аккаунтами, блокируемыми со стороны Google; требует наличия сетевого туннеля/VPN). |
-| **`SHA256SUMS.txt`** | — | — | Криптографические контрольные суммы бинарных файлов. |
+### Verified findings
+- Google publishes an official **Android ARM64** build of Antigravity CLI: current
+  version **1.5.9**, distributed from Google's own endpoint with a published
+  **SHA-512**. Google's installer selects this Bionic build when `uname -o` is
+  Android, so a Linux/PRoot layer is unnecessary.
+- `agy acp` is a real ACP v1 server over stdio, with session load/resume/list/close,
+  per-tool permission prompts, and session options for **model** and **thinking
+  level**.
 
----
+### Added
+- **ACP protocol layer** (pure Java, no Android dependencies): JSON-RPC 2.0 over
+  stdio with request correlation, ordered notifications, agent-initiated permission
+  requests answered with the option the agent offered (deny by default), refusal of
+  newer protocol versions, and no automatic retries after a failure.
+- **Dynamic model catalogue** from the agent's own session options. Statuses are
+  `unknown` until a real turn succeeds, then `available`; rejections are classified
+  as `account_restricted`, `quota_restricted` or `not_supported`. Nothing is ever
+  labelled available because it appears in a list.
+- **Verified CLI provisioning**: manifest from Google's updater, https-only,
+  Google-host-only, SHA-512 must match before the archive is unpacked, binary
+  installed into app-private storage with a version marker. No bundled or mirrored
+  binaries, no execution before verification.
+- **Backend abstraction**: embedded engine (default, untouched) or official CLI
+  over ACP, switchable and reversible in Settings → AI Backend, with ACP session,
+  workspace and model stored in a separate namespace so the two backends cannot
+  resume each other's conversations.
+- **Runtime panel** showing CLI version, process and ACP state, authentication
+  requirement, session, workspace and last synchronization.
+- **24 automated ACP tests** (`tools/acp_test/run.sh`) covering initialization,
+  auth failure, session setup/restore, prompt streaming, tool calls, file updates,
+  permission allow/deny, cancellation, process death, disconnect, duplicate and
+  retry suppression, workspace isolation, catalogue discovery, Hydrogen High
+  selection, entitlement and quota classification, and release-manifest trust.
 
-## Изменения и исправления (v2.4.1)
-
-### 1. Поддержка встроенного веб-терминала и спавнера PTY (PR #19)
-* **Низкоуровневый бинарный патч PTY-шеллы:** Устранено аварийное завершение терминала из-за отсутствия `/bin/bash` на Android. Реализован модульный бинарный патч с сохранением длины строки (`/bin/bash` ➔ `/bin///sh`, ровно 9 байт), безопасно перенаправляющий запросы спавнера ядра в системный шелл Android без сдвига смещений ELF-секций.
-* **Приоритетная иерархия `$SHELL` в супервизоре процесса (`CoreEnvironment`):** Вместо жестко заданного `runtime/bin/bash` выстроена отказоустойчивая цепочка разрешения шелла:
-  1. `$PREFIX/bin/bash` (полноценный bash окружения пользователя со всей поддержкой `.bashrc`, автодополнения и истории);
-  2. `runtime/bin/bash` (встроенный bridge-рантайм);
-  3. `/system/bin/sh` (гарантированный системный шелл Android).
-* **Эмуляция терминала и база `terminfo`:** В окружение процесса добавлен экспорт `TERM=xterm-256color` и автоматическое подключение каталога `TERMINFO` из `$PREFIX/share/terminfo`, что предотвращает артефакты и искажения цветов и управляющих последовательностей ANSI в интерактивных консольных программах (`nano`, `htop`, mc).
-
-### 2. Повышение стабильности локальной сборки пакетов (AAPT)
-* В этапы сборки ресурсов `modules/builder/02_r_java.sh` и `modules/builder/06_package.sh` добавлен экспорт `export ANDROID_DATA="${ANDROID_DATA:-/data}"`. Это устраняет сбои компилятора `aapt` с кодом `SIGABRT (134)` при сборке APK непосредственно внутри ARM64 Android userspace.
-
----
-
-## Ранее реализованные ключевые возможности (v2.4.0)
-
-### 1. Безопасность и изоляция данных (Issue #6)
-* Из релизных сборок полностью удален атрибут `android:debuggable="true"`.
-* Устранена уязвимость, позволявшая локальному пользователю или стороннему приложению через `run-as com.agy` считывать OAuth-токены сессий и внутренние файлы конфигурации.
-* Флаг отладки изолирован исключительно в dev-сборке (`com.agy.dev`).
-
-### 2. Системный диалог выбора файлов (Issue #8)
-* Устаревший ограниченный интерфейс Storage Access Framework (SAF) заменен на нативный системный Intent-селектор Android.
-* Обеспечен прямой доступ к файлам, изображениям, видео и архивам из Галереи, Google Фото и любых сторонних файловых менеджеров.
-* Реализовано автоматическое сохранение постоянных разрешений на чтение (`Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION`).
-
-### 3. Совместимость с процессорами архитектуры ARMv8.0-A
-* Добавлена библиотека динамической эмуляции атомарных инструкций `liblse_compat.so` и низкоуровневый перехватчик `sigill_handler`.
-* Устранены аварийные завершения с кодом `SIGILL: illegal instruction` на устройствах с чипсетами Qualcomm Snapdragon 680/685 (Cortex-A53 / Redmi Note 12).
-
-### 4. Оптимизация авторизации OAuth
-* Полностью устранен дисковый опрос (polling с интервалом 80 мс) и создание промежуточных файлов при входе в учетную запись.
-* Захват URL авторизации переведен на прямой перехват стандартного потока вывода ядра (stdout) с мгновенной отправкой Intent в системный браузер.
-
-### 5. Аппаратный интерфейс фонарика
-* Добавлена консольная утилита управления вспышкой камеры: `torch on` / `torch off`.
-
-### 6. Фоновый планировщик задач (`agy-daemon`)
-* Реализован системный микро-демон (<10 МБ RAM, 0% CPU в режиме ожидания) для выполнения отложенных и периодических задач по расписанию (cron, интервалы).
-* Добавлена поддержка отслеживания изменений файлов и отправка нативных уведомлений в панель Android через `agy-notify`.
-
-### 7. Диагностика запуска ядра
-* В интерфейс ошибки инициализации сервера добавлены действия «Copy Logs» и «Save Logs» для быстрого экспорта журнала сбоя в буфер обмена или файл.
-
-### 8. Модульная структура конвейера сборки
-* Исходный код разнесен по изолированным модулям: `modules/patches`, `modules/runner`, `modules/builder`.
-* Внедрена аргументная передача параметров компиляторам `@java_sources.txt` и `@class_files.txt`, исключающая ошибку переполнения буфера командной строки ядра Linux (`ARG_MAX` / `E2BIG`).
-
----
-
-## Обновление и совместимость
-
-Все сборки подписаны постоянным ключом проекта. Обновление устанавливается поверх предыдущих версий 2.x без удаления приложения. Пользовательские проекты в каталоге `Documents`, рабочее окружение и сессии полностью сохраняются.
+### Not working yet (by design, stated plainly)
+- No ACP conversation renderer: agent events reach the host, but chat still renders
+  through the embedded engine.
+- No in-app Google sign-in: the CLI's own `agy` / `agy acp --login` flow is used and
+  the app reports `authRequired`.
+- No on-device verification and **no Hydrogen inference has been attempted**. See
+  `docs/HYDROGEN_COMPATIBILITY_REPORT.md` for the exact tests and what evidence
+  would count.
+- Hydrogen/Carbon remain unavailable in the embedded engine (2.11.0); the ACP path
+  is how they become reachable, subject to Google's account eligibility.
