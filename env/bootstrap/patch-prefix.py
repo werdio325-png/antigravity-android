@@ -32,7 +32,7 @@ def target_prefix(application_id):
             f"{len(TERMUX)} bytes: {application_id!r}"
         )
     # Padding with slashes preserves the compiled string length and collapses
-    # harmlessly in Android's path resolver (for example com.agy///files/usr).
+    # harmlessly in Android's path resolver (for example dev.continuum.antigravity///files/usr).
     padded = package + b"/" * (len(TERMUX) - len(package))
     return b"/data/data/" + application_id.encode("ascii"), padded
 

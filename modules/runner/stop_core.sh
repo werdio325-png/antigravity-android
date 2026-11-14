@@ -3,15 +3,15 @@
 
 set -euo pipefail
 
-# Dynamic APP_ID detection (com.agy vs com.agy.dev)
+# Dynamic APP_ID detection (dev.continuum.antigravity vs dev.continuum.antigravity.dev)
 if [ -n "${AGY_APPLICATION_ID:-}" ]; then
     APP_ID="$AGY_APPLICATION_ID"
 elif [ -n "${HOME:-}" ] && [[ "$HOME" =~ /data/user/0/([^/]+) ]]; then
     APP_ID="${BASH_REMATCH[1]}"
-elif [ -d "/data/user/0/com.agy.dev" ]; then
-    APP_ID="com.agy.dev"
+elif [ -d "/data/user/0/dev.continuum.antigravity.dev" ]; then
+    APP_ID="dev.continuum.antigravity.dev"
 else
-    APP_ID="com.agy"
+    APP_ID="dev.continuum.antigravity"
 fi
 
 APP_BASE="/data/user/0/$APP_ID"

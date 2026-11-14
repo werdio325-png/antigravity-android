@@ -31,7 +31,7 @@ def _resolve_log_dir():
         return os.path.join(path_resolver.load_paths().get("app_root"), "logs")
     except Exception:
         pass
-    return os.path.expanduser("/data/user/0/com.agy/files/logs")
+    return os.path.expanduser("/data/user/0/dev.continuum.antigravity/files/logs")
 
 LOG_DIR = _resolve_log_dir()
 CMD_LOG_FILE = os.path.join(LOG_DIR, "commands.jsonl")

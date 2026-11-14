@@ -16,7 +16,7 @@ def run_preflight(app_root: Optional[str] = None, min_mb_free: int = 250) -> Dic
                 import path_resolver
                 app_root = path_resolver.load_paths().get("app_root")
             except Exception:
-                app_root = os.environ.get("HOME", "/data/user/0/com.agy/files")
+                app_root = os.environ.get("HOME", "/data/user/0/dev.continuum.antigravity/files")
 
     arch = platform.machine().lower()
     is_aarch64 = arch in ("aarch64", "arm64")

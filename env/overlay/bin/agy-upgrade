@@ -1,4 +1,4 @@
-#!/data/user/0/com.agy/files/usr/bin/bash
+#!/data/user/0/dev.continuum.antigravity/files/usr/bin/bash
 # agy-upgrade - Safe Antigravity update, backup, and state preservation manager.
 #
 # Preserves:

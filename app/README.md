@@ -67,7 +67,7 @@ graph TD
 
 ## 2. Ключевые подсистемы
 
-### 2.1. Фоновые сервисы и управление ядром (`com.agy.core`)
+### 2.1. Фоновые сервисы и управление ядром (`dev.continuum.antigravity.core`)
 
 Ядро системы (`language_server`) компилируется под Linux/Glibc и выполняется в окружении Android через кастомный загрузчик `libloader.so` с эмуляцией инструкций LSE (`liblse_compat.so`).
 
@@ -90,9 +90,9 @@ graph TD
   - Решает проблему перехвата OAuth-авторизации Google (Google блокирует авторизацию внутри встроенного WebView).
   - Считывает строки вывода `language_server` в реальном времени, выявляя маркеры `AGY_OPEN_URL=`, `ANTIGRAVITY_OPEN_URL:` и ссылки `accounts.google.com`.
   - Перенаправляет пользователя в дефолтный внешний браузер через `CustomTabLauncher`.
-  - Также слушает защищенный broadcast `com.agy.ACTION_OPEN_URL`.
+  - Также слушает защищенный broadcast `dev.continuum.antigravity.ACTION_OPEN_URL`.
 
-### 2.2. WebView, UI и загрузка приложения (`com.agy.ui`)
+### 2.2. WebView, UI и загрузка приложения (`dev.continuum.antigravity.ui`)
 
 - **Двухфазная схема запуска (Splash & Ready Flow)**:
   1. `MainActivity` стартует с нативным Canvas-экраном (`NativeSplashDotsView`), не инициализируя тяжелый Chromium WebView для анимации трех точек (экономия ~40 МБ RAM).
@@ -109,7 +109,7 @@ graph TD
   - Обрабатывает загрузки обычных файлов и Base64 Blobs (`saveBlob`).
   - Поддерживает выбор файлов и папок через Storage Access Framework (SAF) и сохранение персистентных разрешений (`takePersistableUriPermission`).
 
-### 2.3. Системный шлюз (`com.agy.gateway`)
+### 2.3. Системный шлюз (`dev.continuum.antigravity.gateway`)
 
 Встроенный высокопроизводительный HTTP-сервер (`SystemGatewayServer`), слушающий строго на `127.0.0.1:45161` (с авто-фоллбэком на порт `+2` при занятости). Номер порта сохраняется в `files/logs/gateway.port`.
 
@@ -130,14 +130,14 @@ graph TD
 | `/gateway/commands` | `SystemGatewayServer` | История выполненных шлюзом команд и их статусов. |
 | `/gateway/crash` | `SystemGatewayServer` | Диагностический снимок последнего падения ядра. |
 
-### 2.4. Безопасность и JavaScript Bridge (`com.agy.bridge`)
+### 2.4. Безопасность и JavaScript Bridge (`dev.continuum.antigravity.bridge`)
 
 Класс `AndroidBridge` предоставляет минимальный, жестко изолированный интерфейс для фронтенда (`@JavascriptInterface`).
 
 - **Защита от сторонних фреймов:** Опасные операции (`onUiReady`, `onUiError`, `saveBlob`) требуют передачи криптографического токена `blobBridgeToken`, известного только доверенному верхнеуровневому документу. Сравнение токенов производится через `MessageDigest.isEqual` во избежание timing-атак.
 - **Изоляция:** Из интерфейса `AndroidBridge` исключен доступ к выполнению шелла, отправке произвольных нотификаций и прямому доступу к Shizuku. Все привилегированные операции вынесены в локальный шлюз `SystemGatewayServer`.
 
-### 2.5. Динамические иконки и темы (`com.agy.theme`)
+### 2.5. Динамические иконки и темы (`dev.continuum.antigravity.theme`)
 
 - **Архитектурный паттерн Duolingo-style Launcher:**
   Вместо `activity-alias` в манифесте объявлены два реальных Activity:
@@ -161,16 +161,16 @@ graph TD
 
 ### 3.2. Мертвый код (Dead Code)
 Следующие классы удалены из проекта (не использовались ни одним компонентом):
-- `com.agy.bridge.ShellBridge` (удален)
-- `com.agy.bridge.ExternalUrlBridge` (удален)
-- `com.agy.bridge.NotificationBridge` (удален)
-- `com.agy.install.ChmodRunner` (удален)
-- `com.agy.oauth.AuthReloader` (удален)
-- `com.agy.oauth.AuthTokenPoller` (удален)
-- `com.agy.ui.lifecycle.DeepLinkForwarder` (удален)
-- `com.agy.ui.splash.SplashLoadingHtml` (удален)
-- `com.agy.util.LoopbackHost` (удален)
-- `com.agy.util.PackageInspector` (удален)
+- `dev.continuum.antigravity.bridge.ShellBridge` (удален)
+- `dev.continuum.antigravity.bridge.ExternalUrlBridge` (удален)
+- `dev.continuum.antigravity.bridge.NotificationBridge` (удален)
+- `dev.continuum.antigravity.install.ChmodRunner` (удален)
+- `dev.continuum.antigravity.oauth.AuthReloader` (удален)
+- `dev.continuum.antigravity.oauth.AuthTokenPoller` (удален)
+- `dev.continuum.antigravity.ui.lifecycle.DeepLinkForwarder` (удален)
+- `dev.continuum.antigravity.ui.splash.SplashLoadingHtml` (удален)
+- `dev.continuum.antigravity.util.LoopbackHost` (удален)
+- `dev.continuum.antigravity.util.PackageInspector` (удален)
 
 ### 3.3. Костыли с путями и IPC
 - **Интеграция `ExecHandler` с `rish` (ИСПРАВЛЕНО):** В `ExecHandler` реализован автоматический поиск пути к бинарнику `rish` (проверка `$PREFIX/bin/rish`, `files/runtime/bin/rish`), обязательная передача `RISH_APPLICATION_ID` (`context.getPackageName()`) для авторизации Shizuku и сброс потенциально конфликтующего `LD_LIBRARY_PATH`.

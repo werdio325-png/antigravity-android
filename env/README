@@ -3,7 +3,7 @@
 Bionic toolchain for AGY: a self-contained Android prefix at `$PREFIX` under
 the installed app's private `files/usr` directory, a package manager (`pkg`),
 and a path-rewrite helper. Paths and app id are resolved at install/runtime;
-no fixed `com.agy` path is required. No root, no proot.
+no fixed `dev.continuum.antigravity` path is required. No root, no proot.
 
 ```
 env/bootstrap/   Termux bootstrap archive + prefix patch

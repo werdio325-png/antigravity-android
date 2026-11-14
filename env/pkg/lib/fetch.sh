@@ -1,4 +1,4 @@
-#!/data/data/com.agy/files/usr/bin/bash
+#!/data/data/dev.continuum.antigravity/files/usr/bin/bash
 # fetch.sh -- download with sha256 verification and cache.
 # Requires curl, sha256sum, log, die.
 

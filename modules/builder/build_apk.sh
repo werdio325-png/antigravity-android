@@ -1,5 +1,19 @@
 #!/usr/bin/env bash
-# build_apk.sh - Master orchestrator for building, dexing, packaging, and signing Antigravity APK.
+# build_apk.sh - Master orchestrator for building, dexing, packaging, and signing
+# the Continuum APK (independent fork of Antigravity for Android).
+#
+# Usage:
+#   bash build.sh                 # release-signed dist/continuum.apk
+#   bash build.sh --dev           # debuggable dist/continuum-dev.apk (PKG_DEV)
+#   bash build.sh --fast          # incremental asset staging
+#   bash build.sh --out <path>    # explicit output path
+#
+# Signing (never committed): a release keystore is read from
+#   $CONTINUUM_KEYSTORE / tools.env KEYSTORE, then keys/continuum-release.jks,
+#   and finally the public AOSP debug key (clearly reported, local builds only).
+#
+# This fork deliberately has no "eligibility bypass" edition: it never disables
+# Google's authentication, entitlement or regional checks.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,21 +23,25 @@ export DIST_DIR="$PROJECT_ROOT/dist"
 export APP_DIR="$PROJECT_ROOT/app"
 export TOOLS_DIR="$PROJECT_ROOT/tools"
 
-if [ -d "/data/user/0/com.agy.dev/files" ] && [ -w "/data/user/0/com.agy.dev/files" ]; then
-    export HOME="/data/user/0/com.agy.dev/files"
-    export PATH="/data/user/0/com.agy.dev/files/usr/bin:$PATH"
-elif [ -d "/data/user/0/com.agy/files" ] && [ -w "/data/user/0/com.agy/files" ]; then
-    export HOME="/data/user/0/com.agy/files"
-    export PATH="/data/user/0/com.agy/files/usr/bin:$PATH"
-fi
+# On-device builds: prefer the fork's own sandbox, then upstream's.
+for candidate in \
+    "/data/user/0/dev.continuum.antigravity.dev/files" \
+    "/data/user/0/dev.continuum.antigravity/files" \
+    "/data/user/0/dev.continuum.antigravity.dev/files" \
+    "/data/user/0/dev.continuum.antigravity/files"; do
+    if [ -d "$candidate" ] && [ -w "$candidate" ]; then
+        export HOME="$candidate"
+        export PATH="$candidate/usr/bin:$PATH"
+        break
+    fi
+done
 export LANG=C.UTF-8
 export LC_ALL=C.UTF-8
 
 export FAST_BUILD=0
 export DEV_MODE=0
-export NO_BYPASS="${NO_BYPASS:-1}"
-if [ "${REGION_BYPASS:-0}" = "1" ] || [ "${BYPASS:-0}" = "1" ]; then export NO_BYPASS=0; fi
-if [ "${SKIP_GATES:-0}" = "1" ]; then export NO_BYPASS=1; fi
+# The fork is standard-only by policy.
+export NO_BYPASS=1
 export CUSTOM_PREFIX=""
 export CUSTOM_OUT=""
 
@@ -38,10 +56,11 @@ while [ $# -gt 0 ]; do
             shift
             ;;
         --bypass|--region-bypass)
-            export NO_BYPASS=0
-            shift
+            echo "[ERROR] This fork does not ship an eligibility-bypass edition." >&2
+            echo "        Google authentication, entitlement and region checks are never bypassed." >&2
+            exit 2
             ;;
-        --no-bypass|--nobypass|--no-region-bypass|--skip-gates|--no-gates|--standard)
+        --no-bypass|--skip-gates|--standard)
             export NO_BYPASS=1
             shift
             ;;
@@ -60,32 +79,21 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-BASE_PREFIX="${CUSTOM_PREFIX:-antigravity}"
+BASE_PREFIX="${CUSTOM_PREFIX:-continuum}"
 
 if [ -n "$CUSTOM_OUT" ]; then
     OUT_APK="$CUSTOM_OUT"
     EDITION_LABEL="CUSTOM OUTPUT ($OUT_APK)"
 elif [ "$DEV_MODE" = "1" ]; then
-    if [ "$NO_BYPASS" = "0" ]; then
-        OUT_APK="$DIST_DIR/${BASE_PREFIX}-dev-region-bypass.apk"
-        EDITION_LABEL="DEV EDITION WITH REGION BYPASS (com.agy.dev, port 45158, debuggable)"
-    else
-        OUT_APK="$DIST_DIR/${BASE_PREFIX}-dev.apk"
-        EDITION_LABEL="DEV EDITION STANDARD (com.agy.dev, port 45158, debuggable, standard gates)"
-    fi
+    OUT_APK="$DIST_DIR/${BASE_PREFIX}-dev.apk"
+    EDITION_LABEL="DEV EDITION (debuggable, PKG_DEV)"
 else
-    if [ "$NO_BYPASS" = "0" ]; then
-        OUT_APK="$DIST_DIR/${BASE_PREFIX}-region-bypass.apk"
-        EDITION_LABEL="RELEASE EDITION WITH REGION BYPASS (com.agy, port 45157, with account eligibility bypass)"
-    else
-        OUT_APK="$DIST_DIR/${BASE_PREFIX}.apk"
-        EDITION_LABEL="RELEASE EDITION STANDARD (com.agy, port 45157, original gates)"
-    fi
+    OUT_APK="$DIST_DIR/${BASE_PREFIX}.apk"
+    EDITION_LABEL="RELEASE EDITION (standard Google gates)"
 fi
 
-
 echo "============================================================"
-echo "  ANTIGRAVITY V2 APK BUILD PIPELINE"
+echo "  CONTINUUM FOR ANDROID — APK BUILD PIPELINE"
 echo "  $EDITION_LABEL"
 if [ "$FAST_BUILD" = "1" ]; then
     echo "  [MODE: FAST ITERATION (UNCOMPRESSED ASSETS & CACHE)]"
@@ -96,6 +104,7 @@ echo "============================================================"
 for tool in python3 aapt javac java apksigner; do
     if ! command -v "$tool" >/dev/null 2>&1; then
         echo "[ERROR] Missing required build tool: $tool" >&2
+        echo "        See docs/BUILDING.md for the host toolchain." >&2
         exit 1
     fi
 done
@@ -126,13 +135,7 @@ bash "$SCRIPT_DIR/04_dex.sh" "$BUILD_DIR/dex" "$BUILD_DIR/obj" "$TOOLS_DIR/r8.ja
 
 # Phase 05: Stage Assets
 echo -e "\n>>> [5/8] Staging Runtime and Web Assets..."
-STAGE_FLAGS=()
-if [ "$NO_BYPASS" = "1" ]; then
-    STAGE_FLAGS+=(--no-bypass)
-else
-    STAGE_FLAGS+=(--region-bypass)
-fi
-python3 "$SCRIPT_DIR/05_stage_assets.py" "$BUILD_DIR/staging" "${STAGE_FLAGS[@]}"
+python3 "$SCRIPT_DIR/05_stage_assets.py" "$BUILD_DIR/staging" --no-bypass
 
 # Phase 06: Package Unaligned APK
 echo -e "\n>>> [6/8] Packaging Unaligned APK..."
@@ -144,10 +147,11 @@ python3 "$SCRIPT_DIR/align.py" "$BUILD_DIR/unaligned.apk" "$BUILD_DIR/aligned.ap
 
 # Phase 08: Sign and Verify APK
 echo -e "\n>>> [8/8] Signing and Verifying APK..."
-bash "$SCRIPT_DIR/08_sign.sh" "$BUILD_DIR/aligned.apk" "$OUT_APK" "$TOOLS_DIR/debug.keystore"
+bash "$SCRIPT_DIR/08_sign.sh" "$BUILD_DIR/aligned.apk" "$OUT_APK"
 bash "$SCRIPT_DIR/09_verify.sh" "$OUT_APK"
 
 echo "============================================================"
 echo "  BUILD SUCCESSFUL! APK CREATED:"
 echo "  $OUT_APK ($(stat -c%s "$OUT_APK") bytes)"
+echo "  sha256: $(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$OUT_APK")"
 echo "============================================================"

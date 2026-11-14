@@ -44,8 +44,8 @@ def resolve_target_pid(pid_arg: Optional[Union[str, int]] = None) -> Optional[in
         candidates.append(os.path.join(home, "standalone_runtime", "standalone.pid"))
 
     candidates.extend([
-        "/data/user/0/com.agy.dev/files/standalone_runtime/standalone.pid",
-        "/data/user/0/com.agy/files/standalone_runtime/standalone.pid",
+        "/data/user/0/dev.continuum.antigravity.dev/files/standalone_runtime/standalone.pid",
+        "/data/user/0/dev.continuum.antigravity/files/standalone_runtime/standalone.pid",
         "standalone.pid",
     ])
 

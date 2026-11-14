@@ -76,11 +76,11 @@ flowchart TD
 - **Выход**:
   - `build/gen/com/agy/BuildConfig.java`: статические поля `PORT`, `GATEWAY_PORT`, `CORE_VERSION`, `APP_VERSION_NAME`, `DEBUG`.
   - `build/res/values/gen.xml`: строковые и целочисленные XML-ресурсы для Android framework (генерируются в дерево сборки, исключая загрязнение репозитория и `git status`).
-  - `build/AndroidManifest.xml`: подстановка `${applicationId}`, а в dev-режиме — изменение пакета на `com.agy.dev`, установка `android:debuggable="true"` и изоляция `permission.INTERNAL_BROADCAST`.
+  - `build/AndroidManifest.xml`: подстановка `${applicationId}`, а в dev-режиме — изменение пакета на `dev.continuum.antigravity.dev`, установка `android:debuggable="true"` и изоляция `permission.INTERNAL_BROADCAST`.
 
 ### Шаг 02: Генерация R.java (`02_r_java.sh`)
 - Запускает `aapt package -m -J <gen_dir>` для разбора ресурсов и создания числовых ID с оверлеем `-S "$BUILD_DIR/res" -S "$RES_DIR" --auto-add-overlay`.
-- Проверяет имя пакета в целевом манифесте: если пакет равен базовому `com.agy`, второй дублирующий запуск `aapt` опускается. Если имя пакета отличается (например, `com.agy.dev`), генерируется второй фоллбэк `com.agy.R` через `--custom-package com.agy` для совместимости со старыми вызовами.
+- Проверяет имя пакета в целевом манифесте: если пакет равен базовому `dev.continuum.antigravity`, второй дублирующий запуск `aapt` опускается. Если имя пакета отличается (например, `dev.continuum.antigravity.dev`), генерируется второй фоллбэк `dev.continuum.antigravity.R` через `--custom-package dev.continuum.antigravity` для совместимости со старыми вызовами.
 
 ### Шаг 03: Компиляция Java (`03_compile_java.sh`)
 - Собирает список исходников приложения и сгенерированных классов (`BuildConfig`, `R`) в аргументный файл `@$BUILD_DIR/java_sources.txt`, полностью устраняя риск ошибки `ARG_MAX` (`Argument list too long`).
@@ -160,8 +160,8 @@ bash modules/builder/tests/run_all.sh
 - **Исправление**: Перенос генерации в дерево сборки `$BUILD_DIR/res/values/gen.xml`. В `02_r_java.sh` и `06_package.sh` добавлена поддержка ресурсного оверлея `-S "$BUILD_DIR/res" -S "$RES_DIR" --auto-add-overlay`, благодаря чему сгенерированные значения подставляются динамически, а рабочее дерево Git остается чистым.
 
 ### 3. Двойной прогон `aapt` в `02_r_java.sh` (исправлено)
-- **Проблема**: В релизном режиме `aapt` запускался дважды с идентичными параметрами (`com.agy`), создавая избыточную нагрузку на CPU.
-- **Исправление**: В `02_r_java.sh` добавлена проверка манифеста (`PKG=$(sed -n -E 's/.*package="([^"]+)".*/\1/p' "$MANIFEST" | head -n 1)`). Если целевой пакет уже равен `com.agy`, повторный запуск пропускается. Если пакет отличается (например, `com.agy.dev`), выполняется генерация обоих пакетов (`com.agy.dev.R` и совместимого фоллбэка `com.agy.R`).
+- **Проблема**: В релизном режиме `aapt` запускался дважды с идентичными параметрами (`dev.continuum.antigravity`), создавая избыточную нагрузку на CPU.
+- **Исправление**: В `02_r_java.sh` добавлена проверка манифеста (`PKG=$(sed -n -E 's/.*package="([^"]+)".*/\1/p' "$MANIFEST" | head -n 1)`). Если целевой пакет уже равен `dev.continuum.antigravity`, повторный запуск пропускается. Если пакет отличается (например, `dev.continuum.antigravity.dev`), выполняется генерация обоих пакетов (`dev.continuum.antigravity.dev.R` и совместимого фоллбэка `dev.continuum.antigravity.R`).
 
 ### 4. Риск переполнения командной строки (`ARG_MAX`) (исправлено)
 - **Проблема**: В `03_compile_java.sh` и `04_dex.sh` все исходные файлы и классы подставлялись массивами bash `${JAVA_SOURCES[@]}` и `${CLASS_FILES[@]}`. При масштабировании кодовой базы это вызывало системную ошибку ядра Linux `Argument list too long` (`E2BIG`).

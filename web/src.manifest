@@ -42,6 +42,24 @@ src/patches/touch_model_menu/scan.js
 src/patches/touch_model_menu/install.js
 src/patches/touch_model_menu/public-api.js
 
+bundle iife patches/model_compat.js
+src/patches/model_compat/config.js
+src/patches/model_compat/state.js
+src/patches/model_compat/catalog.js
+src/patches/model_compat/classify.js
+src/patches/model_compat/annotate.js
+src/patches/model_compat/install.js
+src/patches/model_compat/public-api.js
+
+bundle iife patches/updater_ui.js
+src/patches/updater_ui/config.js
+src/patches/updater_ui/state.js
+src/patches/updater_ui/format.js
+src/patches/updater_ui/bridge.js
+src/patches/updater_ui/panel.js
+src/patches/updater_ui/install.js
+src/patches/updater_ui/public-api.js
+
 bundle iife patches/theme_sync.js
 src/patches/theme_sync/config.js
 src/patches/theme_sync/resolve.js

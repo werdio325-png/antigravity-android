@@ -1,4 +1,4 @@
-#!/data/user/0/com.agy.dev/files/usr/bin/bash
+#!/data/user/0/dev.continuum.antigravity.dev/files/usr/bin/bash
 # agy-fix-paths [PATH...] -- rewrite hardcoded Android app prefixes to $PREFIX.
 set -uo pipefail
 

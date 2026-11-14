@@ -64,7 +64,7 @@ class TestBuilder(unittest.TestCase):
         res = subprocess.run(cmd, capture_output=True, text=True, cwd=project_root)
         self.assertEqual(res.returncode, 0, res.stderr)
         self.assertTrue(os.path.isfile(os.path.join(build_dir, "res", "values", "gen.xml")))
-        self.assertTrue(os.path.isfile(os.path.join(build_dir, "gen", "com", "agy", "BuildConfig.java")))
+        self.assertTrue(os.path.isfile(os.path.join(build_dir, "gen", "dev", "continuum", "antigravity", "BuildConfig.java")))
         self.assertTrue(os.path.isfile(os.path.join(build_dir, "AndroidManifest.xml")))
 
     def test_02_r_java_overlay_and_dedup(self):
@@ -74,7 +74,7 @@ class TestBuilder(unittest.TestCase):
         android_jar = os.path.join(tools_dir, "android.jar")
         res_dir = os.path.join(project_root, "app", "src", "main", "res")
 
-        # Test release mode (com.agy) -> single call
+        # Test release mode (dev.continuum.antigravity) -> single call
         build_dir = os.path.join(self.tmp_dir, "build_rel")
         cmd_cfg = [sys.executable, os.path.join(BUILDER_DIR, "01_gen_config.py"), build_dir]
         subprocess.run(cmd_cfg, check=True, cwd=project_root)
@@ -85,10 +85,10 @@ class TestBuilder(unittest.TestCase):
         cmd_r = ["bash", os.path.join(BUILDER_DIR, "02_r_java.sh"), gen_dir, manifest, res_dir, android_jar, overlay_res]
         res = subprocess.run(cmd_r, capture_output=True, text=True)
         self.assertEqual(res.returncode, 0, res.stderr)
-        self.assertNotIn("Generating fallback com.agy.R", res.stdout)
-        self.assertTrue(os.path.isfile(os.path.join(gen_dir, "com", "agy", "R.java")))
+        self.assertNotIn("Generating fallback dev.continuum.antigravity.R", res.stdout)
+        self.assertTrue(os.path.isfile(os.path.join(gen_dir, "dev", "continuum", "antigravity", "R.java")))
 
-        # Test dev mode (com.agy.dev) -> generates both com.agy.dev.R and fallback com.agy.R
+        # Test dev mode (dev.continuum.antigravity.dev) -> generates both dev.continuum.antigravity.dev.R and fallback dev.continuum.antigravity.R
         build_dir_dev = os.path.join(self.tmp_dir, "build_dev")
         subprocess.run(cmd_cfg[:2] + [build_dir_dev], check=True, cwd=project_root, env={**os.environ, "DEV_MODE": "1"})
         gen_dir_dev = os.path.join(build_dir_dev, "gen")
@@ -98,9 +98,9 @@ class TestBuilder(unittest.TestCase):
         cmd_r_dev = ["bash", os.path.join(BUILDER_DIR, "02_r_java.sh"), gen_dir_dev, manifest_dev, res_dir, android_jar, overlay_res_dev]
         res_dev = subprocess.run(cmd_r_dev, capture_output=True, text=True)
         self.assertEqual(res_dev.returncode, 0, res_dev.stderr)
-        self.assertIn("Generating fallback com.agy.R", res_dev.stdout)
-        self.assertTrue(os.path.isfile(os.path.join(gen_dir_dev, "com", "agy", "R.java")))
-        self.assertTrue(os.path.isfile(os.path.join(gen_dir_dev, "com", "agy", "dev", "R.java")))
+        self.assertIn("Generating fallback dev.continuum.antigravity.R", res_dev.stdout)
+        self.assertTrue(os.path.isfile(os.path.join(gen_dir_dev, "dev", "continuum", "antigravity", "R.java")))
+        self.assertTrue(os.path.isfile(os.path.join(gen_dir_dev, "dev", "continuum", "antigravity", "dev", "R.java")))
 
     def test_03_and_04_compile_and_dex_argfile(self):
         import subprocess
