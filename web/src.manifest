@@ -60,6 +60,9 @@ src/patches/updater_ui/panel.js
 src/patches/updater_ui/install.js
 src/patches/updater_ui/public-api.js
 
+bundle iife patches/backend_ui.js
+src/patches/backend_ui/panel.js
+
 bundle iife patches/session_sync.js
 src/patches/session_sync/config.js
 src/patches/session_sync/state.js

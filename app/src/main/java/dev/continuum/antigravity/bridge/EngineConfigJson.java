@@ -40,6 +40,14 @@ public final class EngineConfigJson {
             o.put("coreVersion", RuntimeConfig.CORE_VERSION);
             o.put("releaseChannel", RuntimeConfig.DEBUG ? "dev" : "stable");
             o.put("updateRepo", BuildConfig.UPDATE_REPO);
+            // Active agent backend. The embedded engine remains the default; ACP
+            // state is reported so the UI can show what is really running.
+            o.put("backendMode", dev.continuum.antigravity.backend.BackendSettings
+                    .mode(appContext).name().toLowerCase());
+            if (dev.continuum.antigravity.backend.BackendSettings
+                    .mode(appContext) == dev.continuum.antigravity.backend.BackendSettings.Mode.ACP) {
+                o.put("acp", dev.continuum.antigravity.acp.AcpRuntime.get(appContext).status());
+            }
             // What the embedded engine really is: version, build tag and the
             // model catalogue extracted from the binary at build time.
             o.put("engineInfo", EngineInfo.read(appContext));

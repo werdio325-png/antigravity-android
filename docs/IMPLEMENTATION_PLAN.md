@@ -104,6 +104,21 @@ Root causes and design: [`docs/STATE_SYNC.md`](STATE_SYNC.md).
 Requested matrix mapping: **E** and **F** are covered by the automated tests at
 logic level; **A, B, C, D, G, H** below need the device.
 
+## S9 — ACP backend (3.2.0-alpha.1, protocol verified)
+
+Audit and decisions: [`docs/ACP_INTEGRATION_AUDIT.md`](ACP_INTEGRATION_AUDIT.md),
+Hydrogen status: [`docs/HYDROGEN_COMPATIBILITY_REPORT.md`](HYDROGEN_COMPATIBILITY_REPORT.md).
+
+* Verified Google publishes an official Bionic **android_arm64** CLI (1.5.9) with a
+  SHA-512 manifest; `agy acp` is a real ACP v1 stdio server. Chosen runtime is a
+  native Android process, not PRoot.
+* Implemented JSON-RPC/ACP client, per-tool permission handling (deny by default),
+  session create/load, dynamic model + thinking catalogue with honest statuses,
+  verified CLI provisioning, reversible backend selection and a diagnostics panel.
+* 24 protocol tests pass against a mock agent (`tools/acp_test/run.sh`, wired into CI).
+* Not yet: ACP conversation renderer, in-app sign-in, any on-device run, any
+  Hydrogen inference. Those are alpha.2 → beta.2 per the milestone plan.
+
 ## S7 — Device testing (device / not run)
 
 No Galaxy A54, emulator, Google account or network is available in this

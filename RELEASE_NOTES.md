@@ -1,50 +1,51 @@
-## Continuum 3.1.0 — state synchronization, lifecycle reliability and engine audit
+## Continuum 3.2.0-alpha.1 — official Antigravity CLI + ACP foundation
 
-Reopening Continuum now shows the conversation the engine actually has, instead of
-whatever the page happened to render before it was backgrounded.
+**Pre-release.** This is an alpha: the ACP backend exists and is tested against the
+protocol, but it has not been run against Google's real CLI on a device, and the
+conversation UI still belongs to the embedded engine. Do not treat it as a working
+ACP chat client.
 
-### Fixed: stale conversations and missing progress
-- **Cached bundles can no longer survive an update.** Local UI assets were served
-  as `immutable` for a year under stable filenames, so a WebView could keep
-  rendering the previous release's `main.js` after an update. Assets now revalidate
-  (`ETag` + `no-cache`, 304 on match) and every local script/stylesheet URL carries
-  the app version.
-- **Resume now reconciles with the engine.** The native host reports background
-  duration, engine liveness and versions to the page. If the live stream survived,
-  the app is nudged and nothing is reloaded; if it died, the page gives it a short
-  grace period and then reloads once from authoritative engine state.
-- **Stream death is detected mid-session too:** a socket that stays closed while
-  the app is visible triggers a single bounded reconciliation.
-- Reloads are cooled down and capped (3 per page), only happen on pages that were
-  streaming, and never submit, retry or replay an agent request — so no duplicate
-  work and no fabricated progress.
+### Verified findings
+- Google publishes an official **Android ARM64** build of Antigravity CLI: current
+  version **1.5.9**, distributed from Google's own endpoint with a published
+  **SHA-512**. Google's installer selects this Bionic build when `uname -o` is
+  Android, so a Linux/PRoot layer is unnecessary.
+- `agy acp` is a real ACP v1 server over stdio, with session load/resume/list/close,
+  per-tool permission prompts, and session options for **model** and **thinking
+  level**.
 
-### Lifecycle and performance
-- Backgrounding pauses page timers as before; returning no longer tears down and
-  rebuilds the WebView on every switch.
-- The engine still runs in its foreground service with a wake lock. If Android
-  kills the process, the app now reflects the engine's real state rather than
-  implying a task kept running.
+### Added
+- **ACP protocol layer** (pure Java, no Android dependencies): JSON-RPC 2.0 over
+  stdio with request correlation, ordered notifications, agent-initiated permission
+  requests answered with the option the agent offered (deny by default), refusal of
+  newer protocol versions, and no automatic retries after a failure.
+- **Dynamic model catalogue** from the agent's own session options. Statuses are
+  `unknown` until a real turn succeeds, then `available`; rejections are classified
+  as `account_restricted`, `quota_restricted` or `not_supported`. Nothing is ever
+  labelled available because it appears in a list.
+- **Verified CLI provisioning**: manifest from Google's updater, https-only,
+  Google-host-only, SHA-512 must match before the archive is unpacked, binary
+  installed into app-private storage with a version marker. No bundled or mirrored
+  binaries, no execution before verification.
+- **Backend abstraction**: embedded engine (default, untouched) or official CLI
+  over ACP, switchable and reversible in Settings → AI Backend, with ACP session,
+  workspace and model stored in a separate namespace so the two backends cannot
+  resume each other's conversations.
+- **Runtime panel** showing CLI version, process and ACP state, authentication
+  requirement, session, workspace and last synchronization.
+- **24 automated ACP tests** (`tools/acp_test/run.sh`) covering initialization,
+  auth failure, session setup/restore, prompt streaming, tool calls, file updates,
+  permission allow/deny, cancellation, process death, disconnect, duplicate and
+  retry suppression, workspace isolation, catalogue discovery, Hydrogen High
+  selection, entitlement and quota classification, and release-manifest trust.
 
-### Engine modernization audit
-- Verified the vendored engine is still the newest legitimately obtainable build:
-  upstream `werdio325-png/antigravity-android` ships the byte-identical archive
-  (`sha256 a48ddf73…`) and has no newer commits. Engine `language_server` 2.11.0
-  (`go1.28-20260921-RC02`), catalogue of 24 models including `gemini-4-argon`
-  (low/medium/high).
-- **Gemini 4 Hydrogen / Carbon remain unavailable and are not faked:** this engine
-  build contains no Hydrogen model id and no model-shaped Carbon identifier, so no
-  account or client change can offer them. Adopting a newer engine stays a
-  reviewed, offline step (`modules/engine/upgrade_engine.py`); nothing is
-  downloaded or executed unverified, and no entitlement is bypassed.
-
-### Updates
-- The update panel now also shows the embedded engine version and build tag next
-  to the installed app version.
-
-### Known limitations
-- The engine exposes no event-replay cursor to the page, so reconciliation is a
-  single authoritative reload rather than incremental replay (documented in
-  `docs/STATE_SYNC.md`).
-- Device behaviour on the Galaxy A54 (background/recents/process-kill scenarios)
-  requires on-device verification; see the test matrix in `docs/IMPLEMENTATION_PLAN.md`.
+### Not working yet (by design, stated plainly)
+- No ACP conversation renderer: agent events reach the host, but chat still renders
+  through the embedded engine.
+- No in-app Google sign-in: the CLI's own `agy` / `agy acp --login` flow is used and
+  the app reports `authRequired`.
+- No on-device verification and **no Hydrogen inference has been attempted**. See
+  `docs/HYDROGEN_COMPATIBILITY_REPORT.md` for the exact tests and what evidence
+  would count.
+- Hydrogen/Carbon remain unavailable in the embedded engine (2.11.0); the ACP path
+  is how they become reachable, subject to Google's account eligibility.

@@ -6,6 +6,8 @@ import android.webkit.WebView;
 import dev.continuum.antigravity.bridge.AndroidBridge;
 import dev.continuum.antigravity.oauth.OAuthManager;
 import dev.continuum.antigravity.theme.ThemeManager;
+import dev.continuum.antigravity.acp.AcpBridge;
+import dev.continuum.antigravity.acp.AcpRuntime;
 import dev.continuum.antigravity.update.UpdateBridge;
 import dev.continuum.antigravity.update.UpdateManager;
 import dev.continuum.antigravity.util.CoreUrl;
@@ -30,6 +32,7 @@ public final class WebViewHost {
     private final WebView webView;
     private final UpdateManager updateManager;
     private final UpdateBridge updateBridge;
+    private final AcpBridge acpBridge;
     private Listener listener;
 
     public WebViewHost(Context context, ThemeManager theme, OAuthManager oauth,
@@ -58,6 +61,24 @@ public final class WebViewHost {
         });
         this.updateBridge = new UpdateBridge(updateManager, bridge.getBlobBridgeToken());
         this.webView.addJavascriptInterface(updateBridge, "AndroidUpdate");
+        // Agent backend control surface (official CLI over ACP), token-gated.
+        this.acpBridge = new AcpBridge(context, bridge.getBlobBridgeToken());
+        this.webView.addJavascriptInterface(acpBridge, "AndroidAgent");
+        AcpRuntime.get(context).setSink(new AcpRuntime.Sink() {
+            @Override
+            public void emit(String javascript) {
+                final String script = javascript;
+                WebViewHost.this.webView.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            WebViewHost.this.webView.evaluateJavascript(script, null);
+                        } catch (Exception ignored) {
+                        }
+                    }
+                });
+            }
+        });
         this.webView.setWebChromeClient(new AgyWebChromeClient(
                 new PopupWindowHandler(context, oauth), fileChooserCallback));
         this.webView.setWebViewClient(new AgyWebViewClient(

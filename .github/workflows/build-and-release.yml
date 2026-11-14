@@ -45,6 +45,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: ACP adapter protocol tests
+        run: bash tools/acp_test/run.sh
       - name: Engine compatibility layer tests
         run: python3 -m unittest discover -s modules/engine/tests -p 'test_*.py' -v
       - name: Binary patch pipeline tests
