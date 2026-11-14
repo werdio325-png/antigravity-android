@@ -126,13 +126,12 @@ jobs:
 
       - name: Build APK
         env:
-          DEV_MODE: ${{ steps.key.outputs.dev_mode }}
+          ALLOW_DEBUG_SIGNING: ${{ steps.key.outputs.dev_mode }}
         run: bash build.sh
 
       - name: Verify package, version and ARM64 payload
-        env:
-          # Only a key-less (debug-signed) build may be debuggable.
-          ALLOW_DEBUGGABLE: ${{ steps.key.outputs.dev_mode }}
+        # Key-less builds keep the release package id and stay non-debuggable;
+        # only the signing certificate is the public AOSP debug key.
         run: bash tools/verify_apk.sh dist/continuum.apk
 
       - name: Cross-check release tag against app version

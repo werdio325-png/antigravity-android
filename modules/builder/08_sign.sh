@@ -36,7 +36,10 @@ if [ -z "$KEYSTORE" ] && [ -f "$DEFAULT_RELEASE_KS" ]; then
 fi
 
 if [ -z "$KEYSTORE" ]; then
-    if [ "${DEV_MODE:-0}" = "1" ]; then
+    # DEV_MODE=1: explicit local dev build. ALLOW_DEBUG_SIGNING=1: CI test build
+    # when no release key secret is configured (never used for a published
+    # release, and the package id stays the release id).
+    if [ "${DEV_MODE:-0}" = "1" ] || [ "${ALLOW_DEBUG_SIGNING:-0}" = "1" ]; then
         KEYSTORE="$PROJECT_ROOT/tools/debug.keystore"
         KEY_ALIAS="androiddebugkey"
         KEY_PASS="android"
