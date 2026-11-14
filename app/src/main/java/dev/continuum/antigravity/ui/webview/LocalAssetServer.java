@@ -25,6 +25,11 @@ public final class LocalAssetServer {
     private static final String TAG = "WebViewHost";
 
     public WebResourceResponse intercept(Context context, Uri uri, String method, int enginePort) {
+        return intercept(context, uri, method, enginePort, null);
+    }
+
+    public WebResourceResponse intercept(Context context, Uri uri, String method, int enginePort,
+                                         Map<String, String> requestHeaders) {
         if (uri == null || !"GET".equalsIgnoreCase(method)) {
             return null;
         }
@@ -57,10 +62,21 @@ public final class LocalAssetServer {
             try {
                 String mime = MimeTypes.getMimeType(target.getName());
                 String encoding = MimeTypes.isTextMime(mime) ? "UTF-8" : null;
+                long length = target.length();
+                String etag = AssetCachePolicy.etagFor(target.lastModified(), length);
                 Map<String, String> headers = new HashMap<>();
                 headers.put("Access-Control-Allow-Origin", "*");
-                headers.put("Cache-Control", "public, max-age=31536000, immutable");
-                headers.put("Content-Length", String.valueOf(target.length()));
+                // Never immutable: these filenames are stable across releases, so
+                // caching them hard is exactly how a newer app ends up rendering
+                // an older bundle. Revalidation is a local stat and answers 304.
+                headers.put("Cache-Control", AssetCachePolicy.CACHE_CONTROL);
+                headers.put("ETag", etag);
+                if (AssetCachePolicy.matchesEtag(
+                        AssetCachePolicy.header(requestHeaders, "If-None-Match"), etag)) {
+                    return new WebResourceResponse(mime, encoding, 304, "Not Modified", headers,
+                            new java.io.ByteArrayInputStream(new byte[0]));
+                }
+                headers.put("Content-Length", String.valueOf(length));
                 InputStream bis = new BufferedInputStream(new FileInputStream(target), 64 * 1024);
                 return new WebResourceResponse(mime, encoding, 200, "OK", headers, bis);
             } catch (Exception e) {

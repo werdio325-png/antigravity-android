@@ -150,8 +150,13 @@ public final class AgyWebViewClient extends WebViewClient {
         if (request == null || request.getUrl() == null) {
             return null;
         }
+        java.util.Map<String, String> headers = null;
+        try {
+            headers = request.getRequestHeaders();
+        } catch (Exception ignored) {
+        }
         return assetServer.intercept(context, request.getUrl(), request.getMethod(),
-                bridge.getEnginePort());
+                bridge.getEnginePort(), headers);
     }
 
     @Override

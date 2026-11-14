@@ -228,6 +228,14 @@ function updaterRender(state) {
   if (state.repo) {
     panel.appendChild(updaterEl('div', 'ag-row', 'Source: github.com/' + state.repo));
   }
+  // Engine build actually embedded in this APK (from engine_info.json).
+  try {
+    if (window.AgyCompat && typeof window.AgyCompat.engine === 'function') {
+      var engine = window.AgyCompat.engine();
+      panel.appendChild(updaterEl('div', 'ag-row',
+        'Engine: ' + engine.version + ' (' + engine.buildTag + ')'));
+    }
+  } catch (_) { /* engine info is optional */ }
 
   if (state.notes || status === 'available' || status === 'ready') {
     panel.appendChild(updaterEl('div', 'ag-notes', notesPreview(state.notes)));

@@ -31,8 +31,10 @@ import dev.continuum.antigravity.oauth.OAuthTokenStore;
 import dev.continuum.antigravity.runtime.RuntimeManager;
 import dev.continuum.antigravity.shell.ShizukuBridge;
 import dev.continuum.antigravity.theme.ThemeManager;
+import dev.continuum.antigravity.engine.EngineInfo;
 import dev.continuum.antigravity.ui.lifecycle.AppLifecycle;
 import dev.continuum.antigravity.ui.lifecycle.BackNavigator;
+import dev.continuum.antigravity.ui.lifecycle.SessionSync;
 import dev.continuum.antigravity.ui.lifecycle.ThemeRefresher;
 import dev.continuum.antigravity.ui.splash.SplashController;
 import dev.continuum.antigravity.ui.webview.AgyWebChromeClient;
@@ -75,6 +77,8 @@ public class MainActivity extends Activity
     private long splashDeadline;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    /** Reconciles the WebView's conversation view with the engine after a resume. */
+    private final SessionSync sessionSync = new SessionSync();
 
     /**
      * Runs for the whole activity life: it drives the splash, loads the app on
@@ -280,6 +284,7 @@ public class MainActivity extends Activity
     protected void onPause() {
         activityResumed = false;
         handler.removeCallbacks(pollServer);
+        sessionSync.onPause();
         if (webViewHost != null) {
             AppLifecycle.pause(webViewHost.getWebView());
         }
@@ -299,6 +304,11 @@ public class MainActivity extends Activity
         activeActivity = this;
         if (webViewHost != null) {
             AppLifecycle.resume(webViewHost.getWebView());
+            // Ask the page whether its live stream survived the background; the
+            // web sync patch reconciles with the engine only when it did not.
+            sessionSync.onResume(webViewHost.getWebView(),
+                    CoreRuntimeState.serverUrl != null,
+                    EngineInfo.engineVersion(this));
         }
         refreshTheme();
         handler.removeCallbacks(pollServer);

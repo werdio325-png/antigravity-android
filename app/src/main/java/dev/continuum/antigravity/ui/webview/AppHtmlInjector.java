@@ -24,10 +24,42 @@ public final class AppHtmlInjector {
     private AppHtmlInjector() {
     }
 
+    /**
+     * Appends the app version to every local script/stylesheet URL.
+     *
+     * Asset filenames never change between releases, so a WebView that ignored
+     * our revalidation headers could keep an older bundle. A versioned query
+     * makes the URL itself new after an update, so the first launch of a new
+     * release always fetches the matching assets.
+     */
+    static String cacheBustLocalAssets(String html, JSONObject config) {
+        if (html == null || config == null) {
+            return html;
+        }
+        String version = config.optString("appVersion", "");
+        int code = config.optInt("appVersionCode", 0);
+        if (version.isEmpty() && code == 0) {
+            return html;
+        }
+        String stamp = version + "-" + code;
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("(src|href)=\"\\./([^\"?#]+)\"")
+                .matcher(html);
+        StringBuffer out = new StringBuffer(html.length() + 256);
+        while (matcher.find()) {
+            matcher.appendReplacement(out, matcher.group(1) + "=\"./"
+                    + matcher.group(2).replace("$", "\\$").replace("\\", "\\\\")
+                    + "?v=" + stamp + "\"");
+        }
+        matcher.appendTail(out);
+        return out.toString();
+    }
+
     public static String inject(String html, AndroidBridge bridge, ThemeManager theme) {
         String boot;
+        JSONObject config = null;
         try {
-            JSONObject config = new JSONObject(bridge.getConfig());
+            config = new JSONObject(bridge.getConfig());
             JSONObject endpoints = new JSONObject();
             String base = bridge.getEngineBaseUrl();
             endpoints.put("core", base);
@@ -54,6 +86,9 @@ public final class AppHtmlInjector {
         } catch (Exception e) {
             Log.w(TAG, "config injection failed", e);
             return html;
+        }
+        if (config != null) {
+            html = cacheBustLocalAssets(html, config);
         }
         int head = html.indexOf("<head>");
         if (head >= 0) {

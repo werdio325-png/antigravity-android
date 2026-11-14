@@ -85,6 +85,25 @@ what the updater reads.
 `docs/AUDIT.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/BUILDING.md`,
 `docs/RELEASING.md`, `modules/engine/README.md`, `NOTICE`, this repo's `README.md`.
 
+## S8 — State synchronization (3.1, done; device for behaviour)
+
+Root causes and design: [`docs/STATE_SYNC.md`](STATE_SYNC.md).
+
+* Local assets revalidate (`ETag`/`no-cache`, 304) and carry a version query, so an
+  update cannot be masked by a cached bundle.
+* `SessionSync` reports background duration/engine liveness on resume;
+  `web/src/patches/session_sync` nudges a live stream or performs one bounded
+  reconciliation reload when the stream died, with a watchdog for mid-session
+  drops and a reload budget that cannot loop against a dead engine.
+* Regression tests: `web/tests/sync_test.js` (10 assertions, run by CI) covering
+  resume, dead stream, self-reconnect, duplicate suppression, watchdog and budget.
+* Engine audit: upstream still ships the identical engine archive
+  (`sha256 a48ddf73…`, no newer commits), so Hydrogen/Carbon remain out of reach
+  without a newer official engine; nothing is fabricated.
+
+Requested matrix mapping: **E** and **F** are covered by the automated tests at
+logic level; **A, B, C, D, G, H** below need the device.
+
 ## S7 — Device testing (device / not run)
 
 No Galaxy A54, emulator, Google account or network is available in this

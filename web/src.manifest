@@ -60,6 +60,15 @@ src/patches/updater_ui/panel.js
 src/patches/updater_ui/install.js
 src/patches/updater_ui/public-api.js
 
+bundle iife patches/session_sync.js
+src/patches/session_sync/config.js
+src/patches/session_sync/state.js
+src/patches/session_sync/ws-track.js
+src/patches/session_sync/snapshot.js
+src/patches/session_sync/resume.js
+src/patches/session_sync/install.js
+src/patches/session_sync/public-api.js
+
 bundle iife patches/theme_sync.js
 src/patches/theme_sync/config.js
 src/patches/theme_sync/resolve.js

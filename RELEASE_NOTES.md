@@ -1,39 +1,50 @@
-## Continuum 3.0.0 — first independent fork release
+## Continuum 3.1.0 — state synchronization, lifecycle reliability and engine audit
 
-Continuum is a maintained fork of Antigravity for Android. It keeps the complete
-upstream runtime and adds the maintenance machinery a fork needs.
+Reopening Continuum now shows the conversation the engine actually has, instead of
+whatever the page happened to render before it was backgrounded.
 
-### Identity
-- New application id `dev.continuum.antigravity` and name **Continuum**, so this
-  installs alongside the original app without touching it or its data.
-- Separate engine/gateway ports (45167/45168, 45170/45171) so both apps can run at
-  the same time.
-- Separate release signing key; release builds fail closed without it.
-- The region-bypass edition is removed. `--region-bypass` now exits with an error.
+### Fixed: stale conversations and missing progress
+- **Cached bundles can no longer survive an update.** Local UI assets were served
+  as `immutable` for a year under stable filenames, so a WebView could keep
+  rendering the previous release's `main.js` after an update. Assets now revalidate
+  (`ETag` + `no-cache`, 304 on match) and every local script/stylesheet URL carries
+  the app version.
+- **Resume now reconciles with the engine.** The native host reports background
+  duration, engine liveness and versions to the page. If the live stream survived,
+  the app is nudged and nothing is reloaded; if it died, the page gives it a short
+  grace period and then reloads once from authoritative engine state.
+- **Stream death is detected mid-session too:** a socket that stays closed while
+  the app is visible triggers a single bounded reconciliation.
+- Reloads are cooled down and capped (3 per page), only happen on pages that were
+  streaming, and never submit, retry or replay an agent request — so no duplicate
+  work and no fabricated progress.
 
-### Engine compatibility
-- New `modules/engine` layer reads the real engine version, build tag and model
-  catalogue from the embedded binary at build time (`assets/runtime/engine_info.json`).
-- The model menu annotates rows instead of guessing: **engine** means this engine
-  build has no such model, **account** means Google is not offering it to the
-  signed-in account. Nothing is enabled locally and no eligibility check is bypassed.
-- `upgrade_engine.py` validates a new official engine archive, diffs its catalogue
-  and reports patch compatibility before it is adopted.
+### Lifecycle and performance
+- Backgrounding pauses page timers as before; returning no longer tears down and
+  rebuilds the WebView on every switch.
+- The engine still runs in its foreground service with a wake lock. If Android
+  kills the process, the app now reflects the engine's real state rather than
+  implying a task kept running.
+
+### Engine modernization audit
+- Verified the vendored engine is still the newest legitimately obtainable build:
+  upstream `werdio325-png/antigravity-android` ships the byte-identical archive
+  (`sha256 a48ddf73…`) and has no newer commits. Engine `language_server` 2.11.0
+  (`go1.28-20260921-RC02`), catalogue of 24 models including `gemini-4-argon`
+  (low/medium/high).
+- **Gemini 4 Hydrogen / Carbon remain unavailable and are not faked:** this engine
+  build contains no Hydrogen model id and no model-shaped Carbon identifier, so no
+  account or client change can offer them. Adopting a newer engine stays a
+  reviewed, offline step (`modules/engine/upgrade_engine.py`); nothing is
+  downloaded or executed unverified, and no entitlement is bypassed.
 
 ### Updates
-- In-app updater: Check for updates, installed vs latest version, changelog,
-  download size, progress, SHA-256 verification against the release's published
-  checksums, Android's own package installer, and Later to postpone.
-- Downloaded files that fail checksum verification are deleted and never installed.
-
-### Maintenance
-- CI builds and verifies a signed ARM64 APK, publishes checksums and a versioned
-  release the updater can read.
-- Daily upstream-sync workflow opens a draft PR for review — never an automatic merge.
+- The update panel now also shows the embedded engine version and build tag next
+  to the installed app version.
 
 ### Known limitations
-- Embedded engine is `language_server` 2.11.0 (`go1.28-20260921-RC02`). It contains
-  `gemini-4-argon` (plus low/medium/high) but no `gemini-4-hydrogen`; Hydrogen-class
-  models require a newer engine build to be adopted through the upgrade tool.
-- Device behaviour (login, PTY, long agent runs, in-app install) was not exercised
-  in the build environment; see `docs/IMPLEMENTATION_PLAN.md` for the test matrix.
+- The engine exposes no event-replay cursor to the page, so reconciliation is a
+  single authoritative reload rather than incremental replay (documented in
+  `docs/STATE_SYNC.md`).
+- Device behaviour on the Galaxy A54 (background/recents/process-kill scenarios)
+  requires on-device verification; see the test matrix in `docs/IMPLEMENTATION_PLAN.md`.
