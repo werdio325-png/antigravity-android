@@ -1,66 +1,39 @@
-# Antigravity for Android v2.4.1
+## Continuum 3.0.0 — first independent fork release
 
-## Спецификация пакетов релиза
+Continuum is a maintained fork of Antigravity for Android. It keeps the complete
+upstream runtime and adds the maintenance machinery a fork needs.
 
-| Файл пакета | Идентификатор приложения | Порт рантайма | Описание |
-| :--- | :--- | :--- | :--- |
-| **`antigravity.apk`** | `com.agy` | 45157 | Стандартная редакция с оригинальными проверками Google (чистая версия без модификаций кода аутентификации). |
-| **`antigravity-region-bypass.apk`** | `com.agy` | 45157 | Редакция с обходом проверки учетных записей (позволяет авторизоваться под аккаунтами, блокируемыми со стороны Google; требует наличия сетевого туннеля/VPN). |
-| **`SHA256SUMS.txt`** | — | — | Криптографические контрольные суммы бинарных файлов. |
+### Identity
+- New application id `dev.continuum.antigravity` and name **Continuum**, so this
+  installs alongside the original app without touching it or its data.
+- Separate engine/gateway ports (45167/45168, 45170/45171) so both apps can run at
+  the same time.
+- Separate release signing key; release builds fail closed without it.
+- The region-bypass edition is removed. `--region-bypass` now exits with an error.
 
----
+### Engine compatibility
+- New `modules/engine` layer reads the real engine version, build tag and model
+  catalogue from the embedded binary at build time (`assets/runtime/engine_info.json`).
+- The model menu annotates rows instead of guessing: **engine** means this engine
+  build has no such model, **account** means Google is not offering it to the
+  signed-in account. Nothing is enabled locally and no eligibility check is bypassed.
+- `upgrade_engine.py` validates a new official engine archive, diffs its catalogue
+  and reports patch compatibility before it is adopted.
 
-## Изменения и исправления (v2.4.1)
+### Updates
+- In-app updater: Check for updates, installed vs latest version, changelog,
+  download size, progress, SHA-256 verification against the release's published
+  checksums, Android's own package installer, and Later to postpone.
+- Downloaded files that fail checksum verification are deleted and never installed.
 
-### 1. Поддержка встроенного веб-терминала и спавнера PTY (PR #19)
-* **Низкоуровневый бинарный патч PTY-шеллы:** Устранено аварийное завершение терминала из-за отсутствия `/bin/bash` на Android. Реализован модульный бинарный патч с сохранением длины строки (`/bin/bash` ➔ `/bin///sh`, ровно 9 байт), безопасно перенаправляющий запросы спавнера ядра в системный шелл Android без сдвига смещений ELF-секций.
-* **Приоритетная иерархия `$SHELL` в супервизоре процесса (`CoreEnvironment`):** Вместо жестко заданного `runtime/bin/bash` выстроена отказоустойчивая цепочка разрешения шелла:
-  1. `$PREFIX/bin/bash` (полноценный bash окружения пользователя со всей поддержкой `.bashrc`, автодополнения и истории);
-  2. `runtime/bin/bash` (встроенный bridge-рантайм);
-  3. `/system/bin/sh` (гарантированный системный шелл Android).
-* **Эмуляция терминала и база `terminfo`:** В окружение процесса добавлен экспорт `TERM=xterm-256color` и автоматическое подключение каталога `TERMINFO` из `$PREFIX/share/terminfo`, что предотвращает артефакты и искажения цветов и управляющих последовательностей ANSI в интерактивных консольных программах (`nano`, `htop`, mc).
+### Maintenance
+- CI builds and verifies a signed ARM64 APK, publishes checksums and a versioned
+  release the updater can read.
+- Daily upstream-sync workflow opens a draft PR for review — never an automatic merge.
 
-### 2. Повышение стабильности локальной сборки пакетов (AAPT)
-* В этапы сборки ресурсов `modules/builder/02_r_java.sh` и `modules/builder/06_package.sh` добавлен экспорт `export ANDROID_DATA="${ANDROID_DATA:-/data}"`. Это устраняет сбои компилятора `aapt` с кодом `SIGABRT (134)` при сборке APK непосредственно внутри ARM64 Android userspace.
-
----
-
-## Ранее реализованные ключевые возможности (v2.4.0)
-
-### 1. Безопасность и изоляция данных (Issue #6)
-* Из релизных сборок полностью удален атрибут `android:debuggable="true"`.
-* Устранена уязвимость, позволявшая локальному пользователю или стороннему приложению через `run-as com.agy` считывать OAuth-токены сессий и внутренние файлы конфигурации.
-* Флаг отладки изолирован исключительно в dev-сборке (`com.agy.dev`).
-
-### 2. Системный диалог выбора файлов (Issue #8)
-* Устаревший ограниченный интерфейс Storage Access Framework (SAF) заменен на нативный системный Intent-селектор Android.
-* Обеспечен прямой доступ к файлам, изображениям, видео и архивам из Галереи, Google Фото и любых сторонних файловых менеджеров.
-* Реализовано автоматическое сохранение постоянных разрешений на чтение (`Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION`).
-
-### 3. Совместимость с процессорами архитектуры ARMv8.0-A
-* Добавлена библиотека динамической эмуляции атомарных инструкций `liblse_compat.so` и низкоуровневый перехватчик `sigill_handler`.
-* Устранены аварийные завершения с кодом `SIGILL: illegal instruction` на устройствах с чипсетами Qualcomm Snapdragon 680/685 (Cortex-A53 / Redmi Note 12).
-
-### 4. Оптимизация авторизации OAuth
-* Полностью устранен дисковый опрос (polling с интервалом 80 мс) и создание промежуточных файлов при входе в учетную запись.
-* Захват URL авторизации переведен на прямой перехват стандартного потока вывода ядра (stdout) с мгновенной отправкой Intent в системный браузер.
-
-### 5. Аппаратный интерфейс фонарика
-* Добавлена консольная утилита управления вспышкой камеры: `torch on` / `torch off`.
-
-### 6. Фоновый планировщик задач (`agy-daemon`)
-* Реализован системный микро-демон (<10 МБ RAM, 0% CPU в режиме ожидания) для выполнения отложенных и периодических задач по расписанию (cron, интервалы).
-* Добавлена поддержка отслеживания изменений файлов и отправка нативных уведомлений в панель Android через `agy-notify`.
-
-### 7. Диагностика запуска ядра
-* В интерфейс ошибки инициализации сервера добавлены действия «Copy Logs» и «Save Logs» для быстрого экспорта журнала сбоя в буфер обмена или файл.
-
-### 8. Модульная структура конвейера сборки
-* Исходный код разнесен по изолированным модулям: `modules/patches`, `modules/runner`, `modules/builder`.
-* Внедрена аргументная передача параметров компиляторам `@java_sources.txt` и `@class_files.txt`, исключающая ошибку переполнения буфера командной строки ядра Linux (`ARG_MAX` / `E2BIG`).
-
----
-
-## Обновление и совместимость
-
-Все сборки подписаны постоянным ключом проекта. Обновление устанавливается поверх предыдущих версий 2.x без удаления приложения. Пользовательские проекты в каталоге `Documents`, рабочее окружение и сессии полностью сохраняются.
+### Known limitations
+- Embedded engine is `language_server` 2.11.0 (`go1.28-20260921-RC02`). It contains
+  `gemini-4-argon` (plus low/medium/high) but no `gemini-4-hydrogen`; Hydrogen-class
+  models require a newer engine build to be adopted through the upgrade tool.
+- Device behaviour (login, PTY, long agent runs, in-app install) was not exercised
+  in the build environment; see `docs/IMPLEMENTATION_PLAN.md` for the test matrix.

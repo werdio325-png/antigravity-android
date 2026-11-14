@@ -1,0 +1,168 @@
+name: Upstream sync (review only)
+
+# Tracks the original Antigravity-for-Android repository. It never merges into
+# main on its own: a clean merge becomes a draft pull request, a conflicted merge
+# becomes an issue. Nothing runs on the user's device.
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      upstream_repo:
+        description: 'Upstream repository (owner/name)'
+        required: false
+        default: 'werdio325-png/antigravity-android'
+      upstream_branch:
+        description: 'Upstream branch'
+        required: false
+        default: 'main'
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Detect and propose upstream changes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read upstream coordinates
+        id: cfg
+        run: |
+          REPO="${{ inputs.upstream_repo }}"
+          BRANCH="${{ inputs.upstream_branch }}"
+          if [ -z "$REPO" ]; then REPO="${{ vars.UPSTREAM_REPO }}"; fi
+          if [ -z "$REPO" ]; then REPO="werdio325-png/antigravity-android"; fi
+          if [ -z "$BRANCH" ]; then BRANCH="${{ vars.UPSTREAM_BRANCH }}"; fi
+          if [ -z "$BRANCH" ]; then BRANCH="main"; fi
+          echo "repo=$REPO" >> "$GITHUB_OUTPUT"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "Tracking $REPO@$BRANCH"
+
+      - name: Fetch upstream
+        id: fetch
+        continue-on-error: true
+        run: |
+          git remote add upstream "https://github.com/${{ steps.cfg.outputs.repo }}.git"
+          git fetch --no-tags upstream "${{ steps.cfg.outputs.branch }}"
+          BASE="upstream/${{ steps.cfg.outputs.branch }}"
+          NEW=$(git rev-list --count "HEAD..$BASE")
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+          echo "Upstream commits not in this fork: $NEW"
+          if [ "$NEW" -gt 0 ]; then
+            git log --oneline "HEAD..$BASE" | head -50
+          fi
+
+      - name: Report upstream fetch failure
+        if: steps.fetch.outcome == 'failure'
+        run: |
+          echo "::warning::Could not fetch upstream; leaving the fork untouched."
+          echo "### Upstream fetch failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "No changes were made. Check that ${{ steps.cfg.outputs.repo }} is reachable." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Merge upstream in a scratch branch
+        if: steps.fetch.outcome == 'success' && steps.fetch.outputs.new != '0'
+        id: merge
+        run: |
+          set -euo pipefail
+          BRANCH="upstream-sync/$(date -u +%Y%m%d)-${{ github.run_number }}"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          git config user.name "continuum-upstream-bot"
+          git config user.email "continuum-upstream-bot@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          if git merge --no-edit --no-ff "${{ steps.fetch.outputs.base }}"; then
+            echo "clean=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "clean=false" >> "$GITHUB_OUTPUT"
+            git diff --name-only --diff-filter=U > /tmp/conflicts.txt || true
+            git merge --abort || true
+            cat /tmp/conflicts.txt || true
+          fi
+
+      - name: Open an issue for conflicts (no automatic resolution)
+        if: steps.merge.outputs.clean == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const conflicts = fs.existsSync('/tmp/conflicts.txt')
+              ? fs.readFileSync('/tmp/conflicts.txt', 'utf8').trim() : '(unknown)';
+            const body = [
+              'Upstream changes could not be merged automatically.',
+              '',
+              'The fork was **not** modified. Resolve these files by hand on a local branch:',
+              '',
+              '```',
+              conflicts || '(unknown)',
+              '```',
+              '',
+              'Custom fork changes (application id, updater, engine compatibility layer, branding)',
+              'must be preserved. Re-run the upstream sync workflow when the branch is clean.',
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Upstream sync needs manual review (${new Date().toISOString().slice(0, 10)})`,
+              body
+            });
+
+      - name: Run compatibility checks on the merged tree
+        if: steps.merge.outputs.clean == 'true'
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s modules/engine/tests -p 'test_*.py'
+          python3 -m unittest discover -s modules/patches/tests -p 'test_*.py'
+          bash modules/core/tests/run_all.sh
+          bash modules/env/tests/run_all.sh
+          bash modules/io/tests/run_all.sh
+          bash web/tests/selftest.sh
+          # The fork's identity must survive an upstream merge.
+          grep -q "^PKG=dev.continuum.antigravity" config/app.env
+          grep -q "AndroidUpdate" app/src/main/java/dev/continuum/antigravity/ui/webview/WebViewHost.java
+
+      - name: Push branch and open a draft PR
+        if: steps.merge.outputs.clean == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git push --set-upstream origin "${{ steps.merge.outputs.branch }}"
+          gh pr create \
+            --draft \
+            --base "${{ github.event.repository.default_branch }}" \
+            --head "${{ steps.merge.outputs.branch }}" \
+            --title "Upstream sync: ${{ steps.cfg.outputs.repo }} @ ${{ steps.fetch.outputs.base }}" \
+            --body "$(printf '%s\n' \
+              'Automated upstream merge into a review branch.' \
+              '' \
+              '- Compatibility checks passed on the merged tree.' \
+              '- This PR is a draft: review the diff, test on the device, then merge manually.' \
+              '- Nothing is merged or released automatically.' \
+              '' \
+              'Upstream commits:' \
+              '```' \
+              "$(git log --oneline 'HEAD~1..HEAD' | head -30)" \
+              '```')"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Upstream sync"
+            echo "- upstream: ${{ steps.cfg.outputs.repo }}@${{ steps.cfg.outputs.branch }}"
+            echo "- new commits: ${{ steps.fetch.outputs.new || '0' }}"
+            echo "- merge: ${{ steps.merge.outputs.clean == 'true' && 'clean (draft PR opened)' || 'none / conflicted (issue opened)' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
