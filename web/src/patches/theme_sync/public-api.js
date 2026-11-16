@@ -1,5 +1,5 @@
 /**
- * patches/theme_sync/public-api.js - expose probe and start.
+ * patches/theme_sync/public-api.js - expose probe and start immediately.
  */
 window.__agThemeSync = {
   __installed: true,
@@ -11,15 +11,11 @@ window.__agThemeSync = {
       theme: resolveTheme(),
       last: state.last,
       notifications: state.notifications,
-      hostTheme: hostTheme,
+      hostTheme: initialHostTheme,
       hasAndroid: state.hasAndroid,
       observers: state.observer ? 1 : 0
     };
   }
 };
 
-if (doc && doc.readyState === 'loading') {
-  doc.addEventListener('DOMContentLoaded', install);
-} else {
-  install();
-}
+install();

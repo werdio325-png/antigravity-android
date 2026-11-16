@@ -14,7 +14,7 @@
  * The original periodic HEAD ping is not ported (it referenced an undefined
  * helper; see docs/DEADCODE.md).
  */
-var RPC_MARKERS = ['exa.language_server_pb.', 'exa.host_bridge_pb.', '/exa.'];
+var RPC_MARKERS = ['exa.language_server_pb.', 'exa.host_bridge_pb.', '/exa.', '/jetski.'];
 
 // RPC path (no leading slash) when `url` is a file:// or relative ConnectRPC
 // URL; null for anything else (http(s), blob, data, static assets).
@@ -35,12 +35,24 @@ function installFetchRewrite() {
   if (global.__AG_FETCH_REWRITE__ || typeof global.fetch !== 'function') return;
   var origFetch = global.fetch.bind(global);
 
-  function fetchWithStartupRetry(u, opts, retries) {
-    return origFetch(u, opts).catch(function (err) {
+  function isAborted(err, opts) {
+    if (opts && opts.signal && opts.signal.aborted) return true;
+    if (!err) return false;
+    return err.name === 'AbortError' || (typeof err.message === 'string' && err.message.indexOf('aborted') !== -1);
+  }
+
+  function fetchWithStartupRetry(u, opts, retries, isStream) {
+    var doCall = isStream
+      ? function () { return wrapStreamingFetch(origFetch, u, opts); }
+      : function () { return origFetch(u, opts); };
+    return doCall().catch(function (err) {
+      if (isAborted(err, opts)) {
+        throw err;
+      }
       if (retries > 0) {
         return new Promise(function (resolve) {
-          setTimeout(function () {
-            resolve(fetchWithStartupRetry(u, opts, retries - 1));
+          origSetTimeout(function () {
+            resolve(fetchWithStartupRetry(u, opts, retries - 1, isStream));
           }, 120);
         });
       }
@@ -59,6 +71,7 @@ function installFetchRewrite() {
             var reqMethod = resource.method || (init && init.method) || 'POST';
             var reqHeaders = new Headers(resource.headers || (init && init.headers) || {});
             ensureCsrf(reqHeaders);
+            var reqSignal = (init && init.signal) || resource.signal;
 
             var bodyPromise;
             if (init && init.body !== undefined) {
@@ -78,11 +91,15 @@ function installFetchRewrite() {
                 method: reqMethod,
                 headers: reqHeaders,
                 body: bodyData,
-                credentials: 'omit'
+                credentials: 'omit',
+                signal: reqSignal
               };
-              return fetchWithStartupRetry(targetUrl, nextOpts, 30);
+              return fetchWithStartupRetry(targetUrl, nextOpts, 30, isStreamingRpc(rpath));
             });
           } catch (e) { warn('fetch rewrite (Request)', e); }
+        }
+        if (isLoopbackRpcUrl(resource.url)) {
+          return wrapStreamingFetch(origFetch, resource, init);
         }
         return origFetch(resource, init);
       }
@@ -102,7 +119,10 @@ function installFetchRewrite() {
           }
           next.headers = headers;
 
-          return fetchWithStartupRetry(url, next, 30);
+          return fetchWithStartupRetry(url, next, 30, isStreamingRpc(path));
+        }
+        if (isLoopbackRpcUrl(resource)) {
+          return wrapStreamingFetch(origFetch, resource, init);
         }
       }
     } catch (e) { warn('fetch rewrite', e); }

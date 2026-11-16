@@ -1,31 +1,33 @@
 /**
- * patches/theme_sync/install.js - observe class/storage changes.
+ * patches/theme_sync/install.js - observe class/storage changes immediately.
  */
+function observeBody() {
+  if (doc && doc.body && state.observer) {
+    try {
+      state.observer.observe(doc.body, {
+        attributes: true, attributeFilter: ['class']
+      });
+      return true;
+    } catch (e) { /* ignore */ }
+  }
+  return false;
+}
+
 function install() {
   if (state.installed) return;
   state.installed = true;
 
-  if (window.MutationObserver && doc.documentElement) {
+  if (window.MutationObserver && doc && doc.documentElement) {
     try {
       state.observer = new MutationObserver(function () { notify(); });
       state.observer.observe(doc.documentElement, {
         attributes: true, attributeFilter: ['class']
       });
-      if (doc.body) {
-        state.observer.observe(doc.body, {
-          attributes: true, attributeFilter: ['class']
-        });
-      } else if (doc.addEventListener) {
+      if (!observeBody() && doc.addEventListener) {
         doc.addEventListener('DOMContentLoaded', function () {
-          if (doc.body && state.observer) {
-            try {
-              state.observer.observe(doc.body, {
-                attributes: true, attributeFilter: ['class']
-              });
-            } catch (e) { /* ignore */ }
-            notify();
-          }
-        });
+          observeBody();
+          notify();
+        }, { once: true });
       }
     } catch (e) { /* ignore */ }
   }

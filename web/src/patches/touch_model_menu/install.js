@@ -1,22 +1,27 @@
 /**
- * patches/touch_model_menu/install.js - arm the observer on touch devices.
+ * patches/touch_model_menu/install.js - arm on-demand when model selector opens.
  */
 function install() {
   if (state.installed) return;
-  state.hasTouch = detectTouch();
+  if (!document || !document.addEventListener) return;
   state.installed = true;
 
   if (!state.hasTouch) {
-    console.log('[agTouchModelMenu] no touch input detected; patch is a no-op.');
     return;
   }
 
-  scan();
+  var onInteract = function (ev) {
+    var t = ev && ev.target;
+    if (!t || !t.closest) return;
+    if (t.closest(CONFIG.trigger) || t.closest(CONFIG.panel) || isPanelOpen()) {
+      armPanelObserver();
+    }
+  };
 
-  var root = document.querySelector(CONFIG.root) || document.body || document.documentElement;
-  if (window.MutationObserver && root) {
-    state.observer = new MutationObserver(scheduleScan);
-    state.observer.observe(root, { childList: true, subtree: true });
+  document.addEventListener('pointerdown', onInteract, { capture: true, passive: true });
+  document.addEventListener('click', onInteract, { capture: true, passive: true });
+
+  if (isPanelOpen()) {
+    armPanelObserver();
   }
-  console.log('[agTouchModelMenu] active (rows=' + state.rows + ').');
 }

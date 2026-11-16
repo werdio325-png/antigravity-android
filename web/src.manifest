@@ -18,18 +18,17 @@ src/boot/theme-bootstrap.js
 
 bundle iife bridge.core.js
 src/core/namespace.js
+src/core/online-and-notifications.js
 src/core/polyfills-process.js
 src/core/config.js
 src/core/csrf.js
 src/core/endpoints.js
+src/core/resume-stream-recovery.js
 src/core/fetch-rewrite.js
 src/core/public-api.js
 
 bundle iife patches/web_optimizations.js
-src/patches/web_optimizations/taps.js
-src/patches/web_optimizations/viewport.js
-src/patches/web_optimizations/gpu.js
-src/patches/web_optimizations/public-api.js
+src/patches/web_optimizations/bundle.js
 
 bundle iife patches/touch_model_menu.js
 src/patches/touch_model_menu/config.js
