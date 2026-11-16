@@ -6,8 +6,11 @@ try {
   if (origInfo) {
     console.info = function () {
       var msg = arguments[0];
-      if (typeof msg === 'string' && msg.indexOf('[ConversationLoad]') !== -1) {
+      if (!state.signalled && typeof msg === 'string' && msg.indexOf('[ConversationLoad]') !== -1) {
+        console.info = origInfo;
         signal('conversation-load-completed');
+      } else if (state.signalled) {
+        console.info = origInfo;
       }
       return origInfo.apply(console, arguments);
     };

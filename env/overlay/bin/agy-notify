@@ -1,10 +1,17 @@
 #!/data/user/0/com.agy/files/usr/bin/bash
-# agy-notify - Post and manage Android notifications.
+# agy-notify - Post and manage clickable, Antigravity-branded Android notifications.
 set -e
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 PREFIX="${PREFIX:-$(cd -- "$SCRIPT_DIR/.." 2>/dev/null && pwd)}"
 RISH_BIN="$PREFIX/bin/rish"
+SHARE_DIR="$PREFIX/share/agy-notify-dex"
+DEX_SRC="$SHARE_DIR/agy_notify.jar"
+ICON_SMALL_SRC="$SHARE_DIR/ic_notification.png"
+ICON_LARGE_SRC="$SHARE_DIR/ic_launcher_round.png"
+DEX_TMP="/data/local/tmp/agy_notify.jar"
+ICON_SMALL_TMP="/data/local/tmp/agy_ic_notification.png"
+ICON_LARGE_TMP="/data/local/tmp/agy_ic_launcher.png"
 
 USAGE="Usage: agy-notify [post|cancel|list] [options]
 Commands:
@@ -19,7 +26,7 @@ shift || true
 TITLE="Antigravity"
 SUBTITLE=""
 MESSAGE=""
-TAG="agy_$(date +%s)"
+TAG="agy_turn_done"
 
 if [ "$CMD" = "cancel" ]; then
     if [ "$#" -ne 1 ] || [ -z "$1" ]; then
@@ -62,6 +69,32 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+run_shell() {
+    if adb devices 2>/dev/null | grep -q "device$"; then
+        adb shell "$1" 2>/dev/null
+    elif [ -x "$RISH_BIN" ]; then
+        "$RISH_BIN" -c "$1" 2>/dev/null
+    else
+        return 1
+    fi
+}
+
+sync_asset() {
+    local src="$1"
+    local dst="$2"
+    [ -f "$src" ] || return 0
+    local src_size dst_size
+    src_size=$(wc -c < "$src" 2>/dev/null | tr -d ' ')
+    dst_size=$(run_shell "wc -c < $dst 2>/dev/null || echo 0" | tr -d '\r ')
+    if [ "$src_size" != "$dst_size" ]; then
+        if adb devices 2>/dev/null | grep -q "device$"; then
+            adb push "$src" "$dst" >/dev/null 2>&1 || true
+        else
+            run_shell "cp -f $(printf %q "$src") $dst && chmod 644 $dst" || true
+        fi
+    fi
+}
+
 if [ "$CMD" = "post" ]; then
     if [ -z "$MESSAGE" ] && [ -n "$TITLE" ]; then
         MESSAGE="$TITLE"
@@ -73,44 +106,23 @@ if [ "$CMD" = "post" ]; then
         BODY_TEXT="[$SUBTITLE] $MESSAGE"
     fi
 
-    if [ -x "$RISH_BIN" ]; then
-        # Optional high-resolution logo cache with safe fallback to system default icon.
-        LOGO_CACHE="/data/local/tmp/agy_logo.png"
-        SRC_LOGO=""
-        for candidate in "${AGY_LOGO:-}" "$PREFIX/share/antigravity/logo.png" "$PREFIX/share/pixmaps/antigravity.png"; do
-            if [ -n "$candidate" ] && [ -f "$candidate" ]; then
-                SRC_LOGO="$candidate"
-                break
-            fi
-        done
-
-        LARGE_ICON_OPT=""
-        if [ -n "$SRC_LOGO" ]; then
-            if ! "$RISH_BIN" -c "test -f $LOGO_CACHE" 2>/dev/null; then
-                "$RISH_BIN" -c "cp -f $(printf %q "$SRC_LOGO") $(printf %q "$LOGO_CACHE") && chmod 644 $(printf %q "$LOGO_CACHE")" 2>/dev/null || true
-            fi
-            if "$RISH_BIN" -c "test -f $LOGO_CACHE" 2>/dev/null; then
-                LARGE_ICON_OPT="-I file://$LOGO_CACHE"
-            fi
+    if [ -f "$DEX_SRC" ]; then
+        sync_asset "$DEX_SRC" "$DEX_TMP"
+        sync_asset "$ICON_SMALL_SRC" "$ICON_SMALL_TMP"
+        sync_asset "$ICON_LARGE_SRC" "$ICON_LARGE_TMP"
+        if run_shell "CLASSPATH=$DEX_TMP /system/bin/app_process /system/bin AgyClickableNotify $(printf %q "$TITLE") $(printf %q "$BODY_TEXT") $(printf %q "$TAG")"; then
+            exit 0
         fi
-
-        "$RISH_BIN" -c "cmd notification post -S bigtext $LARGE_ICON_OPT -t $(printf %q "$TITLE") $(printf %q "$TAG") $(printf %q "$BODY_TEXT")" 2>/dev/null && exit 0
     fi
 
-    cmd notification post -S bigtext -t "$TITLE" "$TAG" "$BODY_TEXT" 2>/dev/null && exit 0 || true
+    run_shell "cmd notification post -S bigtext -t $(printf %q "$TITLE") $(printf %q "$TAG") $(printf %q "$BODY_TEXT")" && exit 0 || true
     echo "[agy-notify] notification queued: $TITLE - $MESSAGE"
 
 elif [ "$CMD" = "cancel" ]; then
-    if [ -x "$RISH_BIN" ]; then
-        "$RISH_BIN" -c "cmd notification cancel $(printf %q "$TAG")" 2>/dev/null || true
-    fi
+    run_shell "cmd notification cancel $(printf %q "$TAG")" || true
 
 elif [ "$CMD" = "list" ]; then
-    if [ -x "$RISH_BIN" ]; then
-        "$RISH_BIN" -c "dumpsys notification --noredact" 2>/dev/null | grep -E "pkg=|android.title=|android.text=" | head -n 40
-    else
-        echo "[agy-notify] rish unavailable to inspect system notification tray"
-    fi
+    run_shell "dumpsys notification --noredact" | grep -E "pkg=|android.title=|android.text=" | head -n 40 || true
 
 else
     echo "$USAGE"

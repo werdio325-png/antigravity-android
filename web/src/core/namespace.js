@@ -15,7 +15,7 @@ if (window.__AG_BRIDGE_CORE__) return;
 window.__AG_BRIDGE_CORE__ = true;
 
 var global = window;
-var VERSION = '1.0.0';
+var VERSION = '1.2.1';
 
 // Live config: filled by config.js, then kept in sync by csrf.js/endpoints.js.
 var CONFIG = window.__APP_CONFIG__ || {};

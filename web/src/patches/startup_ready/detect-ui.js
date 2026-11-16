@@ -7,14 +7,18 @@ function isUiRendered() {
     if (!root) return false;
 
     // 1. Has real chat message turns or conversation content rendered?
-    var hasMessages = !!root.querySelector('[data-role="user"], [data-role="assistant"], [data-turn-id], .message-row, .prose, [data-message-id]');
+    var hasMessages = !!root.querySelector(
+      '[data-testid="conversation-view"], [data-testid="autoscroll-viewport"], [role="article"], .prose'
+    );
     if (hasMessages) {
       signal('messages-rendered');
       return true;
     }
 
     // 2. Has the input area appeared?
-    var hasInput = !!root.querySelector('textarea, [contenteditable="true"], [role="textbox"], button[type="submit"]');
+    var hasInput = !!root.querySelector(
+      '[data-lexical-editor="true"], textarea, [contenteditable="true"], [role="textbox"], button[type="submit"]'
+    );
     if (hasInput) {
       signal('chat-input-ready');
       return true;

@@ -60,8 +60,11 @@ try {
   if (origInfo) {
     console.info = function () {
       var msg = arguments[0];
-      if (typeof msg === 'string' && msg.indexOf('[ConversationLoad]') !== -1) {
+      if (!state.signalled && typeof msg === 'string' && msg.indexOf('[ConversationLoad]') !== -1) {
+        console.info = origInfo;
         signal('conversation-load-completed');
+      } else if (state.signalled) {
+        console.info = origInfo;
       }
       return origInfo.apply(console, arguments);
     };
@@ -77,14 +80,18 @@ function isUiRendered() {
     if (!root) return false;
 
     // 1. Has real chat message turns or conversation content rendered?
-    var hasMessages = !!root.querySelector('[data-role="user"], [data-role="assistant"], [data-turn-id], .message-row, .prose, [data-message-id]');
+    var hasMessages = !!root.querySelector(
+      '[data-testid="conversation-view"], [data-testid="autoscroll-viewport"], [role="article"], .prose'
+    );
     if (hasMessages) {
       signal('messages-rendered');
       return true;
     }
 
     // 2. Has the input area appeared?
-    var hasInput = !!root.querySelector('textarea, [contenteditable="true"], [role="textbox"], button[type="submit"]');
+    var hasInput = !!root.querySelector(
+      '[data-lexical-editor="true"], textarea, [contenteditable="true"], [role="textbox"], button[type="submit"]'
+    );
     if (hasInput) {
       signal('chat-input-ready');
       return true;
