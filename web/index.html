@@ -30,61 +30,75 @@
               ? "darwin"
               : "linux";
       }
-
-      // Workaround for mce-autosize-textarea re-definition error from overlay_bundle.js.
-      if (window.customElements) {
-        const originalDefine = window.customElements.define;
-        window.customElements.define = (name, constructor, options) => {
-          if (!window.customElements.get(name)) {
-            originalDefine.call(window.customElements, name, constructor, options);
-          }
-        };
-      }
     </script>
-    <link
-      rel="icon"
-      type="image/svg+xml"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>"
-    />
-    <link rel="stylesheet" href="/jetbox.css" />
-    <link rel="stylesheet" href="/compiled_tailwind.css" />
-    <!-- Inline styles to prevent flash before app loads -->
+
+    <link rel="icon" type="image/png" href="./antigravity-icon.png" />
+    <link rel="stylesheet" href="./jetbox.css" />
+    <link rel="stylesheet" href="./compiled_tailwind.css" />
+
+    <!-- Boot fragments (generated from web/src/boot/**). -->
+    <!-- Workaround for custom elements in overlay bundle -->
+    <script src="./generated/boot/custom-elements-guard.js"></script>
+    <!-- Fast theme bootstrap: honors light/dark from ?hostTheme / __AG_HOST_THEME__. -->
+    <script src="./generated/boot/theme-bootstrap.js"></script>
+
+    <!-- Fast Dark Theme Skeleton & Sleek Loading Screen Styles -->
     <style>
-      html,
-      body,
-      #root {
+      :root {
+        --bg-main: #0b0e17;
+        --bg-card: rgba(18, 23, 38, 0.75);
+        --accent-glow: #38bdf8;
+        --text-primary: #f1f5f9;
+        --text-secondary: #94a3b8;
+      }
+      html.light {
+        --bg-main: #ffffff;
+        --bg-card: rgba(255, 255, 255, 0.75);
+        --accent-glow: #0284c7;
+        --text-primary: #0f172a;
+        --text-secondary: #64748b;
+      }
+      *, *::before, *::after {
+        box-sizing: border-box;
+      }
+      html, body {
         height: 100%;
+        width: 100%;
         margin: 0;
-        overflow: hidden;
-        background-color: transparent;
+        padding: 0;
+        background-color: var(--bg-main);
+        color: var(--text-primary);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         overscroll-behavior: none;
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;
+      }
+      #root {
+        width: 100%;
+        height: 100%;
       }
     </style>
-    <script>
-      // Anti-flash theme boot: declare the CSS color-scheme before any bundle
-      // loads. Chromium paints a cross-origin iframe opaque white when its
-      // color-scheme does not match the embedder's (b/536991026), and the full
-      // theme logic (themeUtils applyTheme) only runs once main.js has been
-      // downloaded and parsed - far too late on a cold (cache-bypassing)
-      // reload. The hub passes the `hostTheme` boot hint in the URL (see
-      // useIframeSource.ts); the resolved user preference takes over once the
-      // app boots.
-      (() => {
-        let theme = new URLSearchParams(window.location.search).get("hostTheme");
-        if (theme !== "dark" && theme !== "light") {
-          theme =
-            window.matchMedia &&
-            window.matchMedia("(prefers-color-scheme: dark)").matches
-              ? "dark"
-              : "light";
-        }
-        document.documentElement.style.colorScheme = theme;
-      })();
-    </script>
   </head>
   <body>
     <div id="root"></div>
-    <script defer src="/prism_bundle.js"></script>
-    <script src="/main.js"></script>
+
+    <!--
+      Locked AGY UI load order (do not reorder):
+      web_optimizations.js -> touch_model_menu.js -> theme_sync.js
+      -> bridge.core.js -> prism_bundle.js (defer) -> main.js
+
+      bridge.cache.js was removed: main.js never referenced window.__agCache,
+      and the fetch interceptor is an unnecessary failure surface. core's fetch
+      rewrite is the only transport shim now.
+
+      startup_ready.js is injected natively by the Java agent; it is served from
+      ./generated/patches/startup_ready.js and intentionally absent here.
+    -->
+    <script src="./generated/patches/web_optimizations.js"></script>
+    <script src="./generated/patches/touch_model_menu.js"></script>
+    <script src="./generated/patches/theme_sync.js"></script>
+    <script src="./generated/bridge.core.js"></script>
+    <script defer src="./prism_bundle.js"></script>
+    <script defer src="./generated/main.js"></script>
   </body>
 </html>
