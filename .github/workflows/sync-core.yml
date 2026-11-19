@@ -1,0 +1,74 @@
+name: Sync Core Binary
+
+on:
+  push:
+    paths:
+      - ".github/workflows/sync-core.yml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Upstream Antigravity version (e.g. 2.33.0)"
+        required: true
+        default: "2.33.0"
+      build_id:
+        description: "Upstream build ID (e.g. 4731201358004224)"
+        required: true
+        default: "4731201358004224"
+
+permissions:
+  contents: write
+
+jobs:
+  sync-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download & pack language_server
+        run: |
+          VER="${{ inputs.version || '2.33.0' }}"
+          BUILD="${{ inputs.build_id || '4731201358004224' }}"
+          URL="https://storage.googleapis.com/antigravity-public/antigravity-hub/${VER}-${BUILD}/linux-arm/Antigravity.tar.gz"
+          curl -fL "$URL" -o /tmp/Antigravity.tar.gz
+          mkdir -p /tmp/extracted
+          tar -xzf /tmp/Antigravity.tar.gz -C /tmp/extracted Antigravity-arm64/resources/bin/language_server
+          BIN="/tmp/extracted/Antigravity-arm64/resources/bin/language_server"
+          tar -czf modules/core/pristine/language_server.tar.gz -C "$(dirname "$BIN")" language_server
+
+          ARCHIVE_SHA=$(sha256sum modules/core/pristine/language_server.tar.gz | awk '{print $1}')
+          BIN_SHA=$(sha256sum "$BIN" | awk '{print $1}')
+          BIN_SIZE=$(stat -c %s "$BIN")
+
+          cat > modules/core/spec/version.env <<EOF
+          # Core Version & Environment Spec
+          CORE_VERSION=${VER}
+          CORE_BUILD_TAG=${BUILD}
+          TARGET_ARCH=aarch64
+          LOADER_NAME=ld-linux-aarch64.so.1
+          CORE_BIN_NAME=language_server
+          EOF
+
+          cat > modules/core/spec/checksums.json <<EOF
+          {
+            "archive": {
+              "filename": "language_server.tar.gz",
+              "sha256": "${ARCHIVE_SHA}"
+            },
+            "binary": {
+              "filename": "language_server",
+              "sha256": "${BIN_SHA}",
+              "size": ${BIN_SIZE}
+            }
+          }
+          EOF
+
+      - name: Verify patch pipeline
+        run: bash modules/patches/tests/run_all.sh
+
+      - name: Commit & push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add modules/core/pristine/language_server.tar.gz modules/core/spec/version.env modules/core/spec/checksums.json
+          git diff --cached --quiet || git commit -m "feat(core): sync language_server ${{ inputs.version || '2.33.0' }}-${{ inputs.build_id || '4731201358004224' }}"
+          git push
