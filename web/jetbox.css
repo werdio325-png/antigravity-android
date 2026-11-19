@@ -2,24 +2,25 @@
  * are driven by --syntax-* CSS variables so a selected theme preset can
  * override the syntax palette without re-tokenizing (a preset just swaps the
  * vars). The defaults below reproduce the original bundled prismjs palettes
- * exactly (light: prism default; dark: okaidia), so this is a no-op until
- * presets seed --syntax-*. Backgrounds/structural colors stay app-native and
- * are intentionally not preset-driven. */
+ * (light: prism default; dark: okaidia) until presets seed --syntax-*.
+ * Backgrounds/structural colors stay app-native and are intentionally not
+ * preset-driven. */
 
 .theme-light {
-  /* Default syntax palette (prism default theme, @author Lea Verou). */
+  /* Default syntax palette (prism default theme, @author Lea Verou). Greens
+   * darkened from #690 to stay readable on diff-inserted tints. */
   --syntax-default-fg: black;
   --syntax-comment: slategray;
   --syntax-punctuation: #999;
   --syntax-property: #905;
   --syntax-deleted: #905;
-  --syntax-inserted: #690;
+  --syntax-inserted: #5c8a00;
   --syntax-tag: #905;
   --syntax-constant: #905;
   --syntax-number: #905;
-  --syntax-string: #690;
-  --syntax-attr-name: #690;
-  --syntax-builtin: #690;
+  --syntax-string: #5c8a00;
+  --syntax-attr-name: #5c8a00;
+  --syntax-builtin: #5c8a00;
   --syntax-operator: #9a6e3a;
   --syntax-variable: #e90;
   --syntax-attr-value: #07a;
@@ -561,7 +562,7 @@
   will-change: opacity;
 }
 
-@scope (.pdf-sdk-root) {
+/*# sourceMappingURL=styles.css.map */{"version":3,"sources":["../../../../../../../third_party/javascript/react_tooltip/src/tokens.scss","_styles_sass_binary.css","../../../../../../../third_party/javascript/react_tooltip/src/components/Tooltip/styles.module.scss","../../../../../../../webutil/sass/mss.scss","../../../../../../../third_party/javascript/react_tooltip/src/components/Tooltip/core-styles.module.scss"],"names":[],"mappings":"AAAA;;;EAAA;AAIA;EACE,sBAAA;EACA,qBAAA;EACA,2BAAA;EACA,yBAAA;EACA,2BAAA;EACA,wBAAA;EACA,iBAAA;EACA,iCAAA;EACA,oCAAA;EACA,oBAAA;ACCF;;ACfA;;;EAAA;AAMA;EACE,wBAAA;EACA,wBAAA;EACA,yBAAA;EACA,2BAAA;EACA,2BAAA;EACA,yBAAA;EACA,wBAAA;ADgBF;;AEDI,2CAAA;ADRF;EACE,kBAAA;EACA,cAAA;EACA,0BAAA;EAAA,uBAAA;EAAA,kBAAA;ADaJ;ACVE;EACE,mBAAA;EACA,sBAAA;EACA,iBAAA;ADYJ;ACTE;EACE,2BAAA;EACA,4BAAA;ADWJ;ACRE;EACE,gCAAA;UAAA,wBAAA;ADUJ;ACPE;EACE,iCAAA;UAAA,yBAAA;ADSJ;ACNE;EACE,iCAAA;UAAA,yBAAA;ADQJ;ACLE;EACE,iCAAA;UAAA,yBAAA;ADOJ;ACJE;EACE,gCAAA;EACA,4BAAA;ADMJ;ACHE;EACE,uCAAA;EACA,2BAAA;ADKJ;ACFE;EACE,yCAAA;EACA,4BAAA;ADIJ;ACDE;EACE,yCAAA;EACA,4BAAA;ADGJ;ACAE;EACE,uCAAA;EACA,4BAAA;ADEJ;ACCE;EACE,sCAAA;EACA,4BAAA;ADCJ;;AGjFA;;;EAAA;AAMA;EACE,qBAAA;EACA,mCAAA;EACA,sCAAA;AHkFF;;AE/DI,sCAAA;ACZF;EACE,kBAAA;EACA,MAAA;EACA,OAAA;EACA,oBAAA;EACA,UAAA;AH+EJ;AG5EE;EACE,eAAA;AH8EJ;AG3EE;EACE,kBAAA;EACA,mBAAA;EACA,WAAA;EACA,mCAAA;EACA,2BAAA;AH6EJ;AG1EE;EACE,kBAAA;EACA,UAAA;AH4EJ;AGzEE;EACE,aAAA;AH2EJ;AGxEE;EACE,oBAAA;AH0EJ;AGvEE;EACE,0BAAA;EACA,oEAAA;EAAA,4DAAA;EACA,oBAAA;AHyEJ;AGtEE;EACE,UAAA;EACA,sEAAA;EAAA,8DAAA;EACA,oBAAA;AHwEJ","file":"styles.css"}@scope (.pdf-sdk-root) {
 /**
  * PDF SDK - CSS Custom Properties
  * Scoped to :scope to avoid polluting host app globals.
@@ -3329,4 +3330,139 @@ canvas.hiddenCanvasElement {
 .sdk-bg-tertiary {
   background: var(--sdk-background-tertiary);
 }
+}
+@scope (.pdf-sdk-root) {
+  :scope,
+  .pdf-sdk-root {
+    --sdk-toolbar-border-radius: 10px;
+    --sdk-coordinator-breakpoint-hide-panels: 0;
+    --sdk-coordinator-scrollbar-width: 0px;
+    --sdk-sidebar-margin: 12px 8px 12px 12px;
+    container-type: inline-size;
+    container-name: pdf-viewer;
+  }
+
+  .pdf-viewer-container > .pdf-toolbar:not([data-jetski-pdf-toolbar="true"]),
+  .jetski-hidden-sdk-toolbar,
+  .custom-scrollbar,
+  .custom-horizontal-scrollbar,
+  .page-loading-overlay {
+    display: none !important;
+  }
+
+  .pdf-sidebar-wrapper {
+    overflow: hidden;
+  }
+
+  .pdf-sidebar {
+    margin-top: 12px;
+    transition:
+      margin-left 200ms cubic-bezier(0.2, 0, 0, 1),
+      margin-right 200ms cubic-bezier(0.2, 0, 0, 1),
+      opacity 150ms ease;
+    will-change: margin-left, margin-right, opacity;
+  }
+
+  &:is([data-sidebar-open='false']) .pdf-sidebar {
+    margin-left: calc(-1 * clamp(80px, 13cqi, 160px));
+    margin-right: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .pdf-viewport {
+    padding-top: 16px;
+  }
+
+  .pdf-viewport:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Reserve 64px of bottom scroll clearance so the floating bottom pill never
+   * obscures the bottom of the final PDF page when scrolled to the end, and
+   * center sizingWrapper synchronously via CSS block layout so closing the
+   * thumbnail sidebar never overshoots for 1 frame before ResizeObserver runs. */
+  .pdf-viewport > div {
+    padding-bottom: 64px;
+    margin-inline: auto !important;
+    width: max(100%, var(--jetski-current-page-width, 100%)) !important;
+    overflow-x: clip;
+  }
+
+  /* Keep contentWrapper aligned with the already-centered sizingWrapper so left
+   * and right viewport margins are symmetric (while :first-child leaves the
+   * sibling region-drag selectionBox div untouched). */
+  .pdf-viewport > div > div:first-child {
+    left: 0 !important;
+    width: max(100%, var(--jetski-current-page-width, 100%)) !important;
+  }
+
+  .pdf-toolbar[data-jetski-pdf-toolbar="true"] {
+    position: absolute;
+    bottom: var(--sdk-spacing-xl, 16px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 25;
+    padding: var(--sdk-toolbar-padding-y) var(--sdk-toolbar-padding-x);
+    margin: 0;
+    border-radius: var(--sdk-toolbar-border-radius);
+    border: var(--sdk-toolbar-border-width) solid var(--sdk-toolbar-border);
+    background: var(--sdk-toolbar-bg);
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: var(--sdk-toolbar-gap);
+    row-gap: var(--sdk-toolbar-gap);
+    min-height: var(--sdk-toolbar-min-height);
+    box-shadow: var(--sdk-toolbar-shadow);
+    width: max-content;
+    max-width: calc(100% - 24px);
+    box-sizing: border-box;
+    overflow: visible;
+  }
+
+  .page-input-field:focus,
+  .page-input-field:focus-visible,
+  .zoom-input-field:focus,
+  .zoom-input-field:focus-visible {
+    background: var(--sdk-search-focus-bg);
+    outline: none;
+    box-shadow: none;
+  }
+
+  .page-input-wrapper:focus-within,
+  .zoom-input-wrapper:focus-within {
+    border-color: var(--sdk-border-color-hover);
+    box-shadow: none;
+  }
+
+  .toolbar-overflow-dropdown {
+    bottom: calc(100% + 6px);
+    top: auto;
+  }
+
+  .pdf-toolbar button[data-tooltip] {
+    position: relative;
+  }
+
+  .pdf-toolbar button[data-tooltip]:not(:disabled):hover::after,
+  .pdf-toolbar button[data-tooltip]:not(:disabled):focus-visible::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 8px;
+    border-radius: var(--sdk-border-radius-sm);
+    background: var(--sdk-toolbar-bg);
+    color: var(--sdk-text-primary);
+    border: var(--sdk-border-width) solid var(--sdk-toolbar-border);
+    box-shadow: var(--sdk-shadow-sm);
+    font-family: var(--sdk-font-family);
+    font-size: var(--sdk-font-size-xs);
+    line-height: 1.2;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: var(--sdk-z-index-tooltip, 1070);
+  }
 }
