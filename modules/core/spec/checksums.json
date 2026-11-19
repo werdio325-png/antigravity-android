@@ -1,7 +1,7 @@
 {
   "archive": {
     "filename": "language_server.tar.gz",
-    "sha256": "68bf1f91eed88203d5d28cb9d23e7496b099b02cae3fad662e1c7471dc2dddf0"
+    "sha256": "6ac9d1e0be52a256e164fab77e21df55a90c63f9a8ddf9c26594ba9fbae78e30"
   },
   "binary": {
     "filename": "language_server",
