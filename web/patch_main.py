@@ -23,9 +23,12 @@ def patch_main(file_path):
         return True
 
     # 1. State hook injection pattern in Appearance component:
-    # Matches: var C=g!==3,D=g!==2,E=F=>G=>{F===t&&v(G)}; or legacy var B=f!==3,C=f!==2,D=E=>G=>{E===r&&u(G)};
+    # Matches: var C=g!==3,D=g!==2,E=F=>G=>{F===t&&v(G)}; or 2.33.0: B=b!==3;var E=b!==2;
     hook_pattern = re.compile(r'(var\s+[A-Za-z0-9_$]+=[A-Za-z0-9_$]+!==3,\s*[A-Za-z0-9_$]+=[A-Za-z0-9_$]+!==2,\s*[A-Za-z0-9_$]+=[A-Za-z0-9_$]+=>\s*[A-Za-z0-9_$]+=>\{.*?\};)')
     hook_match = hook_pattern.search(content)
+    if not hook_match:
+        hook_pattern = re.compile(r'([A-Za-z0-9_$]+=[A-Za-z0-9_$]+!==3;\s*var\s+[A-Za-z0-9_$]+=[A-Za-z0-9_$]+!==2;)')
+        hook_match = hook_pattern.search(content)
 
     # 2. JSX Theme element injection: find Theme element in Appearance
     theme_idx = content.find('{label:"Theme"')
