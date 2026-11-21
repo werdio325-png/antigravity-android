@@ -31,15 +31,10 @@ public final class CoreEnvironment {
         String inheritedPath = env.get("PATH");
         env.put("PATH", bin.getAbsolutePath()
                 + (inheritedPath == null || inheritedPath.isEmpty() ? "" : ":" + inheritedPath));
-        // The core's PTY spawner uses $SHELL (or falls back to /bin/bash, which
-        // does not exist on Android). Prefer the prefix bash, then the bridge in
-        // runtime/bin, then Android's own sh.
+        // The bridge sets the library path required by the bundled Bash.
         File prefix = new File(files, com.agy.install.EnvPaths.PREFIX_DIR);
-        File prefixBash = new File(prefix, com.agy.install.EnvPaths.BASH_REL);
         File runtimeBash = new File(bin, "bash");
-        if (prefixBash.isFile() && prefixBash.canExecute()) {
-            env.put("SHELL", prefixBash.getAbsolutePath());
-        } else if (runtimeBash.isFile() && runtimeBash.canExecute()) {
+        if (runtimeBash.isFile() && runtimeBash.canExecute()) {
             env.put("SHELL", runtimeBash.getAbsolutePath());
         } else {
             env.put("SHELL", "/system/bin/sh");
