@@ -25,6 +25,7 @@ public final class AgyWebViewClient extends WebViewClient {
     private final Context context;
     private final OAuthManager oauth;
     private final LocalAssetServer assetServer;
+    private final LoopbackSidecarProxy sidecarProxy = new LoopbackSidecarProxy();
     private final AndroidBridge bridge;
     private final WebViewHost.Listener listener;
 
@@ -164,8 +165,12 @@ public final class AgyWebViewClient extends WebViewClient {
         if (request == null || request.getUrl() == null) {
             return null;
         }
-        return assetServer.intercept(context, request.getUrl(), request.getMethod(),
+        WebResourceResponse asset = assetServer.intercept(context, request.getUrl(), request.getMethod(),
                 bridge.getEnginePort());
+        if (asset != null) {
+            return asset;
+        }
+        return sidecarProxy.intercept(request, bridge.getEnginePort());
     }
 
     @Override

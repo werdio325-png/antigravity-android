@@ -609,11 +609,21 @@ function createMockDom() {
 }
 
 // ---------------------------------------------------------------------------
-// 2. Test bridge.core.js (https ?port= and random CSRF fallback)
+// 2. Test bridge.core.js (https ?port=, random CSRF fallback, /voice/health retry)
 // ---------------------------------------------------------------------------
 {
   const { windowObj } = createMockDom();
   windowObj.location = { search: '?port=45123', href: 'https://127.0.0.1:45123/?port=45123' };
+  let vhAttempts = 0;
+  windowObj.fetch = async (url) => {
+    if (String(url).includes('/voice/health')) {
+      vhAttempts++;
+      if (vhAttempts === 1) throw new Error('ECONNREFUSED');
+      if (vhAttempts === 2) return { status: 503, ok: false };
+      return { status: 200, ok: true };
+    }
+    return { status: 200, ok: true };
+  };
   const code = fs.readFileSync(path.join(GEN_DIR, 'bridge.core.js'), 'utf8');
   vm.runInNewContext(code, windowObj);
 
@@ -624,6 +634,10 @@ function createMockDom() {
   assert.ok(csrf1 && csrf1.length >= 16, 'CSRF fallback should be non-empty random token');
   assert.notEqual(csrf1, 'agy-standalone-token', 'Hardcoded CSRF fallback must be removed');
   assert.equal(windowObj.__agBridgeCore.syncCsrf(), csrf1, 'Fallback CSRF should remain stable within session');
+
+  const vhResp = await windowObj.fetch('/voice/health');
+  assert.equal(vhResp.status, 200, '/voice/health should retry transient cold-boot failures');
+  assert.equal(vhAttempts, 3);
 
   console.log('test bridge.core.js: OK');
 }
