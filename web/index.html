@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <title>Jetski Web</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, interactive-widget=resizes-content" />
     <!-- Preconnect secondary CDNs for dynamic UI icons (Drive, Docs, Colab) -->
     <link rel="preconnect" href="https://www.gstatic.com" />
     <link rel="preconnect" href="https://ssl.gstatic.com" />
@@ -64,7 +64,7 @@
     <!--
       Locked AGY UI load order (do not reorder):
       web_optimizations.js -> touch_model_menu.js -> theme_sync.js
-      -> bridge.core.js -> prism_bundle.js (defer) -> main.js
+      -> mobile_bridge.js -> bridge.core.js -> prism_bundle.js (defer) -> main.js
 
       bridge.cache.js was removed: main.js never referenced window.__agCache,
       and the fetch interceptor is an unnecessary failure surface. core's fetch
@@ -76,6 +76,7 @@
     <script src="./generated/patches/web_optimizations.js"></script>
     <script src="./generated/patches/touch_model_menu.js"></script>
     <script src="./generated/patches/theme_sync.js"></script>
+    <script src="./generated/patches/mobile_bridge.js"></script>
     <script src="./generated/bridge.core.js"></script>
     <script defer src="./prism_bundle.js"></script>
     <script defer src="./generated/main.js"></script>

@@ -41,6 +41,7 @@ try {
   if (!p.type) p.type = 'renderer';
   p.browser = p.browser !== undefined ? p.browser : true;
   if (!p.env || typeof p.env !== 'object') p.env = {};
+  if (!p.env.NODE_ENV) p.env.NODE_ENV = (CONFIG && CONFIG.devMode) ? 'development' : 'production';
   if (!p.versions || typeof p.versions !== 'object') p.versions = {};
   if (typeof p.cwd !== 'function') p.cwd = function () { return CONFIG.workspaceRoot || '/'; };
   if (typeof p.nextTick !== 'function') {
@@ -90,13 +91,43 @@ try {
  * Sources (first hit wins): explicit global, meta tag, generated fallback.
  * Publishes `csrfToken`/`csrf_token` cookies that main.js and native read.
  */
+var generatedCsrfFallback = '';
+
+function generateFallbackCsrf() {
+  if (generatedCsrfFallback) return generatedCsrfFallback;
+  try {
+    var c = global.crypto || global.msCrypto;
+    if (c && typeof c.randomUUID === 'function') {
+      generatedCsrfFallback = c.randomUUID();
+      return generatedCsrfFallback;
+    }
+    if (c && typeof c.getRandomValues === 'function') {
+      var bytes = new Uint8Array(16);
+      c.getRandomValues(bytes);
+      var hex = '';
+      for (var i = 0; i < bytes.length; i++) {
+        var b = bytes[i].toString(16);
+        hex += b.length < 2 ? '0' + b : b;
+      }
+      generatedCsrfFallback = hex;
+      return generatedCsrfFallback;
+    }
+  } catch (e) {}
+  var out = '';
+  for (var j = 0; j < 32; j++) {
+    out += Math.floor(Math.random() * 16).toString(16);
+  }
+  generatedCsrfFallback = out;
+  return generatedCsrfFallback;
+}
+
 function readCsrf() {
   try {
     if (window.__AG_CSRF__) return String(window.__AG_CSRF__);
     var m = document.querySelector('meta[name="csrf-token"], meta[name="csrfToken"]');
     if (m && m.getAttribute('content')) return m.getAttribute('content');
   } catch (e) {}
-  return CONFIG.csrfToken || 'agy-standalone-token';
+  return CONFIG.csrfToken || generateFallbackCsrf();
 }
 
 function syncCsrf() {
@@ -163,7 +194,7 @@ try {
       for (var qk in fromQuery) { if (Object.prototype.hasOwnProperty.call(fromQuery, qk)) ENDPOINTS[qk] = fromQuery[qk]; }
     }
     var port = qp.get('port') || qp.get('enginePort');
-    if (port) { ENDPOINTS.core_http = 'http://127.0.0.1:' + port; ENDPOINTS.enginePort = port; }
+    if (port) { ENDPOINTS.core_http = 'https://127.0.0.1:' + port; ENDPOINTS.enginePort = port; }
   }
 } catch (e) { warn('endpoint parse', e); }
 global.__AG_ENDPOINTS__ = ENDPOINTS;
@@ -239,6 +270,22 @@ function appendCsrfQuery(url) {
  */
 var RPC_MARKERS = ['exa.language_server_pb.', 'exa.host_bridge_pb.', '/exa.'];
 
+function isVoiceHealthUrl(url) {
+  if (!url) return false;
+  var s = String(url);
+  if (/^(blob|data|wss?|chrome-extension):/i.test(s)) return false;
+  if (/^https?:/i.test(s)) {
+    try {
+      var parsed = new URL(s);
+      if (parsed.hostname !== '127.0.0.1' && parsed.hostname !== 'localhost') return false;
+      return parsed.pathname === '/voice/health';
+    } catch (_) {
+      return false;
+    }
+  }
+  return /^\/?voice\/health(?:[?#]|$)/i.test(s);
+}
+
 // RPC path (no leading slash) when `url` is a file:// or relative ConnectRPC
 // URL; null for anything else (http(s), blob, data, static assets).
 function rpcPathFrom(url) {
@@ -271,10 +318,37 @@ function installFetchRewrite() {
     });
   }
 
+  // pYa() in main.js does not retry /voice/health on network errors during cold boot;
+  // retry transient failures so the white Live Voice Call icon appears reliably.
+  function fetchVoiceHealthWithRetry(u, opts, retries) {
+    return origFetch(u, opts).then(function (resp) {
+      if (retries > 0 && resp && (resp.status === 502 || resp.status === 503 || resp.status === 504)) {
+        return new Promise(function (resolve) {
+          setTimeout(function () {
+            resolve(fetchVoiceHealthWithRetry(u, opts, retries - 1));
+          }, 300);
+        });
+      }
+      return resp;
+    }, function (err) {
+      if (retries > 0) {
+        return new Promise(function (resolve) {
+          setTimeout(function () {
+            resolve(fetchVoiceHealthWithRetry(u, opts, retries - 1));
+          }, 300);
+        });
+      }
+      throw err;
+    });
+  }
+
   global.fetch = function (resource, init) {
     try {
       // Request object: rebuild against the core origin, keep method/body.
       if (resource && typeof resource === 'object' && typeof resource.url === 'string') {
+        if (isVoiceHealthUrl(resource.url)) {
+          return fetchVoiceHealthWithRetry(resource, init, 15);
+        }
         var rpath = rpcPathFrom(resource.url);
         if (rpath) {
           try {
@@ -312,6 +386,12 @@ function installFetchRewrite() {
 
       // String URL: the Connect/grpc-web transport's common path.
       if (typeof resource === 'string') {
+        if (isVoiceHealthUrl(resource)) {
+          var vhUrl = /^https?:/i.test(resource)
+            ? resource
+            : (coreBase() + '/' + resource.replace(/^\/+/, ''));
+          return fetchVoiceHealthWithRetry(vhUrl, init, 15);
+        }
         var path = rpcPathFrom(resource);
         if (path) {
           var url = appendCsrfQuery(coreBase() + '/' + path);

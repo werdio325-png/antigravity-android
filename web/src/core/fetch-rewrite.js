@@ -16,6 +16,22 @@
  */
 var RPC_MARKERS = ['exa.language_server_pb.', 'exa.host_bridge_pb.', '/exa.'];
 
+function isVoiceHealthUrl(url) {
+  if (!url) return false;
+  var s = String(url);
+  if (/^(blob|data|wss?|chrome-extension):/i.test(s)) return false;
+  if (/^https?:/i.test(s)) {
+    try {
+      var parsed = new URL(s);
+      if (parsed.hostname !== '127.0.0.1' && parsed.hostname !== 'localhost') return false;
+      return parsed.pathname === '/voice/health';
+    } catch (_) {
+      return false;
+    }
+  }
+  return /^\/?voice\/health(?:[?#]|$)/i.test(s);
+}
+
 // RPC path (no leading slash) when `url` is a file:// or relative ConnectRPC
 // URL; null for anything else (http(s), blob, data, static assets).
 function rpcPathFrom(url) {
@@ -48,10 +64,37 @@ function installFetchRewrite() {
     });
   }
 
+  // pYa() in main.js does not retry /voice/health on network errors during cold boot;
+  // retry transient failures so the white Live Voice Call icon appears reliably.
+  function fetchVoiceHealthWithRetry(u, opts, retries) {
+    return origFetch(u, opts).then(function (resp) {
+      if (retries > 0 && resp && (resp.status === 502 || resp.status === 503 || resp.status === 504)) {
+        return new Promise(function (resolve) {
+          setTimeout(function () {
+            resolve(fetchVoiceHealthWithRetry(u, opts, retries - 1));
+          }, 300);
+        });
+      }
+      return resp;
+    }, function (err) {
+      if (retries > 0) {
+        return new Promise(function (resolve) {
+          setTimeout(function () {
+            resolve(fetchVoiceHealthWithRetry(u, opts, retries - 1));
+          }, 300);
+        });
+      }
+      throw err;
+    });
+  }
+
   global.fetch = function (resource, init) {
     try {
       // Request object: rebuild against the core origin, keep method/body.
       if (resource && typeof resource === 'object' && typeof resource.url === 'string') {
+        if (isVoiceHealthUrl(resource.url)) {
+          return fetchVoiceHealthWithRetry(resource, init, 15);
+        }
         var rpath = rpcPathFrom(resource.url);
         if (rpath) {
           try {
@@ -89,6 +132,12 @@ function installFetchRewrite() {
 
       // String URL: the Connect/grpc-web transport's common path.
       if (typeof resource === 'string') {
+        if (isVoiceHealthUrl(resource)) {
+          var vhUrl = /^https?:/i.test(resource)
+            ? resource
+            : (coreBase() + '/' + resource.replace(/^\/+/, ''));
+          return fetchVoiceHealthWithRetry(vhUrl, init, 15);
+        }
         var path = rpcPathFrom(resource);
         if (path) {
           var url = appendCsrfQuery(coreBase() + '/' + path);

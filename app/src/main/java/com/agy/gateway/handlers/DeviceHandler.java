@@ -114,4 +114,28 @@ public final class DeviceHandler {
         }
         return resp;
     }
+
+    public JSONObject handleTorch(JSONObject payload) {
+        JSONObject resp = new JSONObject();
+        try {
+            boolean enabled = payload != null && payload.optBoolean("enabled", true);
+            if (payload != null && payload.has("state")) {
+                String state = payload.optString("state", "");
+                if ("off".equalsIgnoreCase(state) || "0".equals(state) || "false".equalsIgnoreCase(state)) {
+                    enabled = false;
+                } else if ("on".equalsIgnoreCase(state) || "1".equals(state) || "true".equalsIgnoreCase(state)) {
+                    enabled = true;
+                }
+            }
+            com.agy.runtime.TorchReceiver.setTorchMode(context, enabled);
+            resp.put("ok", true);
+            resp.put("enabled", enabled);
+        } catch (Exception e) {
+            try {
+                resp.put("ok", false);
+                resp.put("error", e.getMessage());
+            } catch (Exception ignored) {}
+        }
+        return resp;
+    }
 }

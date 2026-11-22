@@ -12,6 +12,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Base64;
+import android.util.Base64InputStream;
 import android.util.Log;
 import android.webkit.CookieManager;
 import android.webkit.URLUtil;
@@ -26,19 +27,24 @@ import com.agy.util.TrustedCoreOrigin;
 import org.json.JSONObject;
 
 import java.io.File;
-import java.io.IOException;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
 /**
- * Handles file downloads initiated from the WebView with explicit runtime storage permission checks.
+ * Handles file downloads initiated from the WebView with explicit runtime storage
+ * permission checks. Blob payloads are streamed directly to disk (or a temporary
+ * cache file while awaiting permission) so large downloads never retain multi-MB
+ * Base64 strings in static heap fields.
  */
 public final class FileDownloader {
 
     private static final String TAG = "FileDownloader";
+    private static final String PENDING_BLOB_DIR = "pending_downloads";
     private static final int MAX_BLOB_BYTES = 64 * 1024 * 1024;
     public static final int REQUEST_STORAGE_DOWNLOAD = 2001;
 
@@ -48,16 +54,16 @@ public final class FileDownloader {
         public final String contentDisposition;
         public final String mimeType;
         public final long contentLength;
-        public final String base64Data; // set if blob download
+        public final File pendingBlobFile; // temp cache file if blob download awaited permission
 
         public DownloadTask(String url, String userAgent, String contentDisposition,
-                            String mimeType, long contentLength, String base64Data) {
+                            String mimeType, long contentLength, File pendingBlobFile) {
             this.url = url;
             this.userAgent = userAgent;
             this.contentDisposition = contentDisposition;
             this.mimeType = mimeType;
             this.contentLength = contentLength;
-            this.base64Data = base64Data;
+            this.pendingBlobFile = pendingBlobFile;
         }
     }
 
@@ -74,8 +80,36 @@ public final class FileDownloader {
         return true;
     }
 
-    public static void requestStoragePermission(Activity activity, DownloadTask task) {
+    public static synchronized void clearPendingTask() {
+        DownloadTask old = pendingTask;
+        pendingTask = null;
+        if (old != null) {
+            safeDelete(old.pendingBlobFile);
+        }
+    }
+
+    private static synchronized void setPendingTask(DownloadTask task) {
+        DownloadTask old = pendingTask;
         pendingTask = task;
+        if (old != null && old != task) {
+            safeDelete(old.pendingBlobFile);
+        }
+    }
+
+    private static synchronized DownloadTask takePendingTask() {
+        DownloadTask task = pendingTask;
+        pendingTask = null;
+        return task;
+    }
+
+    public static void requestStoragePermission(Activity activity, DownloadTask task) {
+        if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
+            if (task != null) {
+                safeDelete(task.pendingBlobFile);
+            }
+            return;
+        }
+        setPendingTask(task);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Toast.makeText(activity, "Требуется доступ к файлам для скачивания", Toast.LENGTH_SHORT).show();
             activity.requestPermissions(new String[]{
@@ -83,7 +117,8 @@ public final class FileDownloader {
                     Manifest.permission.READ_EXTERNAL_STORAGE
             }, REQUEST_STORAGE_DOWNLOAD);
         } else {
-            executeTask(activity, null, task);
+            DownloadTask current = takePendingTask();
+            executeTask(activity, null, current);
         }
     }
 
@@ -93,15 +128,18 @@ public final class FileDownloader {
         }
         boolean granted = grantResults != null && grantResults.length > 0
                 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+        DownloadTask task = takePendingTask();
         if (granted) {
-            if (pendingTask != null) {
-                DownloadTask task = pendingTask;
-                pendingTask = null;
+            if (task != null) {
                 executeTask(activity, webView, task);
             }
         } else {
-            pendingTask = null;
-            Toast.makeText(activity, "Разрешение на доступ к файлам отклонено", Toast.LENGTH_LONG).show();
+            if (task != null) {
+                safeDelete(task.pendingBlobFile);
+            }
+            if (activity != null) {
+                Toast.makeText(activity, "Разрешение на доступ к файлам отклонено", Toast.LENGTH_LONG).show();
+            }
         }
     }
 
@@ -116,23 +154,67 @@ public final class FileDownloader {
         }
     }
 
-    public static void handleBlobData(Activity activity, String base64Data, String filename, String mimeType) {
-        DownloadTask task = new DownloadTask(null, null, filename, mimeType, 0, base64Data);
-        if (!hasStoragePermission(activity)) {
-            requestStoragePermission(activity, task);
-        } else {
-            executeTask(activity, null, task);
+    public static void handleBlobData(final Activity activity, final String base64Data,
+                                      final String filename, final String mimeType) {
+        if (activity == null || base64Data == null) {
+            return;
         }
+        if (hasStoragePermission(activity)) {
+            saveBase64ToDownloads(activity, base64Data, filename, mimeType);
+            return;
+        }
+        // Stream-decode into a temporary cache file so we never keep up to 64 MiB
+        // of Base64 pinned in static heap memory across the permission dialog.
+        final Context appContext = activity.getApplicationContext();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                File tempFile = null;
+                try {
+                    tempFile = spillBase64ToCacheFile(appContext, base64Data);
+                    final File readyTempFile = tempFile;
+                    new Handler(Looper.getMainLooper()).post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (activity.isFinishing() || activity.isDestroyed()) {
+                                safeDelete(readyTempFile);
+                                return;
+                            }
+                            DownloadTask task = new DownloadTask(
+                                    null, null, filename, mimeType, readyTempFile.length(), readyTempFile);
+                            if (hasStoragePermission(activity)) {
+                                executeTask(activity, null, task);
+                            } else {
+                                requestStoragePermission(activity, task);
+                            }
+                        }
+                    });
+                } catch (final Exception e) {
+                    safeDelete(tempFile);
+                    Log.e(TAG, "Failed staging blob for permission request", e);
+                    new Handler(Looper.getMainLooper()).post(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(appContext, "Ошибка сохранения файла: " + e.getMessage(),
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+            }
+        }, "agy-blob-stage").start();
     }
 
     private static void executeTask(final Activity activity, final WebView webView, final DownloadTask task) {
         if (task == null || activity == null) {
+            if (task != null) {
+                safeDelete(task.pendingBlobFile);
+            }
             return;
         }
 
-        // Case 1: Base64 blob data
-        if (task.base64Data != null) {
-            saveBase64ToDownloads(activity, task.base64Data, task.contentDisposition, task.mimeType);
+        // Case 1: Staged blob cache file
+        if (task.pendingBlobFile != null) {
+            moveTempFileToDownloads(activity, task.pendingBlobFile, task.contentDisposition, task.mimeType);
             return;
         }
 
@@ -236,21 +318,12 @@ public final class FileDownloader {
 
     public static void saveBase64ToDownloads(final Context context, final String dataUrlOrBase64,
                                              final String filename, final String mimeType) {
+        final Context appContext = context.getApplicationContext();
         new Thread(new Runnable() {
             @Override
             public void run() {
+                File target = null;
                 try {
-                    String base64 = dataUrlOrBase64;
-                    int comma = base64.indexOf(',');
-                    if (comma >= 0) {
-                        base64 = base64.substring(comma + 1);
-                    }
-                    long estimatedBytes = ((long) base64.length() * 3L) / 4L;
-                    if (estimatedBytes > MAX_BLOB_BYTES) {
-                        throw new IOException("blob exceeds the 64 MiB download limit");
-                    }
-                    byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
-
                     File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
                     if (!downloadsDir.exists() && !downloadsDir.mkdirs() && !downloadsDir.isDirectory()) {
                         throw new IOException("cannot create Downloads directory");
@@ -260,34 +333,169 @@ public final class FileDownloader {
                     if (name.isEmpty()) {
                         name = "download_" + System.currentTimeMillis();
                     }
-                    File target = getSafeUniqueFile(downloadsDir, name);
+                    target = getSafeUniqueFile(downloadsDir, name);
 
-                    try (FileOutputStream fos = new FileOutputStream(target)) {
-                        fos.write(bytes);
-                        fos.flush();
-                    }
+                    streamDecodeBase64ToFile(dataUrlOrBase64, target);
 
                     final File savedFile = target;
-                    MediaScannerConnection.scanFile(context, new String[]{savedFile.getAbsolutePath()}, null, null);
+                    MediaScannerConnection.scanFile(appContext, new String[]{savedFile.getAbsolutePath()}, null, null);
 
                     new Handler(Looper.getMainLooper()).post(new Runnable() {
                         @Override
                         public void run() {
-                            Toast.makeText(context, "Сохранено в Загрузки: " + savedFile.getName(), Toast.LENGTH_LONG).show();
+                            Toast.makeText(appContext, "Сохранено в Загрузки: " + savedFile.getName(), Toast.LENGTH_LONG).show();
                         }
                     });
                     Log.i(TAG, "Blob saved to: " + savedFile.getAbsolutePath());
                 } catch (final Exception e) {
+                    safeDelete(target);
                     Log.e(TAG, "Failed to save blob", e);
                     new Handler(Looper.getMainLooper()).post(new Runnable() {
                         @Override
                         public void run() {
-                            Toast.makeText(context, "Ошибка сохранения файла: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                            Toast.makeText(appContext, "Ошибка сохранения файла: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                         }
                     });
                 }
             }
-        }).start();
+        }, "agy-blob-save").start();
+    }
+
+    private static void moveTempFileToDownloads(final Context context, final File tempFile,
+                                                final String filename, final String mimeType) {
+        final Context appContext = context.getApplicationContext();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                File target = null;
+                try {
+                    if (tempFile == null || !tempFile.isFile()) {
+                        throw new IOException("staged download file no longer exists");
+                    }
+                    File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                    if (!downloadsDir.exists() && !downloadsDir.mkdirs() && !downloadsDir.isDirectory()) {
+                        throw new IOException("cannot create Downloads directory");
+                    }
+
+                    String name = safeFileName(filename);
+                    if (name.isEmpty()) {
+                        name = "download_" + System.currentTimeMillis();
+                    }
+                    target = getSafeUniqueFile(downloadsDir, name);
+
+                    try (InputStream in = new FileInputStream(tempFile);
+                         OutputStream out = new FileOutputStream(target)) {
+                        byte[] buf = new byte[16 * 1024];
+                        int n;
+                        while ((n = in.read(buf)) != -1) {
+                            out.write(buf, 0, n);
+                        }
+                        out.flush();
+                    }
+
+                    final File savedFile = target;
+                    MediaScannerConnection.scanFile(appContext, new String[]{savedFile.getAbsolutePath()}, null, null);
+
+                    new Handler(Looper.getMainLooper()).post(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(appContext, "Сохранено в Загрузки: " + savedFile.getName(), Toast.LENGTH_LONG).show();
+                        }
+                    });
+                    Log.i(TAG, "Staged blob saved to: " + savedFile.getAbsolutePath());
+                } catch (final Exception e) {
+                    safeDelete(target);
+                    Log.e(TAG, "Failed to move staged blob", e);
+                    new Handler(Looper.getMainLooper()).post(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(appContext, "Ошибка сохранения файла: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                } finally {
+                    safeDelete(tempFile);
+                }
+            }
+        }, "agy-blob-move").start();
+    }
+
+    private static File spillBase64ToCacheFile(Context context, String dataUrlOrBase64) throws IOException {
+        File dir = new File(context.getCacheDir(), PENDING_BLOB_DIR);
+        if (!dir.exists() && !dir.mkdirs() && !dir.isDirectory()) {
+            throw new IOException("cannot create pending downloads cache directory");
+        }
+        File tempFile = File.createTempFile("blob_", ".tmp", dir);
+        try {
+            streamDecodeBase64ToFile(dataUrlOrBase64, tempFile);
+            return tempFile;
+        } catch (IOException e) {
+            safeDelete(tempFile);
+            throw e;
+        }
+    }
+
+    private static void streamDecodeBase64ToFile(String dataUrlOrBase64, File target) throws IOException {
+        if (dataUrlOrBase64 == null) {
+            throw new IOException("empty blob payload");
+        }
+        int start = 0;
+        int comma = dataUrlOrBase64.indexOf(',');
+        if (comma >= 0) {
+            start = comma + 1;
+        }
+        long estimatedBytes = ((long) (dataUrlOrBase64.length() - start) * 3L) / 4L;
+        if (estimatedBytes > MAX_BLOB_BYTES + 1024L) {
+            throw new IOException("blob exceeds the 64 MiB download limit");
+        }
+
+        long written = 0L;
+        try (InputStream raw = new AsciiSubstringInputStream(dataUrlOrBase64, start);
+             Base64InputStream decoded = new Base64InputStream(raw, Base64.DEFAULT);
+             FileOutputStream fos = new FileOutputStream(target)) {
+            byte[] buf = new byte[16 * 1024];
+            int n;
+            while ((n = decoded.read(buf)) != -1) {
+                written += n;
+                if (written > MAX_BLOB_BYTES) {
+                    throw new IOException("blob exceeds the 64 MiB download limit");
+                }
+                fos.write(buf, 0, n);
+            }
+            fos.flush();
+        }
+    }
+
+    /** Zero-copy InputStream over the ASCII Base64 slice of a String. */
+    private static final class AsciiSubstringInputStream extends InputStream {
+        private final String src;
+        private final int length;
+        private int pos;
+
+        AsciiSubstringInputStream(String src, int startOffset) {
+            this.src = src;
+            this.length = src.length();
+            this.pos = Math.max(0, Math.min(startOffset, this.length));
+        }
+
+        @Override
+        public int read() {
+            if (pos >= length) {
+                return -1;
+            }
+            return src.charAt(pos++) & 0xFF;
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) {
+            if (pos >= length) {
+                return -1;
+            }
+            int avail = Math.min(len, length - pos);
+            for (int i = 0; i < avail; i++) {
+                b[off + i] = (byte) (src.charAt(pos++) & 0xFF);
+            }
+            return avail;
+        }
     }
 
     private static void downloadDirect(final Activity activity, final String fileUrl,
@@ -418,5 +626,15 @@ public final class FileDownloader {
             count++;
         }
         return file;
+    }
+
+    private static void safeDelete(File file) {
+        if (file != null && file.exists()) {
+            try {
+                //noinspection ResultOfMethodCallIgnored
+                file.delete();
+            } catch (Exception ignored) {
+            }
+        }
     }
 }

@@ -11,6 +11,14 @@ def make_exec(p: str):
     mode = os.stat(p).st_mode
     os.chmod(p, mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
 
+def copy_text_lf(src: str, dst: str):
+    """Copy a text/shell script normalizing CRLF -> LF for Linux/Android execve safety."""
+    with open(src, "rb") as f:
+        data = f.read()
+    data = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    with open(dst, "wb") as f:
+        f.write(data)
+
 def pack_binaries(core_bin_path: str, loader_path: str, shims_dir: str, dest_bin_dir: str) -> list:
     os.makedirs(dest_bin_dir, exist_ok=True)
     installed = []
@@ -43,7 +51,7 @@ def pack_binaries(core_bin_path: str, loader_path: str, shims_dir: str, dest_bin
         xdg_src = os.path.join(shims_dir, "browser", "xdg_open.sh")
     if os.path.isfile(xdg_src):
         dst_xdg = os.path.join(dest_bin_dir, "xdg-open")
-        shutil.copyfile(xdg_src, dst_xdg)
+        copy_text_lf(xdg_src, dst_xdg)
         make_exec(dst_xdg)
         installed.append("xdg-open")
 
@@ -68,9 +76,9 @@ def pack_binaries(core_bin_path: str, loader_path: str, shims_dir: str, dest_bin
             except OSError:
                 src_f = os.path.join(browser_dir, src_name)
                 if os.path.isfile(src_f):
-                    shutil.copyfile(src_f, dst_f)
+                    copy_text_lf(src_f, dst_f)
                 else:
-                    with open(dst_f, "w", encoding="utf-8") as f:
+                    with open(dst_f, "w", encoding="utf-8", newline="\n") as f:
                         f.write('#!/system/bin/sh\nexec "$(dirname "$0")/xdg-open" "$@"\n')
                 make_exec(dst_f)
             installed.append(dst_name)
@@ -86,7 +94,7 @@ def pack_binaries(core_bin_path: str, loader_path: str, shims_dir: str, dest_bin
                     os.unlink(dst_f)
                 os.symlink("xdg-open", dst_f)
             except OSError:
-                shutil.copyfile(src_open_helper, dst_f)
+                copy_text_lf(src_open_helper, dst_f)
                 make_exec(dst_f)
             installed.append("open_helper")
 
@@ -96,7 +104,7 @@ def pack_binaries(core_bin_path: str, loader_path: str, shims_dir: str, dest_bin
         src_rish = os.path.join(priv_dir, "rish.sh")
         if os.path.isfile(src_rish):
             dst_f = os.path.join(dest_bin_dir, "rish")
-            shutil.copyfile(src_rish, dst_f)
+            copy_text_lf(src_rish, dst_f)
             make_exec(dst_f)
             installed.append("rish")
         

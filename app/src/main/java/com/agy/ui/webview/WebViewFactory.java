@@ -17,7 +17,7 @@ public final class WebViewFactory {
     }
 
     public static WebView create(Context context, AndroidBridge bridge, ThemeManager theme) {
-        WebView view = new WebView(context);
+        WebView view = new AgyWebView(context);
         view.setBackgroundColor(theme.getBackgroundColor());
         view.setFocusable(true);
         view.setFocusableInTouchMode(true);

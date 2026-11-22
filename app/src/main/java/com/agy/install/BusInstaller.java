@@ -25,7 +25,7 @@ public final class BusInstaller {
             return;
         }
         if (children == null || children.length == 0) {
-            Log.w(TAG, "no assets/" + EnvPaths.ASSET_BUS + " tree; skipping bus install");
+            Log.d(TAG, "no assets/" + EnvPaths.ASSET_BUS + " tree; skipping bus install");
             return;
         }
         File busDir = new File(prefix, "libexec/bus");
@@ -33,9 +33,25 @@ public final class BusInstaller {
         File busSh = new File(busDir, "bus.sh");
         if (busSh.isFile()) {
             FileModeUtil.setExec(busSh);
-        } else {
-            Log.w(TAG, "bus.sh missing after install: " + busSh);
         }
+        markScriptsExecutable(busDir);
         Log.i(TAG, "bus installed: " + busDir);
+    }
+
+    private static void markScriptsExecutable(File dir) {
+        File[] files = dir.listFiles();
+        if (files == null) {
+            return;
+        }
+        for (File f : files) {
+            if (f.isDirectory()) {
+                markScriptsExecutable(f);
+            } else {
+                String name = f.getName();
+                if (name.endsWith(".sh") || name.endsWith(".py")) {
+                    FileModeUtil.setExec(f);
+                }
+            }
+        }
     }
 }

@@ -19,8 +19,8 @@ import assemble
 import manifest_verifier
 import pipeline
 
-TARGET_SHA_FULL = "1d9750dd874faf2db976756dbb3476e72c2b29779793331f324151d0cb940bb7"
-TARGET_SHA_NO_BYPASS = "401c73945b2fca57bd1620ca792ed8952eb704c406d1314f4d307e736f5a5a22"
+TARGET_SHA_FULL = "87a06a695653a4b5a4d7faf385df02740620afb808e1b8a341ba48dc6b77dff4"
+TARGET_SHA_NO_BYPASS = "cdbad9f7855ae6d9bb675c42aa34af82f662c5a5cab98ef0d514eb1061690cad"
 DEFAULT_DEST = "/data/user/0/com.agy/files/standalone_runtime"
 
 def prepare(dest_runtime_dir: str = DEFAULT_DEST, no_bypass: bool = False) -> bool:
@@ -66,7 +66,7 @@ def prepare(dest_runtime_dir: str = DEFAULT_DEST, no_bypass: bool = False) -> bo
 
             # 2. Apply patch modules
             print(f"\n[2/4] Applying modules/patches pipeline (skip_gates={no_bypass})...")
-            ok_patch = pipeline.run_pipeline(staged_bin, dry_run=False, verify=False, allow_missing=True, skip_gates=no_bypass)
+            ok_patch = pipeline.run_pipeline(staged_bin, dry_run=False, verify=False, allow_missing=False, skip_gates=no_bypass)
             assert ok_patch, "Patch pipeline failed!"
             print("  [OK] Patches applied and verified.")
             try:

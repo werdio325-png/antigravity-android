@@ -22,5 +22,6 @@ var CONFIG = {
   // behaviour
   fallbackDelayMs: 70,
   retryDelayMs: 260,
+  maxWaitMs: 600,
   reopenGuardMs: 400
 };

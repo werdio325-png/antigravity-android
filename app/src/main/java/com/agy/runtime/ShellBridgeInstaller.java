@@ -35,7 +35,7 @@ public final class ShellBridgeInstaller {
     /** Records which prefix the bulk bridges were generated for. Bump when the
      *  bridge script format changes so a warm launch regenerates them once. */
     private static final String BRIDGE_MARKER = ".agy-bridges";
-    private static final int BRIDGE_FORMAT = 2;
+    private static final int BRIDGE_FORMAT = 4;
 
     private ShellBridgeInstaller() {
     }
@@ -60,6 +60,45 @@ public final class ShellBridgeInstaller {
             writeScript(sh, "#!/system/bin/sh\n# AGY fallback shell\nexec /system/bin/sh \"$@\"\n");
         }
         writeTorchShims(bin, context);
+        normalizeRuntimeBinScripts(bin);
+        if (context != null) {
+            File prefix = EnvInstaller.prefix(context);
+            File filesDir = context.getFilesDir();
+            String appId = context.getPackageName();
+            writeNodeBridge(new File(bin, "node"), prefix, filesDir, appId);
+            writeMcpAndPythonBridges(bin, prefix, filesDir, appId);
+        }
+    }
+
+    /** Strips accidental Windows CRLF from any shell/script shim unpacked into runtime/bin. */
+    private static void normalizeRuntimeBinScripts(File bin) {
+        File[] children = bin.listFiles();
+        if (children == null) {
+            return;
+        }
+        for (File child : children) {
+            if (!child.isFile() || child.length() < 4 || child.length() > (1L << 20)) {
+                continue;
+            }
+            try (InputStream in = new FileInputStream(child)) {
+                byte[] full = com.agy.util.IoUtil.readAllBytes(in);
+                if (full.length < 4 || full[0] != '#' || full[1] != '!') {
+                    continue;
+                }
+                if (!com.agy.install.TextFileDetector.isTextFile(full)) {
+                    continue;
+                }
+                String text = new String(full, java.nio.charset.StandardCharsets.ISO_8859_1);
+                if (text.indexOf('\r') < 0) {
+                    continue;
+                }
+                String normalized = text.replace("\r\n", "\n");
+                if (!normalized.equals(text)) {
+                    writeScript(child, normalized);
+                }
+            } catch (Throwable ignored) {
+            }
+        }
     }
 
     public static synchronized void writeTorchShims(File bin, android.content.Context context) {
@@ -127,8 +166,11 @@ public final class ShellBridgeInstaller {
             return;
         }
         String appId = rm.appContext().getPackageName();
+        File filesDir = rm.appContext().getFilesDir();
         writeBridge(new File(bin, "bash"), prefix, "bash", appId);
         writeBridge(new File(bin, "sh"), prefix, "bash", appId);
+        writeNodeBridge(new File(bin, "node"), prefix, filesDir, appId);
+        writeMcpAndPythonBridges(bin, prefix, filesDir, appId);
         File[] prefixTools = new File(prefix, "bin").listFiles();
         int toolCount = countFiles(prefixTools);
         File marker = new File(bin, BRIDGE_MARKER);
@@ -139,7 +181,13 @@ public final class ShellBridgeInstaller {
             for (File toolFile : prefixTools) {
                 if (toolFile.isFile()) {
                     String name = toolFile.getName();
-                    if ("rish".equals(name) || isOpenUrlShim(name)) {
+                    if ("rish".equals(name)
+                            || "node".equals(name)
+                            || "agy-mcp-android".equals(name)
+                            || "agy-mcp-browser".equals(name)
+                            || "python3".equals(name)
+                            || "python".equals(name)
+                            || isOpenUrlShim(name)) {
                         continue;
                     }
                     writeBridge(new File(bin, name), prefix, name, appId);
@@ -254,6 +302,201 @@ public final class ShellBridgeInstaller {
         sb.append("else\n");
         sb.append("  exec /system/bin/sh \"$@\"\n");
         sb.append("fi\n");
+        writeScript(bridge, sb.toString());
+    }
+
+    /**
+     * Writes a Bionic bridge for {@code node} used by sidecars (e.g. swarm_board).
+     * Runs {@code $PREFIX/bin/node} directly when installed, or performs a locked
+     * on-demand {@code pkg update && pkg install nodejs} bootstrap if invoked before
+     * Phase 2 seed installation finishes. Preserves caller's {@code HOME} and sidecar
+     * environment variables while isolating Bionic {@code LD_*} strictly to the child.
+     */
+    private static void writeNodeBridge(File bridge, File prefix, File filesDir, String appId) {
+        String p = ShellQuote.quote(prefix.getAbsolutePath());
+        String homeDir = ShellQuote.quote(filesDir.getAbsolutePath());
+        String pkgName = ShellQuote.quote(appId != null ? appId : "com.agy");
+        StringBuilder sb = new StringBuilder();
+        sb.append("#!/system/bin/sh\n");
+        sb.append("# AGY bridge -> bionic $PREFIX/bin/node (with locked auto-bootstrap)\n");
+        sb.append("PREFIX=").append(p).append('\n');
+        sb.append("HOME_DIR=").append(homeDir).append('\n');
+        sb.append("AGY_APPLICATION_ID=").append(pkgName).append('\n');
+        sb.append("export PREFIX AGY_APPLICATION_ID\n");
+        sb.append("if [ -z \"$HOME\" ]; then export HOME=\"$HOME_DIR\"; fi\n");
+        sb.append("if [ -z \"$TMPDIR\" ]; then export TMPDIR=\"$PREFIX/tmp\"; fi\n");
+        sb.append("mkdir -p \"$TMPDIR\" 2>/dev/null || true\n");
+        sb.append("\n");
+        sb.append("run_node() {\n");
+        sb.append("  if [ -f \"$PREFIX/lib/libtermux-exec.so\" ]; then\n");
+        sb.append("    export LD_PRELOAD=\"$PREFIX/lib/libtermux-exec.so\"\n");
+        sb.append("  else\n");
+        sb.append("    unset LD_PRELOAD\n");
+        sb.append("  fi\n");
+        sb.append("  export LD_LIBRARY_PATH=\"$PREFIX/lib\"\n");
+        sb.append("  export PATH=\"$PREFIX/bin:$HOME_DIR/runtime/bin:/system/bin\"\n");
+        sb.append("  export OPENSSL_CONF=\"$PREFIX/etc/tls/openssl.cnf\"\n");
+        sb.append("  export SSL_CERT_FILE=\"$PREFIX/etc/tls/cert.pem\"\n");
+        sb.append("  export CURL_CA_BUNDLE=\"$PREFIX/etc/tls/cert.pem\"\n");
+        sb.append("  exec \"$PREFIX/bin/node\" \"$@\"\n");
+        sb.append("}\n");
+        sb.append("\n");
+        sb.append("notify_status() {\n");
+        sb.append("  TITLE=\"$1\"\n");
+        sb.append("  MSG=\"$2\"\n");
+        sb.append("  GW_PORT=45160\n");
+        sb.append("  if [ -f \"$HOME_DIR/logs/gateway.port\" ]; then\n");
+        sb.append("    READ_PORT=$(tr -d '\\r\\n ' < \"$HOME_DIR/logs/gateway.port\" 2>/dev/null)\n");
+        sb.append("    [ -n \"$READ_PORT\" ] && GW_PORT=\"$READ_PORT\"\n");
+        sb.append("  fi\n");
+        sb.append("  if [ -x \"$PREFIX/bin/curl\" ]; then\n");
+        sb.append("    (\n");
+        sb.append("      export LD_LIBRARY_PATH=\"$PREFIX/lib\"\n");
+        sb.append("      unset LD_PRELOAD\n");
+        sb.append("      \"$PREFIX/bin/curl\" -sS -m 2 -X POST \"http://127.0.0.1:$GW_PORT/gateway\" \\\n");
+        sb.append("        -H \"Content-Type: application/json\" \\\n");
+        sb.append("        -d \"{\\\"command\\\":\\\"notify\\\",\\\"payload\\\":{\\\"tag\\\":\\\"agy_node_bootstrap\\\",\\\"id\\\":4150,\\\"title\\\":\\\"$TITLE\\\",\\\"message\\\":\\\"$MSG\\\"}}\" \\\n");
+        sb.append("        >/dev/null 2>&1 || true\n");
+        sb.append("    )\n");
+        sb.append("  elif [ -x \"$PREFIX/bin/agy-notify\" ]; then\n");
+        sb.append("    (\n");
+        sb.append("      export LD_LIBRARY_PATH=\"$PREFIX/lib\"\n");
+        sb.append("      export PATH=\"$PREFIX/bin:/system/bin\"\n");
+        sb.append("      \"$PREFIX/bin/agy-notify\" post --tag agy_node_bootstrap -t \"$TITLE\" -m \"$MSG\" >/dev/null 2>&1 || true\n");
+        sb.append("    )\n");
+        sb.append("  fi\n");
+        sb.append("}\n");
+        sb.append("\n");
+        sb.append("if [ -x \"$PREFIX/bin/node\" ]; then\n");
+        sb.append("  run_node \"$@\"\n");
+        sb.append("fi\n");
+        sb.append("\n");
+        sb.append("LOG_DIR=\"$HOME_DIR/logs\"\n");
+        sb.append("LOCK_DIR=\"$LOG_DIR/.node-bootstrap.lock\"\n");
+        sb.append("LOG_FILE=\"$LOG_DIR/node-bootstrap.log\"\n");
+        sb.append("mkdir -p \"$LOG_DIR\" 2>/dev/null || true\n");
+        sb.append("\n");
+        sb.append("# Wait briefly if env prefix is still extracting on first launch\n");
+        sb.append("PKG_WAIT=0\n");
+        sb.append("while [ ! -x \"$PREFIX/bin/pkg\" ] && [ \"$PKG_WAIT\" -lt 15 ]; do\n");
+        sb.append("  [ -x \"$PREFIX/bin/node\" ] && run_node \"$@\"\n");
+        sb.append("  sleep 1\n");
+        sb.append("  PKG_WAIT=$((PKG_WAIT + 1))\n");
+        sb.append("done\n");
+        sb.append("\n");
+        sb.append("# Clean up stale lock left behind by a killed process\n");
+        sb.append("if [ -d \"$LOCK_DIR\" ] && [ -f \"$LOCK_DIR/pid\" ]; then\n");
+        sb.append("  LOCK_PID=$(tr -d '\\r\\n ' < \"$LOCK_DIR/pid\" 2>/dev/null)\n");
+        sb.append("  if [ -n \"$LOCK_PID\" ] && ! kill -0 \"$LOCK_PID\" 2>/dev/null; then\n");
+        sb.append("    rm -rf \"$LOCK_DIR\" 2>/dev/null || true\n");
+        sb.append("  fi\n");
+        sb.append("fi\n");
+        sb.append("\n");
+        sb.append("if mkdir \"$LOCK_DIR\" 2>/dev/null; then\n");
+        sb.append("  echo \"$$\" > \"$LOCK_DIR/pid\" 2>/dev/null || true\n");
+        sb.append("  trap 'rm -rf \"$LOCK_DIR\" 2>/dev/null || true' EXIT INT TERM\n");
+        sb.append("  if [ ! -x \"$PREFIX/bin/node\" ] && [ -x \"$PREFIX/bin/pkg\" ]; then\n");
+        sb.append("    notify_status \"Setting up Swarm UI\" \"Installing Node.js runtime...\"\n");
+        sb.append("    (\n");
+        sb.append("      export HOME=\"$HOME_DIR/home\"\n");
+        sb.append("      mkdir -p \"$HOME\" \"$PREFIX/tmp\" 2>/dev/null || true\n");
+        sb.append("      export TMPDIR=\"$PREFIX/tmp\"\n");
+        sb.append("      if [ -f \"$PREFIX/lib/libtermux-exec.so\" ]; then\n");
+        sb.append("        export LD_PRELOAD=\"$PREFIX/lib/libtermux-exec.so\"\n");
+        sb.append("      else\n");
+        sb.append("        unset LD_PRELOAD\n");
+        sb.append("      fi\n");
+        sb.append("      export LD_LIBRARY_PATH=\"$PREFIX/lib\"\n");
+        sb.append("      export PATH=\"$PREFIX/bin:/system/bin\"\n");
+        sb.append("      export OPENSSL_CONF=\"$PREFIX/etc/tls/openssl.cnf\"\n");
+        sb.append("      export SSL_CERT_FILE=\"$PREFIX/etc/tls/cert.pem\"\n");
+        sb.append("      export CURL_CA_BUNDLE=\"$PREFIX/etc/tls/cert.pem\"\n");
+        sb.append("      export LANG=\"C.UTF-8\"\n");
+        sb.append("      printf '[%s] on-demand nodejs bootstrap started\\n' \"$(date +%s 2>/dev/null || echo 0)\" >> \"$LOG_FILE\" 2>&1\n");
+        sb.append("      \"$PREFIX/bin/pkg\" update >> \"$LOG_FILE\" 2>&1 && \"$PREFIX/bin/pkg\" install nodejs >> \"$LOG_FILE\" 2>&1\n");
+        sb.append("    ) || true\n");
+        sb.append("    if [ -x \"$PREFIX/bin/node\" ]; then\n");
+        sb.append("      notify_status \"Swarm UI Ready\" \"Node.js runtime installed.\"\n");
+        sb.append("    else\n");
+        sb.append("      notify_status \"Swarm UI Setup Failed\" \"Could not install nodejs. Check network or run: pkg install nodejs\"\n");
+        sb.append("    fi\n");
+        sb.append("  fi\n");
+        sb.append("  rm -rf \"$LOCK_DIR\" 2>/dev/null || true\n");
+        sb.append("  trap - EXIT INT TERM\n");
+        sb.append("else\n");
+        sb.append("  WAITED=0\n");
+        sb.append("  while [ -d \"$LOCK_DIR\" ] && [ \"$WAITED\" -lt 120 ]; do\n");
+        sb.append("    [ -x \"$PREFIX/bin/node\" ] && break\n");
+        sb.append("    sleep 1\n");
+        sb.append("    WAITED=$((WAITED + 1))\n");
+        sb.append("  done\n");
+        sb.append("fi\n");
+        sb.append("\n");
+        sb.append("if [ -x \"$PREFIX/bin/node\" ]; then\n");
+        sb.append("  run_node \"$@\"\n");
+        sb.append("fi\n");
+        sb.append("echo \"agy node bridge: $PREFIX/bin/node not installed (see $LOG_FILE)\" >&2\n");
+        sb.append("exit 127\n");
+        writeScript(bridge, sb.toString());
+    }
+
+    /**
+     * Installs dedicated Bionic bridges for bundled MCP servers and Python so
+     * glibc {@code language_server} can spawn them reliably even on first launch
+     * and across in-place upgrades without inheriting incompatible {@code LD_*} vars.
+     */
+    private static void writeMcpAndPythonBridges(File bin, File prefix, File filesDir, String appId) {
+        writeExecBridge(new File(bin, "agy-mcp-android"), prefix, filesDir, "agy-mcp-android", null, appId);
+        writeExecBridge(new File(bin, "agy-mcp-browser"), prefix, filesDir, "agy-mcp-browser", null, appId);
+        writeExecBridge(new File(bin, "python3"), prefix, filesDir, "python3", null, appId);
+        writeExecBridge(new File(bin, "python"), prefix, filesDir, "python", "python3", appId);
+    }
+
+    private static void writeExecBridge(File bridge, File prefix, File filesDir,
+                                        String target, String fallbackTarget, String appId) {
+        String p = ShellQuote.quote(prefix.getAbsolutePath());
+        String homeDir = ShellQuote.quote(filesDir.getAbsolutePath());
+        String pkgName = ShellQuote.quote(appId != null ? appId : "com.agy");
+        StringBuilder sb = new StringBuilder();
+        sb.append("#!/system/bin/sh\n");
+        sb.append("# AGY Bionic exec bridge -> $PREFIX/bin/").append(target).append('\n');
+        sb.append("PREFIX=").append(p).append('\n');
+        sb.append("HOME_DIR=").append(homeDir).append('\n');
+        sb.append("AGY_APPLICATION_ID=").append(pkgName).append('\n');
+        sb.append("export PREFIX AGY_APPLICATION_ID\n");
+        sb.append("if [ -z \"$HOME\" ]; then export HOME=\"$HOME_DIR\"; fi\n");
+        sb.append("if [ -z \"$TMPDIR\" ]; then export TMPDIR=\"$PREFIX/tmp\"; fi\n");
+        sb.append("mkdir -p \"$TMPDIR\" 2>/dev/null || true\n");
+        sb.append("if [ -f \"$PREFIX/lib/libtermux-exec.so\" ]; then\n");
+        sb.append("  export LD_PRELOAD=\"$PREFIX/lib/libtermux-exec.so\"\n");
+        sb.append("else\n");
+        sb.append("  unset LD_PRELOAD\n");
+        sb.append("fi\n");
+        sb.append("export LD_LIBRARY_PATH=\"$PREFIX/lib\"\n");
+        sb.append("export PATH=\"$PREFIX/bin:$HOME_DIR/runtime/bin:/system/bin\"\n");
+        sb.append("export OPENSSL_CONF=\"$PREFIX/etc/tls/openssl.cnf\"\n");
+        sb.append("export SSL_CERT_FILE=\"$PREFIX/etc/tls/cert.pem\"\n");
+        sb.append("export CURL_CA_BUNDLE=\"$PREFIX/etc/tls/cert.pem\"\n");
+        sb.append("export LANG=\"C.UTF-8\"\n");
+        sb.append("WAIT=0\n");
+        sb.append("while [ ! -x \"$PREFIX/bin/").append(target).append("\" ]");
+        if (fallbackTarget != null) {
+            sb.append(" && [ ! -x \"$PREFIX/bin/").append(fallbackTarget).append("\" ]");
+        }
+        sb.append(" && [ \"$WAIT\" -lt 10 ]; do\n");
+        sb.append("  sleep 1\n");
+        sb.append("  WAIT=$((WAIT + 1))\n");
+        sb.append("done\n");
+        sb.append("if [ -x \"$PREFIX/bin/").append(target).append("\" ]; then\n");
+        sb.append("  exec \"$PREFIX/bin/").append(target).append("\" \"$@\"\n");
+        sb.append("fi\n");
+        if (fallbackTarget != null) {
+            sb.append("if [ -x \"$PREFIX/bin/").append(fallbackTarget).append("\" ]; then\n");
+            sb.append("  exec \"$PREFIX/bin/").append(fallbackTarget).append("\" \"$@\"\n");
+            sb.append("fi\n");
+        }
+        sb.append("echo \"agy bridge: $PREFIX/bin/").append(target).append(" not found\" >&2\n");
+        sb.append("exit 127\n");
         writeScript(bridge, sb.toString());
     }
 

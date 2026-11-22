@@ -31,7 +31,10 @@ def pack_libraries(glibc_dir: str, dest_lib_dir: str) -> list:
             s_file = os.path.join(etc_src, fname)
             if os.path.isfile(s_file):
                 d_file = os.path.join(dest_etc, fname)
-                shutil.copyfile(s_file, d_file)
+                with open(s_file, "rb") as rf:
+                    raw = rf.read().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+                with open(d_file, "wb") as wf:
+                    wf.write(raw)
                 mode = os.stat(d_file).st_mode
                 os.chmod(d_file, mode | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
                 copied.append(f"etc/{fname}")

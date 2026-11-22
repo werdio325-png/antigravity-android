@@ -21,8 +21,12 @@ public final class SeedPackageInstaller {
 
     private static final String TAG = "SeedPackageInstaller";
     private static final long RETRY_BACKOFF_MS = TimeUnit.HOURS.toMillis(6);
+    private static final long NODE_RETRY_BACKOFF_MS = TimeUnit.MINUTES.toMillis(15);
+    private static final long STALE_LOCK_MS = TimeUnit.MINUTES.toMillis(10);
     private static final long COMMAND_TIMEOUT_MINUTES = 20;
     private static final String STATE_NAME = ".agy-env-seeds.properties";
+    public static final String NODE_BOOTSTRAP_LOCK_REL = "logs/.node-bootstrap.lock";
+    public static final String NODE_BOOTSTRAP_LOG_REL = "logs/node-bootstrap.log";
 
     private SeedPackageInstaller() {
     }
@@ -46,13 +50,18 @@ public final class SeedPackageInstaller {
         boolean changed = false;
         boolean updated = false;
         for (String packageName : packages) {
-            if (isPackageAvailable(context, prefix, packageName, logFile)) {
+            boolean isNodePkg = isNodePackage(packageName);
+            File pkgLogFile = isNodePkg
+                    ? prepareLogFile(new File(context.getFilesDir(), NODE_BOOTSTRAP_LOG_REL))
+                    : logFile;
+            if (isPackageAvailable(context, prefix, packageName, pkgLogFile)) {
                 state.setProperty(packageName + ".status", "ready");
                 continue;
             }
             long lastAttempt = parseLong(state.getProperty(packageName + ".lastAttempt"));
             long now = System.currentTimeMillis();
-            if (lastAttempt > 0 && now - lastAttempt < RETRY_BACKOFF_MS) {
+            long backoffMs = isNodePkg ? NODE_RETRY_BACKOFF_MS : RETRY_BACKOFF_MS;
+            if (lastAttempt > 0 && now - lastAttempt < backoffMs) {
                 Log.i(TAG, packageName + " install deferred by retry backoff");
                 continue;
             }
@@ -63,35 +72,52 @@ public final class SeedPackageInstaller {
                 continue;
             }
 
-            if (!updated) {
-                if (!runPkg(context, prefix, "update")) {
-                    Log.w(TAG, "pkg update failed; aborting seed package installation");
-                    break;
+            File lockDir = null;
+            if (isNodePkg) {
+                lockDir = tryAcquireNodeBootstrapLock(context.getFilesDir());
+                if (lockDir == null) {
+                    Log.i(TAG, "nodejs bootstrap already in progress; skipping duplicate install");
+                    continue;
                 }
-                updated = true;
             }
+            try {
+                if (isPackageAvailable(context, prefix, packageName, pkgLogFile)) {
+                    state.setProperty(packageName + ".status", "ready");
+                    writeState(stateFile, state);
+                    continue;
+                }
+                if (!updated) {
+                    if (!runPkg(context, prefix, pkgLogFile, "update")) {
+                        Log.w(TAG, "pkg update failed; aborting seed package installation");
+                        break;
+                    }
+                    updated = true;
+                }
 
-            state.setProperty(packageName + ".lastAttempt", Long.toString(now));
-            state.setProperty(packageName + ".status", "installing");
-            writeState(stateFile, state);
-            boolean installed = runPkg(context, prefix, "install", packageName)
-                    && isPackageAvailable(context, prefix, packageName, logFile);
-            if (installed) {
-                state.setProperty(packageName + ".status", "ready");
-                state.remove(packageName + ".lastAttempt");
-                changed = true;
-                Log.i(TAG, "default package installed: " + packageName);
-            } else {
-                state.setProperty(packageName + ".status", "pending-retry");
-                Log.w(TAG, "default package not ready: " + packageName
-                        + "; see " + logFile);
+                state.setProperty(packageName + ".lastAttempt", Long.toString(now));
+                state.setProperty(packageName + ".status", "installing");
+                writeState(stateFile, state);
+                boolean installed = runPkg(context, prefix, pkgLogFile, "install", packageName)
+                        && isPackageAvailable(context, prefix, packageName, pkgLogFile);
+                if (installed) {
+                    state.setProperty(packageName + ".status", "ready");
+                    state.remove(packageName + ".lastAttempt");
+                    changed = true;
+                    Log.i(TAG, "default package installed: " + packageName);
+                } else {
+                    state.setProperty(packageName + ".status", "pending-retry");
+                    Log.w(TAG, "default package not ready: " + packageName
+                            + "; see " + pkgLogFile);
+                }
+                writeState(stateFile, state);
+            } finally {
+                releaseNodeBootstrapLock(lockDir);
             }
-            writeState(stateFile, state);
         }
         return changed;
     }
 
-    private static boolean runPkg(Context context, File prefix, String... args) {
+    private static boolean runPkg(Context context, File prefix, File logFile, String... args) {
         File pkg = new File(prefix, "bin/pkg");
         if (!pkg.isFile()) {
             Log.w(TAG, "pkg wrapper missing: " + pkg);
@@ -102,7 +128,6 @@ public final class SeedPackageInstaller {
         for (String arg : args) {
             command.add(arg);
         }
-        File logFile = new File(context.getFilesDir(), "env-seed-install.log");
         Process process = null;
         try {
             File home = new File(context.getFilesDir(), "home");
@@ -141,6 +166,9 @@ public final class SeedPackageInstaller {
             int result = process.exitValue();
             if (result != 0) {
                 appendLog(logFile, "\n[AGY] exit=" + result + " command=" + command + "\n");
+                String tail = readTail(logFile, 12, 1200);
+                Log.w(TAG, "pkg command failed (exit=" + result + ") " + command
+                        + (tail.isEmpty() ? "" : "\n--- pkg output tail ---\n" + tail));
             }
             return result == 0;
         } catch (Exception e) {
@@ -153,9 +181,70 @@ public final class SeedPackageInstaller {
         }
     }
 
+    private static boolean isNodePackage(String packageName) {
+        return "nodejs".equals(packageName) || "nodejs-lts".equals(packageName);
+    }
+
+    private static String executableNameForPackage(String packageName) {
+        if ("python".equals(packageName)) {
+            return "python3";
+        }
+        if (isNodePackage(packageName)) {
+            return "node";
+        }
+        return packageName;
+    }
+
+    private static File prepareLogFile(File logFile) {
+        File parent = logFile.getParentFile();
+        if (parent != null && !parent.exists()) {
+            parent.mkdirs();
+        }
+        if (logFile.isFile() && logFile.length() > (1L << 20)) {
+            logFile.delete();
+        }
+        return logFile;
+    }
+
+    private static File tryAcquireNodeBootstrapLock(File filesDir) {
+        File lockDir = new File(filesDir, NODE_BOOTSTRAP_LOCK_REL);
+        File parent = lockDir.getParentFile();
+        if (parent != null && !parent.exists()) {
+            parent.mkdirs();
+        }
+        if (lockDir.exists()) {
+            long ageMs = System.currentTimeMillis() - lockDir.lastModified();
+            if (ageMs > STALE_LOCK_MS) {
+                releaseNodeBootstrapLock(lockDir);
+            }
+        }
+        if (!lockDir.mkdir()) {
+            return null;
+        }
+        try {
+            File pidFile = new File(lockDir, "pid");
+            AtomicFileWriter.writeText(pidFile, android.os.Process.myPid() + "\n");
+        } catch (Throwable ignored) {
+        }
+        return lockDir;
+    }
+
+    private static void releaseNodeBootstrapLock(File lockDir) {
+        if (lockDir == null || !lockDir.exists()) {
+            return;
+        }
+        File[] children = lockDir.listFiles();
+        if (children != null) {
+            for (File child : children) {
+                child.delete();
+            }
+        }
+        lockDir.delete();
+    }
+
     private static boolean isPackageAvailable(Context context, File prefix,
                                               String packageName, File logFile) {
-        String executable = "python".equals(packageName) ? "python3" : packageName;
+        String executable = executableNameForPackage(packageName);
         File binary = new File(prefix, "bin/" + executable);
         if (!binary.isFile()) {
             return false;
@@ -237,5 +326,35 @@ public final class SeedPackageInstaller {
             output.write(message.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         } catch (IOException ignored) {
         }
+    }
+
+    private static String readTail(File file, int maxLines, int maxChars) {
+        if (file == null || !file.isFile()) {
+            return "";
+        }
+        List<String> lines = new ArrayList<>();
+        try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(file))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                lines.add(line);
+                if (lines.size() > maxLines) {
+                    lines.remove(0);
+                }
+            }
+        } catch (Exception ignored) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < lines.size(); i++) {
+            if (i > 0) {
+                sb.append('\n');
+            }
+            sb.append(lines.get(i));
+        }
+        String out = sb.toString().trim();
+        if (out.length() > maxChars) {
+            out = out.substring(out.length() - maxChars);
+        }
+        return out;
     }
 }

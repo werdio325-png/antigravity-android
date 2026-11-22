@@ -1,18 +1,27 @@
 package com.agy.core;
 
 import android.content.Context;
+import android.system.Os;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.agy.gateway.SystemGatewayServer;
 import com.agy.runtime.RuntimeManager;
 import com.agy.util.CoreUrl;
 import com.agy.util.ErrorText;
+import com.agy.util.IoUtil;
 import com.agy.util.ProcessUtils;
 import com.agy.util.SensitiveDataRedactor;
 
+import org.json.JSONObject;
+
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.io.Writer;
+import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Supervises the core for its whole life. One pass = install, launch, wait for
@@ -23,10 +32,12 @@ import java.io.Writer;
 public final class CoreProcessSupervisor {
 
     private static final String TAG = "CoreProcessSupervisor";
+    public static final String CORE_STATE_REL_PATH = "logs/core.state.json";
 
     private final Context appContext;
     private final RuntimeManager runtime;
     private final OpenUrlWatcher openUrlWatcher;
+    private final CoreEventWatcher coreEventWatcher;
     private final com.agy.log.LogRingBuffer logBuffer;
     private final Runnable terminalListener;
 
@@ -38,9 +49,18 @@ public final class CoreProcessSupervisor {
                                  OpenUrlWatcher openUrlWatcher,
                                  com.agy.log.LogRingBuffer logBuffer,
                                  Runnable terminalListener) {
+        this(context, runtime, openUrlWatcher, new CoreEventWatcher(context), logBuffer, terminalListener);
+    }
+
+    public CoreProcessSupervisor(Context context, RuntimeManager runtime,
+                                 OpenUrlWatcher openUrlWatcher,
+                                 CoreEventWatcher coreEventWatcher,
+                                 com.agy.log.LogRingBuffer logBuffer,
+                                 Runnable terminalListener) {
         this.appContext = context.getApplicationContext();
         this.runtime = runtime;
         this.openUrlWatcher = openUrlWatcher;
+        this.coreEventWatcher = coreEventWatcher != null ? coreEventWatcher : new CoreEventWatcher(this.appContext);
         this.logBuffer = logBuffer;
         this.terminalListener = terminalListener;
     }
@@ -53,6 +73,7 @@ public final class CoreProcessSupervisor {
 
     public void stop() {
         stopping = true;
+        clearCoreStateFile(appContext.getFilesDir());
         destroy(process);
         if (worker != null) {
             worker.interrupt();
@@ -63,6 +84,7 @@ public final class CoreProcessSupervisor {
         try {
             runCoreLoop();
         } finally {
+            clearCoreStateFile(appContext.getFilesDir());
             if (!stopping && terminalListener != null) {
                 try {
                     terminalListener.run();
@@ -76,6 +98,7 @@ public final class CoreProcessSupervisor {
     private void runCoreLoop() {
         int attempt = 0;
         while (!stopping) {
+            clearCoreStateFile(appContext.getFilesDir());
             Writer log = CoreLogWriter.open(appContext.getFilesDir());
             try {
                 CoreRuntimeState.lastError = null;
@@ -89,6 +112,7 @@ public final class CoreProcessSupervisor {
                 streamer.start();
 
                 if (!waitForReady(proc, log)) {
+                    clearCoreStateFile(appContext.getFilesDir());
                     if (stopping) {
                         break;
                     }
@@ -108,6 +132,7 @@ public final class CoreProcessSupervisor {
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                 }
+                clearCoreStateFile(appContext.getFilesDir());
                 if (stopping) {
                     break;
                 }
@@ -173,10 +198,13 @@ public final class CoreProcessSupervisor {
                 return false;
             }
             if (CoreReadyProbe.probeOnce(appContext, port)) {
+                long readyAt = System.currentTimeMillis();
                 CoreRuntimeState.serverUrl = CoreUrl.startUrl(port, csrf);
                 CoreRuntimeState.lastError = null;
                 CoreRuntimeState.restarting = false;
                 CoreRuntimeState.readyGeneration++;
+                writeCoreStateFile(appContext.getFilesDir(), port, csrf,
+                        SystemGatewayServer.getActivePort(), extractPid(proc), readyAt);
                 String readyStatus = "core ready on 127.0.0.1:" + port;
                 Log.i(TAG, readyStatus);
                 CoreLogWriter.writeLine(log, readyStatus);
@@ -198,10 +226,101 @@ public final class CoreProcessSupervisor {
                 }
                 CoreLogWriter.writeLine(log, safeLine);
                 openUrlWatcher.handleStreamLine(line);
+                if (coreEventWatcher != null) {
+                    coreEventWatcher.handleStreamLine(line);
+                }
             }
         } catch (Exception e) {
             Log.w(TAG, "log stream ended", e);
         }
+    }
+
+    /** Atomically writes {@code files/logs/core.state.json} with strict 0600 permissions. */
+    static void writeCoreStateFile(File filesDir, int httpsPort, String csrfToken,
+                                   int gatewayPort, long pid, long readyAtMs) {
+        if (filesDir == null) {
+            return;
+        }
+        File target = new File(filesDir, CORE_STATE_REL_PATH);
+        File dir = target.getParentFile();
+        if (dir != null && !dir.exists() && !dir.mkdirs()) {
+            Log.w(TAG, "cannot create logs dir for core.state.json");
+            return;
+        }
+        JSONObject state = new JSONObject();
+        try {
+            state.put("ready", true);
+            state.put("https_port", httpsPort);
+            state.put("csrf_token", csrfToken != null ? csrfToken : "");
+            state.put("base_url", "https://127.0.0.1:" + httpsPort);
+            state.put("gateway_port", gatewayPort);
+            state.put("pid", pid);
+            state.put("ready_at", readyAtMs);
+        } catch (Exception e) {
+            Log.w(TAG, "failed building core.state.json: " + e.getMessage());
+            return;
+        }
+
+        File tmp = new File(dir, target.getName() + ".tmp");
+        try (FileOutputStream out = new FileOutputStream(tmp)) {
+            try {
+                Os.chmod(tmp.getAbsolutePath(), 0600);
+            } catch (Throwable ignored) {
+            }
+            tmp.setReadable(false, false);
+            tmp.setReadable(true, true);
+            tmp.setWritable(false, false);
+            tmp.setWritable(true, true);
+            out.write((state.toString(2) + "\n").getBytes(StandardCharsets.UTF_8));
+            out.flush();
+            out.getFD().sync();
+        } catch (Exception e) {
+            Log.w(TAG, "failed writing core.state.json tmp: " + e.getMessage());
+            IoUtil.deleteQuietly(tmp);
+            return;
+        }
+        if (!tmp.renameTo(target)) {
+            if (!(target.delete() && tmp.renameTo(target))) {
+                Log.w(TAG, "failed renaming core.state.json tmp into place");
+                IoUtil.deleteQuietly(tmp);
+                return;
+            }
+        }
+        try {
+            Os.chmod(target.getAbsolutePath(), 0600);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /** Removes {@code files/logs/core.state.json} when the core is stopped or crashed. */
+    public static void clearCoreStateFile(File filesDir) {
+        if (filesDir == null) {
+            return;
+        }
+        File target = new File(filesDir, CORE_STATE_REL_PATH);
+        if (target.exists() && !target.delete()) {
+            Log.w(TAG, "failed to remove stale core.state.json");
+        }
+    }
+
+    private static long extractPid(Process proc) {
+        if (proc == null) {
+            return -1L;
+        }
+        Class<?> cls = proc.getClass();
+        while (cls != null) {
+            try {
+                Field f = cls.getDeclaredField("pid");
+                f.setAccessible(true);
+                Object v = f.get(proc);
+                if (v instanceof Number) {
+                    return ((Number) v).longValue();
+                }
+            } catch (Throwable ignored) {
+            }
+            cls = cls.getSuperclass();
+        }
+        return -1L;
     }
 
     private void sleepInterruptible(long ms) {

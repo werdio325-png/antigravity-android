@@ -9,5 +9,6 @@ var state = {
   lastOpenAt: 0,
   opens: 0,
   observer: null,
-  scanTimer: 0
+  scanTimer: 0,
+  cancelPendingOpen: null
 };

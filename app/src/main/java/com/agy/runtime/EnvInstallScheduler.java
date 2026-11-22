@@ -6,6 +6,8 @@ import com.agy.install.EnvBundleManifest;
 import com.agy.install.EnvInstaller;
 import com.agy.install.SeedPackageInstaller;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -31,8 +33,14 @@ public final class EnvInstallScheduler {
                 try {
                     boolean fresh = EnvInstaller.install(rm.appContext());
                     EnvBundleManifest manifest = EnvBundleManifest.load(rm.appContext().getAssets());
+                    List<String> seedPackages = new ArrayList<>(manifest.seedPackages);
+                    // Ensure Node.js is bootstrapped in the background for built-in sidecars
+                    // (e.g. swarm_board) even on existing installs upgraded in-place.
+                    if (!seedPackages.contains("nodejs") && !seedPackages.contains("nodejs-lts")) {
+                        seedPackages.add("nodejs");
+                    }
                     boolean seeded = SeedPackageInstaller.installDefaults(
-                            rm.appContext(), EnvInstaller.prefix(rm.appContext()), manifest.seedPackages);
+                            rm.appContext(), EnvInstaller.prefix(rm.appContext()), seedPackages);
                     // The core is glibc and must not inherit bionic's LD_* vars,
                     // so bridges set the bionic env for each child only. Seeded
                     // packages can add commands, so refresh the bridge inventory after them.

@@ -1,0 +1,850 @@
+#!/usr/bin/env python3
+"""
+agy-mcp-browser - Zero-dependency stdio MCP server exposing the standard
+`chrome_devtools` tool surface backed by native Android WebView automation
+(`WebBrowserAutomationHandler` via `SystemGatewayServer` `browser_auto`).
+
+Protocol: JSON-RPC 2.0 over newline-delimited stdin/stdout (MCP 2024-11-05+).
+"""
+
+import os
+import sys
+import json
+import time
+import base64
+import urllib.error
+import urllib.request
+
+SERVER_NAME = "chrome-devtools"
+SERVER_VERSION = "1.0.0"
+SUPPORTED_PROTOCOL_VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
+DEFAULT_PROTOCOL_VERSION = "2024-11-05"
+DEFAULT_GATEWAY_PORT = 45160
+MAX_INLINE_SCREENSHOT_BYTES = 2 * 1024 * 1024
+
+_PAGE_STATE = {
+    "open": False,
+    "url": "about:blank",
+    "title": "",
+}
+
+
+def get_prefix():
+    env_prefix = os.environ.get("PREFIX", "").strip()
+    if env_prefix:
+        return env_prefix
+    return os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+
+
+def get_home():
+    env_home = os.environ.get("HOME", "").strip()
+    if env_home:
+        return env_home
+    return os.path.dirname(get_prefix())
+
+
+def get_gateway_port():
+    env_port = os.environ.get("AGY_GATEWAY_PORT", "").strip()
+    if env_port:
+        try:
+            p = int(env_port)
+            if 1 <= p <= 65535:
+                return p
+        except ValueError:
+            pass
+
+    home = get_home()
+    port_file = os.path.join(home, "logs", "gateway.port")
+    try:
+        if os.path.isfile(port_file):
+            with open(port_file, "r", encoding="utf-8") as f:
+                p = int(f.read().strip())
+                if 1 <= p <= 65535:
+                    return p
+    except Exception:
+        pass
+
+    state_file = os.path.join(home, "logs", "core.state.json")
+    try:
+        if os.path.isfile(state_file):
+            with open(state_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            p = int(data.get("gateway_port", 0))
+            if 1 <= p <= 65535:
+                return p
+    except Exception:
+        pass
+
+    return DEFAULT_GATEWAY_PORT
+
+
+def gateway_browser(payload, timeout=35.0):
+    port = get_gateway_port()
+    url = f"http://127.0.0.1:{port}/gateway"
+    body = json.dumps({
+        "command": "browser_auto",
+        "payload": payload,
+    }, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={"Content-Type": "application/json; charset=utf-8"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8", errors="replace").strip()
+            return json.loads(raw) if raw else {"ok": True}
+    except urllib.error.HTTPError as e:
+        detail = ""
+        try:
+            detail = e.read().decode("utf-8", errors="replace").strip()[:300]
+        except Exception:
+            pass
+        return {"ok": False, "error": f"Gateway HTTP {e.code}: {detail or e.reason}"}
+    except urllib.error.URLError as e:
+        return {"ok": False, "error": f"Gateway unreachable at 127.0.0.1:{port}: {e.reason}"}
+    except Exception as e:
+        return {"ok": False, "error": f"Gateway request failed: {e}"}
+
+
+def _css_escape_attr_value(val):
+    return str(val).replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _resolve_selector(args):
+    uid = str(args.get("uid") or "").strip()
+    selector = str(args.get("selector") or "").strip()
+    if uid:
+        return f'[data-agy-uid="{_css_escape_attr_value(uid)}"]'
+    return selector
+
+
+# -----------------------------------------------------------------------------
+# Tool Definitions (Standard Chrome DevTools MCP Surface)
+# -----------------------------------------------------------------------------
+TOOLS = [
+    {
+        "name": "list_pages",
+        "description": "List open pages in the Android headless WebView browser session.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": True,
+        },
+    },
+    {
+        "name": "new_page",
+        "description": "Open a URL in the Android WebView browser page (http/https only).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Target http/https URL to load."},
+                "timeout": {"type": "integer", "description": "Navigation timeout in milliseconds."},
+                "width": {"type": "integer", "description": "Optional viewport width in pixels."},
+                "height": {"type": "integer", "description": "Optional viewport height in pixels."},
+            },
+            "required": ["url"],
+            "additionalProperties": True,
+        },
+    },
+    {
+        "name": "select_page",
+        "description": "Select the active page in the Android browser session.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "pageId": {"type": "integer", "description": "Page ID from list_pages (1)."},
+                "pageIdx": {"type": "integer", "description": "Alias for pageId."},
+            },
+            "additionalProperties": True,
+        },
+    },
+    {
+        "name": "close_page",
+        "description": "Close the Android WebView page and release browser memory.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "pageId": {"type": "integer", "description": "Optional page ID to close."},
+            },
+            "additionalProperties": True,
+        },
+    },
+    {
+        "name": "navigate_page",
+        "description": "Navigate the active Android WebView page to a URL, or go back, forward, or reload.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "enum": ["url", "back", "forward", "reload"],
+                    "default": "url",
+                    "description": "Navigation type.",
+                },
+                "url": {"type": "string", "description": "Target http/https URL when type is 'url'."},
+                "timeout": {"type": "integer", "description": "Optional timeout in milliseconds."},
+                "width": {"type": "integer", "description": "Optional viewport width in pixels."},
+                "height": {"type": "integer", "description": "Optional viewport height in pixels."},
+            },
+            "additionalProperties": True,
+        },
+    },
+    {
+        "name": "take_snapshot",
+        "description": (
+            "Capture a structured DOM/accessibility snapshot of the current page, assigning stable "
+            "uid handles (e1, e2, ...) to interactive elements for click and fill."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "verbose": {"type": "boolean", "description": "Include extra attributes and longer text excerpt."},
+                "filePath": {"type": "string", "description": "Optional file path to save the snapshot text."},
+            },
+            "additionalProperties": True,
+        },
+    },
+    {
+        "name": "take_screenshot",
+        "description": "Capture a PNG screenshot of the current Android WebView page.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "filePath": {"type": "string", "description": "Optional destination PNG file path."},
+                "path": {"type": "string", "description": "Alias for filePath."},
+                "fullPage": {"type": "boolean", "description": "Ignored on fixed offscreen canvas; kept for compatibility."},
+                "includeBase64": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Embed base64 PNG image content block when file size <= 2MB.",
+                },
+            },
+            "additionalProperties": True,
+        },
+    },
+    {
+        "name": "click",
+        "description": "Click an element on the current page by snapshot uid (e.g. 'e1') or CSS selector.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "uid": {"type": "string", "description": "Element uid from take_snapshot (e.g. 'e1')."},
+                "selector": {"type": "string", "description": "Fallback CSS selector if uid is omitted."},
+            },
+            "additionalProperties": True,
+        },
+    },
+    {
+        "name": "fill",
+        "description": "Focus and fill an input, textarea, or contenteditable element by snapshot uid or CSS selector.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "uid": {"type": "string", "description": "Element uid from take_snapshot."},
+                "selector": {"type": "string", "description": "Fallback CSS selector if uid is omitted."},
+                "value": {"type": "string", "description": "Value to type into the field."},
+                "text": {"type": "string", "description": "Alias for value."},
+                "clear": {"type": "boolean", "default": True, "description": "Clear existing content before typing."},
+            },
+            "additionalProperties": True,
+        },
+    },
+    {
+        "name": "press_key",
+        "description": "Dispatch a keyboard key press (e.g. 'Enter', 'Escape', 'Tab') to the active element.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "key": {"type": "string", "description": "DOM key name (e.g. 'Enter', 'Escape', 'Tab', 'ArrowDown')."},
+            },
+            "required": ["key"],
+            "additionalProperties": True,
+        },
+    },
+    {
+        "name": "evaluate_script",
+        "description": "Evaluate a JavaScript function or expression inside the active Android WebView page.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "function": {"type": "string", "description": "JavaScript function (e.g. '() => document.title') or expression."},
+                "script": {"type": "string", "description": "Alias for function."},
+                "args": {
+                    "type": "array",
+                    "description": "Optional arguments passed to function (objects with {uid} resolve to DOM elements).",
+                    "items": {"type": "object"},
+                },
+            },
+            "additionalProperties": True,
+        },
+    },
+    {
+        "name": "list_console_messages",
+        "description": "Return buffered JavaScript console messages captured from the Android WebView.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "types": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional filter list of log levels (e.g. ['error', 'warning']).",
+                },
+                "clear": {"type": "boolean", "default": False, "description": "Clear console log buffer after reading."},
+            },
+            "additionalProperties": True,
+        },
+    },
+    {
+        "name": "wait_for",
+        "description": "Wait until specified text appears on the current page or timeout expires.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "description": "Text string (or array of strings) to wait for on the page.",
+                    "oneOf": [
+                        {"type": "string"},
+                        {"type": "array", "items": {"type": "string"}},
+                    ],
+                },
+                "timeout": {
+                    "type": "integer",
+                    "default": 10000,
+                    "description": "Maximum time to wait in milliseconds.",
+                },
+            },
+            "required": ["text"],
+            "additionalProperties": True,
+        },
+    },
+]
+
+
+# -----------------------------------------------------------------------------
+# Tool Handlers
+# -----------------------------------------------------------------------------
+def _make_text_result(data, is_error=False):
+    text = data if isinstance(data, str) else json.dumps(data, ensure_ascii=False, indent=2)
+    return {
+        "content": [{"type": "text", "text": text}],
+        "isError": is_error,
+    }
+
+
+def _sync_page_meta_from_resp(resp):
+    if isinstance(resp, dict) and resp.get("ok"):
+        _PAGE_STATE["open"] = True
+        if resp.get("url"):
+            _PAGE_STATE["url"] = str(resp["url"])
+        if "title" in resp and resp["title"] is not None:
+            _PAGE_STATE["title"] = str(resp["title"])
+
+
+def handle_list_pages(_args):
+    if _PAGE_STATE["open"]:
+        probe = gateway_browser({"action": "get_text", "max_chars": 200}, timeout=10.0)
+        if probe.get("ok"):
+            _sync_page_meta_from_resp(probe)
+        pages = [{
+            "pageId": 1,
+            "url": _PAGE_STATE["url"],
+            "title": _PAGE_STATE["title"],
+            "selected": True,
+        }]
+    else:
+        pages = []
+    return _make_text_result({"ok": True, "pages": pages})
+
+
+def handle_new_page(args):
+    url = str(args.get("url") or "").strip()
+    if not url:
+        return _make_text_result({"ok": False, "error": "url is required"}, is_error=True)
+    return handle_navigate_page({
+        "type": "url",
+        "url": url,
+        "timeout": args.get("timeout"),
+        "width": args.get("width"),
+        "height": args.get("height"),
+    })
+
+
+def handle_select_page(args):
+    page_id = args.get("pageId", args.get("pageIdx", 1))
+    try:
+        pid = int(page_id)
+    except (TypeError, ValueError):
+        pid = 1
+    if pid != 1 and _PAGE_STATE["open"]:
+        return _make_text_result({"ok": False, "error": f"Android WebView supports single active pageId=1 (got {pid})"}, is_error=True)
+    return _make_text_result({
+        "ok": True,
+        "pageId": 1,
+        "url": _PAGE_STATE["url"],
+        "title": _PAGE_STATE["title"],
+    })
+
+
+def handle_close_page(_args):
+    resp = gateway_browser({"action": "close"}, timeout=15.0)
+    if resp.get("ok"):
+        _PAGE_STATE["open"] = False
+        _PAGE_STATE["url"] = "about:blank"
+        _PAGE_STATE["title"] = ""
+    return _make_text_result(resp, is_error=not resp.get("ok", False))
+
+
+def handle_navigate_page(args):
+    nav_type = str(args.get("type") or "url").strip().lower()
+    timeout_ms = args.get("timeout")
+    http_timeout = 35.0
+    if timeout_ms is not None:
+        try:
+            http_timeout = max(35.0, (float(timeout_ms) / 1000.0) + 10.0)
+        except (TypeError, ValueError):
+            pass
+
+    if nav_type in ("back", "forward", "reload"):
+        js_map = {
+            "back": "history.back(); location.href;",
+            "forward": "history.forward(); location.href;",
+            "reload": "location.reload(); location.href;",
+        }
+        resp = gateway_browser({"action": "eval", "script": js_map[nav_type]}, timeout=http_timeout)
+        if not resp.get("ok"):
+            return _make_text_result(resp, is_error=True)
+        time.sleep(0.5)
+        meta = gateway_browser({"action": "get_text", "max_chars": 200}, timeout=10.0)
+        _sync_page_meta_from_resp(meta)
+        return _make_text_result({
+            "ok": True,
+            "pageId": 1,
+            "type": nav_type,
+            "url": _PAGE_STATE["url"],
+            "title": _PAGE_STATE["title"],
+        })
+
+    url = str(args.get("url") or "").strip()
+    if not url:
+        return _make_text_result({"ok": False, "error": "url is required when type is 'url'"}, is_error=True)
+
+    payload = {"action": "navigate", "url": url}
+    if timeout_ms is not None:
+        payload["timeout_ms"] = int(timeout_ms)
+    if args.get("width") is not None:
+        payload["width"] = int(args["width"])
+    if args.get("height") is not None:
+        payload["height"] = int(args["height"])
+
+    resp = gateway_browser(payload, timeout=http_timeout)
+    _sync_page_meta_from_resp(resp)
+    if isinstance(resp, dict) and resp.get("ok"):
+        resp = dict(resp)
+        resp.setdefault("pageId", 1)
+    return _make_text_result(resp, is_error=not resp.get("ok", False))
+
+
+SNAPSHOT_JS = """(function(verbose){
+  var maxEls = verbose ? 300 : 160;
+  var maxText = verbose ? 16000 : 8000;
+  var selector = 'a[href],button,input,textarea,select,[role="button"],[role="link"],[role="textbox"],[role="tab"],[contenteditable="true"],h1,h2,h3';
+  var nodes = document.querySelectorAll(selector);
+  var items = [];
+  var idx = 0;
+  for (var i = 0; i < nodes.length && idx < maxEls; i++) {
+    var el = nodes[i];
+    var rect = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+    if (rect && rect.width === 0 && rect.height === 0) continue;
+    idx++;
+    var uid = 'e' + idx;
+    try { el.setAttribute('data-agy-uid', uid); } catch(e) {}
+    var tag = (el.tagName || '').toLowerCase();
+    var role = el.getAttribute('role') || (tag === 'a' ? 'link' : (tag === 'button' ? 'button' : (tag === 'textarea' ? 'textbox' : (tag === 'input' ? (el.type || 'textbox') : tag))));
+    var label = (el.getAttribute('aria-label') || el.innerText || el.textContent || el.getAttribute('placeholder') || el.getAttribute('name') || el.value || '').replace(/\\s+/g, ' ').trim().slice(0, 120);
+    var entry = {uid: uid, role: role, tag: tag, label: label};
+    if (tag === 'a' && el.href) entry.href = String(el.href).slice(0, 160);
+    if ((tag === 'input' || tag === 'textarea' || tag === 'select') && el.value) entry.value = String(el.value).slice(0, 120);
+    items.push(entry);
+  }
+  var bodyText = ((document.body && (document.body.innerText || document.body.textContent)) || '').replace(/\\r\\n/g, '\\n').trim();
+  var truncated = bodyText.length > maxText;
+  if (truncated) bodyText = bodyText.slice(0, maxText);
+  return {
+    url: location.href,
+    title: document.title || '',
+    elements: items,
+    text: bodyText,
+    truncated: truncated
+  };
+})"""
+
+
+def handle_take_snapshot(args):
+    verbose = bool(args.get("verbose", False))
+    script = f"{SNAPSHOT_JS}({'true' if verbose else 'false'});"
+    resp = gateway_browser({"action": "eval", "script": script}, timeout=20.0)
+    if not resp.get("ok"):
+        return _make_text_result(resp, is_error=True)
+
+    snap = resp.get("result")
+    if isinstance(snap, str):
+        try:
+            snap = json.loads(snap)
+        except json.JSONDecodeError:
+            snap = {"url": _PAGE_STATE["url"], "title": _PAGE_STATE["title"], "elements": [], "text": snap}
+    if not isinstance(snap, dict):
+        return _make_text_result({"ok": False, "error": "snapshot returned empty result"}, is_error=True)
+
+    _sync_page_meta_from_resp({"ok": True, "url": snap.get("url"), "title": snap.get("title")})
+
+    lines = [
+        f"Page: {snap.get('title', '')} ({snap.get('url', '')})",
+        "",
+        "Interactive & Structural Elements:",
+    ]
+    for el in snap.get("elements") or []:
+        parts = [f"uid={el.get('uid')}", str(el.get("role", el.get("tag", "node")))]
+        label = el.get("label")
+        if label:
+            parts.append(json.dumps(label, ensure_ascii=False))
+        if el.get("href"):
+            parts.append(f"href={el['href']}")
+        if el.get("value"):
+            parts.append(f"value={json.dumps(el['value'], ensure_ascii=False)}")
+        lines.append("- " + " ".join(parts))
+
+    body_text = snap.get("text") or ""
+    if body_text:
+        lines.append("")
+        lines.append("Page Text:")
+        lines.append(body_text)
+        if snap.get("truncated"):
+            lines.append("...[truncated]")
+
+    rendered = "\n".join(lines)
+    file_path = str(args.get("filePath") or "").strip()
+    if file_path:
+        try:
+            parent = os.path.dirname(os.path.abspath(file_path))
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(rendered)
+            return _make_text_result(f"Saved snapshot to {file_path}\n\n{rendered}")
+        except Exception as e:
+            return _make_text_result({"ok": False, "error": f"failed writing snapshot file: {e}"}, is_error=True)
+
+    return _make_text_result(rendered)
+
+
+def handle_take_screenshot(args):
+    payload = {"action": "screenshot"}
+    req_path = str(args.get("filePath") or args.get("path") or "").strip()
+    if req_path:
+        payload["path"] = req_path
+
+    resp = gateway_browser(payload, timeout=25.0)
+    if not resp.get("ok"):
+        return _make_text_result(resp, is_error=True)
+
+    content = [{"type": "text", "text": json.dumps(resp, ensure_ascii=False, indent=2)}]
+    include_b64 = args.get("includeBase64", True)
+    saved_path = resp.get("path")
+    if include_b64 and saved_path and os.path.isfile(saved_path):
+        try:
+            size = os.path.getsize(saved_path)
+            if 0 < size <= MAX_INLINE_SCREENSHOT_BYTES:
+                with open(saved_path, "rb") as f:
+                    b64 = base64.b64encode(f.read()).decode("ascii")
+                content.append({
+                    "type": "image",
+                    "data": b64,
+                    "mimeType": "image/png",
+                })
+        except Exception:
+            pass
+
+    return {"content": content, "isError": False}
+
+
+def handle_click(args):
+    selector = _resolve_selector(args)
+    if not selector:
+        return _make_text_result({"ok": False, "error": "uid or selector is required"}, is_error=True)
+    resp = gateway_browser({"action": "click", "selector": selector}, timeout=15.0)
+    return _make_text_result(resp, is_error=not resp.get("ok", False))
+
+
+def handle_fill(args):
+    selector = _resolve_selector(args)
+    if not selector:
+        return _make_text_result({"ok": False, "error": "uid or selector is required"}, is_error=True)
+    value = args.get("value") if "value" in args else args.get("text")
+    if value is None:
+        return _make_text_result({"ok": False, "error": "value is required"}, is_error=True)
+    clear = bool(args.get("clear", True))
+    resp = gateway_browser({
+        "action": "type",
+        "selector": selector,
+        "text": str(value),
+        "clear": clear,
+    }, timeout=15.0)
+    return _make_text_result(resp, is_error=not resp.get("ok", False))
+
+
+def handle_press_key(args):
+    key = str(args.get("key") or "").strip()
+    if not key:
+        return _make_text_result({"ok": False, "error": "key is required"}, is_error=True)
+    script = (
+        "(function(k){"
+        "var el=document.activeElement||document.body||document.documentElement;"
+        "if(!el)return {ok:false,error:'no active element'};"
+        "var opts={key:k,bubbles:true,cancelable:true};"
+        "el.dispatchEvent(new KeyboardEvent('keydown',opts));"
+        "el.dispatchEvent(new KeyboardEvent('keypress',opts));"
+        "el.dispatchEvent(new KeyboardEvent('keyup',opts));"
+        "if(k==='Enter'&&el.form&&typeof el.form.requestSubmit==='function'){try{el.form.requestSubmit();}catch(e){}}"
+        "return {ok:true,key:k,tag:(el.tagName||'')};"
+        "})(" + json.dumps(key) + ");"
+    )
+    resp = gateway_browser({"action": "eval", "script": script}, timeout=15.0)
+    return _make_text_result(resp, is_error=not resp.get("ok", False))
+
+
+def handle_evaluate_script(args):
+    fn_src = args.get("function")
+    if fn_src is None:
+        fn_src = args.get("script")
+    if not fn_src or not str(fn_src).strip():
+        return _make_text_result({"ok": False, "error": "function or script is required"}, is_error=True)
+
+    src = str(fn_src).strip()
+    raw_args = args.get("args") if isinstance(args.get("args"), list) else []
+    js_arg_exprs = []
+    for item in raw_args:
+        if isinstance(item, dict) and item.get("uid"):
+            sel = f'[data-agy-uid="{_css_escape_attr_value(item["uid"])}"]'
+            js_arg_exprs.append(f"document.querySelector({json.dumps(sel)})")
+        else:
+            js_arg_exprs.append(json.dumps(item, ensure_ascii=False))
+    arg_list = ", ".join(js_arg_exprs)
+
+    # Support both function expressions (e.g. "() => document.title" / "function(){...}") and plain expressions
+    wrapped = (
+        "(function(){"
+        "try{"
+        f"var __fn = ({src});"
+        f"return (typeof __fn === 'function') ? __fn({arg_list}) : __fn;"
+        "}catch(__e){"
+        f"try{{ return (function(){{ return ({src}); }})(); }}catch(__e2){{ return {{__eval_error: String(__e2)}}; }}"
+        "}"
+        "})();"
+    )
+    resp = gateway_browser({"action": "eval", "script": wrapped}, timeout=20.0)
+    if not resp.get("ok"):
+        return _make_text_result(resp, is_error=True)
+    res_val = resp.get("result")
+    if isinstance(res_val, dict) and "__eval_error" in res_val:
+        return _make_text_result({"ok": False, "error": res_val["__eval_error"]}, is_error=True)
+    return _make_text_result(resp)
+
+
+def handle_list_console_messages(args):
+    clear = bool(args.get("clear", False))
+    types = args.get("types")
+    resp = gateway_browser({"action": "console_logs", "clear": clear}, timeout=15.0)
+    if not resp.get("ok"):
+        return _make_text_result(resp, is_error=True)
+
+    logs = resp.get("logs") or []
+    if isinstance(types, list) and types:
+        wanted = {str(t).lower() for t in types}
+        logs = [
+            entry for entry in logs
+            if isinstance(entry, dict) and str(entry.get("level", "")).lower() in wanted
+        ]
+    return _make_text_result({"ok": True, "messages": logs, "count": len(logs)})
+
+
+def handle_wait_for(args):
+    target = args.get("text")
+    if isinstance(target, str):
+        needles = [target] if target else []
+    elif isinstance(target, list):
+        needles = [str(x) for x in target if str(x)]
+    else:
+        needles = []
+
+    if not needles:
+        return _make_text_result({"ok": False, "error": "text is required"}, is_error=True)
+
+    timeout_ms = args.get("timeout", 10000)
+    try:
+        timeout_sec = max(0.5, min(float(timeout_ms) / 1000.0, 60.0))
+    except (TypeError, ValueError):
+        timeout_sec = 10.0
+
+    deadline = time.monotonic() + timeout_sec
+    last_err = None
+    while True:
+        resp = gateway_browser({"action": "get_text", "max_chars": 32000}, timeout=10.0)
+        if resp.get("ok"):
+            _sync_page_meta_from_resp(resp)
+            haystack = str(resp.get("text") or "")
+            for needle in needles:
+                if needle in haystack:
+                    return _make_text_result({
+                        "ok": True,
+                        "matched": needle,
+                        "url": resp.get("url", _PAGE_STATE["url"]),
+                        "title": resp.get("title", _PAGE_STATE["title"]),
+                    })
+        else:
+            last_err = resp.get("error")
+
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return _make_text_result({
+                "ok": False,
+                "error": f"Timed out waiting for text {needles!r}" + (f" (last error: {last_err})" if last_err else ""),
+            }, is_error=True)
+        time.sleep(min(0.4, remaining))
+
+
+TOOL_HANDLERS = {
+    "list_pages": handle_list_pages,
+    "new_page": handle_new_page,
+    "select_page": handle_select_page,
+    "close_page": handle_close_page,
+    "navigate_page": handle_navigate_page,
+    "take_snapshot": handle_take_snapshot,
+    "take_screenshot": handle_take_screenshot,
+    "click": handle_click,
+    "fill": handle_fill,
+    "press_key": handle_press_key,
+    "evaluate_script": handle_evaluate_script,
+    "list_console_messages": handle_list_console_messages,
+    "wait_for": handle_wait_for,
+}
+
+
+# -----------------------------------------------------------------------------
+# JSON-RPC 2.0 / MCP Protocol Dispatcher
+# -----------------------------------------------------------------------------
+def _rpc_result(req_id, result):
+    return {"jsonrpc": "2.0", "id": req_id, "result": result}
+
+
+def _rpc_error(req_id, code, message, data=None):
+    err = {"code": code, "message": message}
+    if data is not None:
+        err["data"] = data
+    return {"jsonrpc": "2.0", "id": req_id, "error": err}
+
+
+def handle_message(msg):
+    if not isinstance(msg, dict):
+        return _rpc_error(None, -32600, "Invalid Request")
+
+    method = msg.get("method")
+    req_id = msg.get("id")
+    params = msg.get("params") or {}
+    is_notification = ("id" not in msg) or (isinstance(method, str) and method.startswith("notifications/"))
+
+    if not isinstance(method, str) or not method:
+        return None if is_notification else _rpc_error(req_id, -32600, "Missing method")
+
+    if method == "notifications/initialized" or method.startswith("notifications/"):
+        return None
+
+    if method == "initialize":
+        requested = params.get("protocolVersion") if isinstance(params, dict) else None
+        version = requested if requested in SUPPORTED_PROTOCOL_VERSIONS else DEFAULT_PROTOCOL_VERSION
+        return _rpc_result(req_id, {
+            "protocolVersion": version,
+            "capabilities": {
+                "tools": {"listChanged": False},
+            },
+            "serverInfo": {
+                "name": SERVER_NAME,
+                "version": SERVER_VERSION,
+            },
+        })
+
+    if method == "ping":
+        return _rpc_result(req_id, {})
+
+    if method == "tools/list":
+        return _rpc_result(req_id, {"tools": TOOLS})
+
+    if method == "tools/call":
+        if not isinstance(params, dict):
+            return _rpc_error(req_id, -32602, "Invalid params: object expected")
+        tool_name = params.get("name")
+        arguments = params.get("arguments")
+        if arguments is None:
+            arguments = {}
+        if not isinstance(arguments, dict):
+            return _rpc_error(req_id, -32602, "Invalid tool arguments: object expected")
+
+        handler = TOOL_HANDLERS.get(tool_name)
+        if handler is None:
+            return _rpc_error(req_id, -32602, f"Unknown tool: {tool_name}")
+
+        try:
+            return _rpc_result(req_id, handler(arguments))
+        except Exception as e:
+            return _rpc_result(req_id, _make_text_result({"ok": False, "error": str(e)}, is_error=True))
+
+    if is_notification:
+        return None
+    return _rpc_error(req_id, -32601, f"Method not found: {method}")
+
+
+def serve_stdio(stdin=None, stdout=None):
+    in_stream = stdin if stdin is not None else sys.stdin
+    out_stream = stdout if stdout is not None else sys.stdout
+
+    while True:
+        line = in_stream.readline()
+        if not line:
+            break
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        try:
+            msg = json.loads(stripped)
+        except json.JSONDecodeError as e:
+            resp = _rpc_error(None, -32700, f"Parse error: {e}")
+            out_stream.write(json.dumps(resp, ensure_ascii=False) + "\n")
+            out_stream.flush()
+            continue
+
+        resp = handle_message(msg)
+        if resp is not None:
+            out_stream.write(json.dumps(resp, ensure_ascii=False) + "\n")
+            out_stream.flush()
+
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] in ("--version", "-v"):
+        print(f"{SERVER_NAME} {SERVER_VERSION}")
+        return 0
+    if len(sys.argv) > 1 and sys.argv[1] in ("--help", "-h"):
+        print("agy-mcp-browser: Chrome DevTools-compatible MCP stdio server backed by Android WebView.")
+        print("Run with no arguments to serve JSON-RPC 2.0 over stdin/stdout.")
+        return 0
+
+    try:
+        serve_stdio()
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

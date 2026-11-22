@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 public final class EnvInstaller {
 
     private static final String TAG = "EnvInstaller";
-    private static final String STATE_SCHEMA = "2";
+    private static final String STATE_SCHEMA = "3";
 
     private EnvInstaller() {
     }
@@ -133,6 +133,7 @@ public final class EnvInstaller {
     private static void updateManagedLayers(Context context, AssetManager assets, File prefix,
                                             String bootstrapAsset, EnvBundleManifest manifest) {
         Properties previous = readState(new File(prefix, EnvPaths.MARKER));
+        String oldSchema = previous.getProperty("schema");
         String oldBootstrap = previous.getProperty("bootstrap_sha256");
         String oldOverlay = previous.getProperty("overlay_sha256");
         String oldPkg = previous.getProperty("pkg_sha256");
@@ -165,7 +166,8 @@ public final class EnvInstaller {
         }
 
         boolean prefixMoved = !targetPrefix.equals(oldPath);
-        if (prefixMoved || overlayChanged || pkgChanged) {
+        boolean schemaUpgraded = !STATE_SCHEMA.equals(oldSchema);
+        if (prefixMoved || overlayChanged || pkgChanged || schemaUpgraded) {
             TermuxSymlinkFixer.fix(prefix, targetPrefix);
             TermuxShebangRewriter.rewrite(prefix, targetPrefix);
             TermuxPrefixRewriter.rewrite(prefix, targetPrefix);

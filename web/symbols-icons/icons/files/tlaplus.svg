@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="-3 -2 40 40" width="512" height="512">
+  <g>
+    <rect
+       style="fill:#f4fcff;fill-opacity:1;stroke:#9e8a57;stroke-width:1.883;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       width="26.130598"
+       height="18.405617"
+       x="7.0990677"
+       y="12.380094" />
+    <rect
+       style="fill:#58b6e8;fill-opacity:1;stroke:#4476aa;stroke-width:1.87704;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       width="26.136963"
+       height="4.3126493"
+       x="7.0959797"
+       y="8.5128803" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:19.7556px;line-height:1.85;font-family:'Courier New';-inkscape-font-specification:'Courier New, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:0.639296;stroke-width:0.264583"
+       x="14.089217"
+       y="27.44842">
+      <tspan
+         x="14.089217"
+         y="27.44842"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:19.7556px;font-family:'Courier New';-inkscape-font-specification:'Courier New, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:0.639296;stroke-width:0.264583">T</tspan>
+    </text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:19.7556px;line-height:1.85;font-family:'Courier New';-inkscape-font-specification:'Courier New, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#44aa00;fill-opacity:1;stroke-width:0.264583"
+       x="13.792305"
+       y="27.17841">
+      <tspan
+         x="13.792305"
+         y="27.17841"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:19.7556px;font-family:'Courier New';-inkscape-font-specification:'Courier New, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#44aa00;fill-opacity:1;stroke-width:0.264583">T</tspan>
+    </text>
+    <rect
+       style="fill:#d4b866;fill-opacity:1;stroke:#a27d18;stroke-width:1.75521;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       width="9.4584684"
+       height="9.1862831"
+       x="23.395649"
+       y="-17.561703"
+       transform="matrix(0.70858642,0.70562404,-0.70858642,0.70562404,0,0)" />
+    <g transform="translate(29.85746,-1.0220158)">
+      <rect
+         style="fill:#f9efd9;fill-opacity:1;stroke:none;stroke-width:2.05513;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         width="11.826182"
+         height="2.0440314"
+         x="-6.6431041"
+         y="10.585164" />
+      <rect
+         style="fill:#f9efd9;fill-opacity:1;stroke:none;stroke-width:2.05513;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         width="11.826182"
+         height="2.0440314"
+         x="5.6940885"
+         y="-0.2920028"
+         transform="rotate(90)" />
+    </g>
+  </g>
+</svg>

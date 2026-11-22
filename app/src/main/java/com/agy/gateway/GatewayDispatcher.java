@@ -1,6 +1,8 @@
 package com.agy.gateway;
 
 import android.content.Context;
+import com.agy.core.ApprovalActionReceiver;
+import com.agy.core.VoiceForegroundService;
 import com.agy.gateway.handlers.*;
 import com.agy.log.CrashRecorder;
 import com.agy.log.LogRingBuffer;
@@ -11,8 +13,10 @@ import org.json.JSONObject;
  */
 public final class GatewayDispatcher {
 
+    private final Context appContext;
     private final NotificationHandler notificationHandler;
     private final BrowserHandler browserHandler;
+    private final WebBrowserAutomationHandler webBrowserAutomationHandler;
     private final PowerHandler powerHandler;
     private final ClipboardHandler clipboardHandler;
     private final DeviceHandler deviceHandler;
@@ -21,8 +25,10 @@ public final class GatewayDispatcher {
     private final ExecHandler execHandler;
 
     public GatewayDispatcher(Context context, LogRingBuffer logBuffer) {
+        this.appContext = context.getApplicationContext();
         this.notificationHandler = new NotificationHandler(context);
         this.browserHandler = new BrowserHandler(context);
+        this.webBrowserAutomationHandler = new WebBrowserAutomationHandler(context);
         this.powerHandler = new PowerHandler(context);
         this.clipboardHandler = new ClipboardHandler(context);
         this.deviceHandler = new DeviceHandler(context);
@@ -39,8 +45,16 @@ public final class GatewayDispatcher {
         switch (command) {
             case "notify":
                 return notificationHandler.handle(payload);
+            case "subagent_notify":
+                return notificationHandler.handleSubagent(payload);
+            case "approval_poll":
+                return ApprovalActionReceiver.handlePoll(appContext, payload);
+            case "voice_service":
+                return VoiceForegroundService.handleCommand(appContext, payload);
             case "open_url":
                 return browserHandler.handle(payload);
+            case "browser_auto":
+                return webBrowserAutomationHandler.handle(payload);
             case "wakelock":
                 return powerHandler.handle(payload);
             case "clipboard":
@@ -52,6 +66,8 @@ public final class GatewayDispatcher {
                 return deviceHandler.handleVibrate(payload);
             case "toast":
                 return deviceHandler.handleToast(payload);
+            case "torch":
+                return deviceHandler.handleTorch(payload);
             case "logs":
                 JSONObject logsResp = new JSONObject();
                 try {
@@ -102,6 +118,10 @@ public final class GatewayDispatcher {
     }
 
     public void releaseResources() {
+        webBrowserAutomationHandler.close();
         powerHandler.releaseAll();
+        if (VoiceForegroundService.isActive()) {
+            VoiceForegroundService.stop(appContext);
+        }
     }
 }

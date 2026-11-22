@@ -6,7 +6,7 @@ from typing import Tuple, Dict, Any, List, Union
 TARGET = b"/etc/resolv.conf"
 REPLACEMENT = b"etc//resolv.conf"
 ADJACENT_REJECT = b"/.\\"
-EXPECTED_COUNT = 2
+EXPECTED_COUNT = 1
 
 def scan(data: Union[bytes, bytearray, memoryview]) -> Tuple[List[int], List[int], List[int]]:
     clean = []

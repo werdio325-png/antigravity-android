@@ -1,0 +1,1134 @@
+#!/usr/bin/env python3
+"""
+agy-mcp-android - Zero-dependency stdio MCP server exposing native Android device
+capabilities via SystemGatewayServer, Shizuku (rish), and agy-daemon.
+
+Protocol: JSON-RPC 2.0 over newline-delimited stdin/stdout (MCP 2024-11-05+).
+"""
+
+import os
+import sys
+import json
+import time
+import uuid
+import subprocess
+import urllib.error
+import urllib.parse
+import urllib.request
+
+SERVER_NAME = "android-device"
+SERVER_VERSION = "1.0.0"
+SUPPORTED_PROTOCOL_VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
+DEFAULT_PROTOCOL_VERSION = "2024-11-05"
+DEFAULT_GATEWAY_PORT = 45160
+MAX_CMD_OUTPUT_BYTES = 64 * 1024
+
+
+def get_prefix():
+    env_prefix = os.environ.get("PREFIX", "").strip()
+    if env_prefix:
+        return env_prefix
+    return os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+
+
+def get_home():
+    env_home = os.environ.get("HOME", "").strip()
+    if env_home:
+        return env_home
+    return os.path.dirname(get_prefix())
+
+
+def get_gateway_port():
+    env_port = os.environ.get("AGY_GATEWAY_PORT", "").strip()
+    if env_port:
+        try:
+            p = int(env_port)
+            if 1 <= p <= 65535:
+                return p
+        except ValueError:
+            pass
+
+    home = get_home()
+    port_file = os.path.join(home, "logs", "gateway.port")
+    try:
+        if os.path.isfile(port_file):
+            with open(port_file, "r", encoding="utf-8") as f:
+                p = int(f.read().strip())
+                if 1 <= p <= 65535:
+                    return p
+    except Exception:
+        pass
+
+    state_file = os.path.join(home, "logs", "core.state.json")
+    try:
+        if os.path.isfile(state_file):
+            with open(state_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            p = int(data.get("gateway_port", 0))
+            if 1 <= p <= 65535:
+                return p
+    except Exception:
+        pass
+
+    return DEFAULT_GATEWAY_PORT
+
+
+def gateway_post(command, payload=None, timeout=35.0):
+    port = get_gateway_port()
+    url = f"http://127.0.0.1:{port}/gateway"
+    body = json.dumps({
+        "command": command,
+        "payload": payload if payload is not None else {},
+    }, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={"Content-Type": "application/json; charset=utf-8"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8", errors="replace").strip()
+            return json.loads(raw) if raw else {"ok": True}
+    except urllib.error.HTTPError as e:
+        detail = ""
+        try:
+            detail = e.read().decode("utf-8", errors="replace").strip()[:300]
+        except Exception:
+            pass
+        return {"ok": False, "error": f"Gateway HTTP {e.code}: {detail or e.reason}"}
+    except urllib.error.URLError as e:
+        return {"ok": False, "error": f"Gateway unreachable at 127.0.0.1:{port}: {e.reason}"}
+    except Exception as e:
+        return {"ok": False, "error": f"Gateway request failed: {e}"}
+
+
+def gateway_get(path, timeout=15.0):
+    port = get_gateway_port()
+    url = f"http://127.0.0.1:{port}{path}"
+    req = urllib.request.Request(url, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8", errors="replace").strip()
+            return json.loads(raw) if raw else {"ok": True}
+    except urllib.error.HTTPError as e:
+        return {"ok": False, "error": f"Gateway HTTP {e.code}: {e.reason}"}
+    except urllib.error.URLError as e:
+        return {"ok": False, "error": f"Gateway unreachable at 127.0.0.1:{port}: {e.reason}"}
+    except Exception as e:
+        return {"ok": False, "error": f"Gateway request failed: {e}"}
+
+
+def _truncate_text(text, max_bytes=MAX_CMD_OUTPUT_BYTES):
+    encoded = text.encode("utf-8", errors="replace")
+    if len(encoded) <= max_bytes:
+        return text
+    truncated = encoded[:max_bytes].decode("utf-8", errors="ignore")
+    return truncated + f"\n...[truncated {len(encoded) - max_bytes} bytes]"
+
+
+def _find_rish_bin():
+    env_bin = os.environ.get("AGY_RISH_BIN", "").strip()
+    if env_bin:
+        return env_bin
+    candidate = os.path.join(get_prefix(), "bin", "rish")
+    if os.path.isfile(candidate):
+        return candidate
+    return "rish"
+
+
+def _find_daemon_bin():
+    env_bin = os.environ.get("AGY_DAEMON_BIN", "").strip()
+    if env_bin:
+        return env_bin
+    candidate = os.path.join(get_prefix(), "bin", "agy-daemon")
+    if os.path.isfile(candidate):
+        return candidate
+    sibling = os.path.join(os.path.dirname(os.path.realpath(__file__)), "agy-daemon")
+    if os.path.isfile(sibling):
+        return sibling
+    return "agy-daemon"
+
+
+# -----------------------------------------------------------------------------
+# Tool Definitions (MCP JSON Schema)
+# -----------------------------------------------------------------------------
+TOOLS = [
+    {
+        "name": "android_device_info",
+        "description": (
+            "Query live Android device telemetry including battery percentage, charging status, "
+            "active network type, free internal storage (MB), and free memory (MB)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "android_notify",
+        "description": (
+            "Post, update, or cancel an Android notification. Supports progress bars, channels "
+            "(agy_tasks, agy_alerts, agy_subagents), one-flag tool approval preset (Approve / Deny / "
+            "Deny w/ Comment inline reply), and custom interactive RemoteInput action buttons."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["post", "cancel"],
+                    "default": "post",
+                    "description": "Whether to post/update or cancel a notification.",
+                },
+                "type": {
+                    "type": "string",
+                    "enum": ["default", "tool_approval", "subagent"],
+                    "description": "Notification preset type (tool_approval adds Approve, Deny, and Deny w/ Comment buttons).",
+                },
+                "approval": {
+                    "type": "boolean",
+                    "description": "Shortcut for type='tool_approval' (Approve / Deny / Deny w/ Comment inline reply).",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Notification title.",
+                },
+                "message": {
+                    "type": "string",
+                    "description": "Notification body text.",
+                },
+                "tag": {
+                    "type": "string",
+                    "description": "Stable notification tag used for updating or cancelling.",
+                },
+                "id": {
+                    "type": "integer",
+                    "description": "Optional integer notification ID.",
+                },
+                "channel": {
+                    "type": "string",
+                    "enum": ["agy_tasks", "agy_alerts", "agy_subagents"],
+                    "description": "Notification channel (agy_tasks, high-priority agy_alerts, or low-buzz agy_subagents).",
+                },
+                "progress": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Optional progress value (0..max).",
+                },
+                "max": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 100,
+                    "description": "Optional maximum progress value (default 100).",
+                },
+                "indeterminate": {
+                    "type": "boolean",
+                    "description": "Show an indeterminate progress bar.",
+                },
+                "ongoing": {
+                    "type": "boolean",
+                    "description": "Keep notification pinned while a task is running.",
+                },
+                "request_id": {
+                    "type": "string",
+                    "description": "Unique approval request ID paired with action buttons (auto-generated when approval/actions are given and omitted).",
+                },
+                "reply_label": {
+                    "type": "string",
+                    "description": "Hint label for inline RemoteInput reply (e.g. 'Reason / feedback...').",
+                },
+                "cascade_id": {
+                    "type": "string",
+                    "description": "Optional cascade/conversation ID for ConnectRPC forwarding.",
+                },
+                "interaction_id": {
+                    "type": "string",
+                    "description": "Optional cascade interaction ID for HandleCascadeUserInteraction.",
+                },
+                "subagent_id": {
+                    "type": "string",
+                    "description": "Optional subagent/worker identifier.",
+                },
+                "actions": {
+                    "type": "array",
+                    "description": "Optional interactive notification buttons (supports inline RemoteInput via remote_input: true).",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "label": {"type": "string"},
+                            "remote_input": {"type": "boolean"},
+                            "reply_label": {"type": "string"},
+                        },
+                        "required": ["id", "label"],
+                    },
+                },
+                "callback_url": {
+                    "type": "string",
+                    "description": "Optional loopback HTTP callback URL invoked when an action is tapped.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "android_wait_approval",
+        "description": (
+            "Wait for the user to tap an interactive action button (Approve, Deny, or Deny w/ Comment "
+            "inline reply) on an Android notification posted with android_notify. Returns decision and optional comment."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "request_id": {
+                    "type": "string",
+                    "description": "The request_id returned by android_notify.",
+                },
+                "timeout_sec": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 300,
+                    "default": 60,
+                    "description": "Maximum seconds to wait before timing out.",
+                },
+                "poll_interval_ms": {
+                    "type": "integer",
+                    "minimum": 200,
+                    "maximum": 5000,
+                    "default": 1000,
+                    "description": "Polling interval in milliseconds.",
+                },
+            },
+            "required": ["request_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "android_subagent_notify",
+        "description": (
+            "Post, update, complete, or cancel a subagent/swarm progress notification in the low-buzz "
+            "agy_subagents channel with an optional Cancel button wired to CancelCascadeInvocation."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["post", "cancel", "done"],
+                    "default": "post",
+                    "description": "Whether to post/update progress, mark done, or cancel the notification.",
+                },
+                "subagent_id": {
+                    "type": "string",
+                    "description": "Subagent/worker identifier.",
+                },
+                "cascade_id": {
+                    "type": "string",
+                    "description": "Cascade ID cancelled via ConnectRPC CancelCascadeInvocation when Cancel is tapped.",
+                },
+                "role": {
+                    "type": "string",
+                    "description": "Short subagent role label (e.g. 'researcher', 'verifier').",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Notification title.",
+                },
+                "message": {
+                    "type": "string",
+                    "description": "Current progress status message.",
+                },
+                "progress": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Current progress value.",
+                },
+                "max": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 100,
+                    "description": "Maximum progress value (default 100).",
+                },
+                "indeterminate": {
+                    "type": "boolean",
+                    "description": "Display indeterminate progress spinner.",
+                },
+                "ongoing": {
+                    "type": "boolean",
+                    "description": "Keep notification ongoing while active.",
+                },
+                "cancellable": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Include a Cancel action button (default true).",
+                },
+                "request_id": {
+                    "type": "string",
+                    "description": "Optional request ID for tracking cancel action.",
+                },
+                "callback_url": {
+                    "type": "string",
+                    "description": "Optional loopback callback URL.",
+                },
+                "tag": {
+                    "type": "string",
+                    "description": "Optional stable notification tag.",
+                },
+                "id": {
+                    "type": "integer",
+                    "description": "Optional integer notification ID.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "android_voice_service",
+        "description": (
+            "Control the Android VoiceForegroundService (background microphone/audio focus, "
+            "speakerphone routing, and persistent voice notification with Mute/Stop controls)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["start", "stop", "mute", "unmute", "toggle_mute", "status"],
+                    "description": "Voice service control action.",
+                },
+                "status_text": {
+                    "type": "string",
+                    "description": "Optional status text displayed in the active voice notification.",
+                },
+                "speakerphone": {
+                    "type": "boolean",
+                    "description": "Route audio through speakerphone when starting the voice session.",
+                },
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "android_clipboard_get",
+        "description": "Read the current plain text contents of the Android system clipboard.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "android_clipboard_set",
+        "description": "Copy plain text to the Android system clipboard.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string",
+                    "description": "Text to place on the clipboard.",
+                },
+            },
+            "required": ["text"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "android_toast",
+        "description": "Show a brief Android Toast overlay message on screen.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "description": "Message to display in the toast.",
+                },
+                "duration": {
+                    "type": "string",
+                    "enum": ["short", "long"],
+                    "default": "short",
+                    "description": "Toast display duration.",
+                },
+            },
+            "required": ["message"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "android_vibrate",
+        "description": "Trigger haptic vibration on the Android device.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "duration_ms": {
+                    "type": "integer",
+                    "minimum": 10,
+                    "maximum": 5000,
+                    "default": 100,
+                    "description": "Vibration duration in milliseconds.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "android_torch",
+        "description": "Turn the Android camera flashlight (torch) on or off.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "True to turn torch on, false to turn torch off.",
+                },
+            },
+            "required": ["enabled"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "android_shizuku_exec",
+        "description": (
+            "Execute an elevated ADB shell command (uid=2000) via Shizuku rish "
+            "(e.g. logcat, pm, am, dumpsys, screencap). Requires Shizuku service running."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string",
+                    "description": "Shell command string passed to `rish -c`.",
+                },
+                "timeout_sec": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 300,
+                    "default": 30,
+                    "description": "Command execution timeout in seconds.",
+                },
+            },
+            "required": ["command"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "android_browser_automate",
+        "description": (
+            "Control an isolated headless Android WebView for web scraping, UI testing, "
+            "DOM interaction, JS evaluation, console inspection, and PNG screenshots. "
+            "Call with action='close' when finished to release WebView memory."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["navigate", "eval", "click", "type", "get_text", "screenshot", "console_logs", "close"],
+                    "description": "Browser automation action to perform.",
+                },
+                "url": {
+                    "type": "string",
+                    "description": "Target http/https URL (for navigate).",
+                },
+                "script": {
+                    "type": "string",
+                    "description": "JavaScript expression/code to evaluate (for eval).",
+                },
+                "selector": {
+                    "type": "string",
+                    "description": "CSS selector (for click, type, or optional get_text).",
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Text to enter into the selected input (for type).",
+                },
+                "clear": {
+                    "type": "boolean",
+                    "description": "Clear input before typing (type) or clear log buffer (console_logs).",
+                },
+                "max_chars": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 200000,
+                    "description": "Maximum characters to return (for get_text).",
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Optional output PNG path inside app/external storage (for screenshot).",
+                },
+                "timeout_ms": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 60000,
+                    "description": "Navigation timeout in milliseconds (for navigate).",
+                },
+                "width": {
+                    "type": "integer",
+                    "minimum": 320,
+                    "maximum": 2160,
+                    "description": "Viewport width in pixels (for navigate).",
+                },
+                "height": {
+                    "type": "integer",
+                    "minimum": 320,
+                    "maximum": 3840,
+                    "description": "Viewport height in pixels (for navigate).",
+                },
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "android_schedule_task",
+        "description": (
+            "Manage autonomous background cron, delay, interval, file/GitHub/battery watcher "
+            "tasks in agy-daemon (supports real AI prompts and shell commands)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["add", "list", "pause", "resume", "remove", "run_now", "status"],
+                    "description": "Task management action.",
+                },
+                "id": {
+                    "type": "string",
+                    "description": "Task ID or name (for pause, resume, remove, run_now).",
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Human-readable task name (for add).",
+                },
+                "prompt": {
+                    "type": "string",
+                    "description": "AI prompt to execute via language_server ConnectRPC (for add).",
+                },
+                "command": {
+                    "type": "string",
+                    "description": "Shell command to execute (for add).",
+                },
+                "project": {
+                    "type": "string",
+                    "description": "Workspace project directory path (for add).",
+                },
+                "conversation_id": {
+                    "type": "string",
+                    "description": "Optional existing conversation/cascade ID (for add).",
+                },
+                "delay": {
+                    "type": "string",
+                    "description": "One-shot delay trigger, e.g. '30m', '2h', '45s' (for add).",
+                },
+                "interval": {
+                    "type": "string",
+                    "description": "Recurring interval trigger, e.g. '15m', '1h' (for add).",
+                },
+                "cron": {
+                    "type": "string",
+                    "description": "5-field cron expression, e.g. '0 9 * * *' (for add).",
+                },
+                "watch_file": {
+                    "type": "string",
+                    "description": "File or directory path to watch for changes (for add).",
+                },
+                "github_pr": {
+                    "type": "string",
+                    "description": "GitHub owner/repo to watch for new PRs (for add).",
+                },
+                "github_issue": {
+                    "type": "string",
+                    "description": "GitHub owner/repo to watch for new issues (for add).",
+                },
+                "battery_below": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 99,
+                    "description": "Trigger when battery falls below percentage (for add).",
+                },
+                "wake_app": {
+                    "type": "boolean",
+                    "description": "Bring Antigravity to foreground upon completion (for add).",
+                },
+                "active_only": {
+                    "type": "boolean",
+                    "description": "Filter to active tasks only (for list).",
+                },
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+    },
+]
+
+
+# -----------------------------------------------------------------------------
+# Tool Handlers
+# -----------------------------------------------------------------------------
+def handle_device_info(_args):
+    return gateway_post("system_info", {})
+
+
+def handle_notify(args):
+    payload = {}
+    action = str(args.get("action") or "post")
+    payload["action"] = action
+    for key in (
+        "type", "approval", "title", "message", "tag", "id", "channel",
+        "progress", "max", "indeterminate", "ongoing", "reply_label",
+        "cascade_id", "interaction_id", "subagent_id", "callback_url",
+    ):
+        if key in args and args[key] is not None:
+            payload[key] = args[key]
+
+    actions = args.get("actions")
+    request_id = args.get("request_id")
+    needs_request_id = (
+        actions is not None
+        or bool(args.get("approval"))
+        or args.get("type") == "tool_approval"
+    )
+    if actions is not None:
+        payload["actions"] = actions
+    if needs_request_id and not request_id:
+        request_id = f"req_{uuid.uuid4().hex[:12]}"
+    if request_id:
+        payload["request_id"] = str(request_id)
+
+    resp = gateway_post("notify", payload)
+    if request_id and isinstance(resp, dict) and "request_id" not in resp:
+        resp["request_id"] = str(request_id)
+    return resp
+
+
+def handle_wait_approval(args):
+    request_id = str(args.get("request_id") or "").strip()
+    if not request_id:
+        return {"ok": False, "error": "request_id is required"}
+
+    timeout_sec = float(args.get("timeout_sec", 60))
+    timeout_sec = max(1.0, min(timeout_sec, 300.0))
+    poll_interval_ms = int(args.get("poll_interval_ms", 1000))
+    poll_interval_ms = max(200, min(poll_interval_ms, 5000))
+
+    deadline = time.monotonic() + timeout_sec
+    encoded_id = urllib.parse.quote(request_id, safe="")
+
+    while True:
+        remaining_ms = int(max(0.0, (deadline - time.monotonic()) * 1000.0))
+        wait_ms = min(poll_interval_ms, remaining_ms) if remaining_ms > 0 else 0
+
+        resp = gateway_post(
+            "approval_poll",
+            {"id": request_id, "wait_ms": wait_ms},
+            timeout=max(10.0, (wait_ms / 1000.0) + 5.0),
+        )
+        if not resp.get("ok") and "unknown command" in str(resp.get("error", "")).lower():
+            resp = gateway_get(f"/gateway/approval?id={encoded_id}&wait_ms={wait_ms}", timeout=max(10.0, (wait_ms / 1000.0) + 5.0))
+
+        if not resp.get("ok"):
+            return resp
+
+        status = str(resp.get("status", "pending")).lower()
+        decision = resp.get("decision")
+        if status == "decided" or (decision is not None and str(decision) != ""):
+            out = {
+                "ok": True,
+                "id": request_id,
+                "status": "decided",
+                "decision": decision,
+                "comment": resp.get("comment"),
+                "decided_at": resp.get("decided_at"),
+            }
+            for extra_key in ("cascade_id", "interaction_id", "subagent_id"):
+                if resp.get(extra_key) is not None:
+                    out[extra_key] = resp[extra_key]
+            return out
+
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return {
+                "ok": True,
+                "id": request_id,
+                "status": "timeout",
+                "decision": None,
+                "comment": None,
+            }
+        time.sleep(min(poll_interval_ms / 1000.0, remaining))
+
+
+def handle_subagent_notify(args):
+    payload = {}
+    action = str(args.get("action") or "post")
+    payload["action"] = action
+    for key in (
+        "subagent_id", "cascade_id", "role", "title", "message",
+        "progress", "max", "indeterminate", "ongoing", "cancellable",
+        "request_id", "callback_url", "tag", "id",
+    ):
+        if key in args and args[key] is not None:
+            payload[key] = args[key]
+    return gateway_post("subagent_notify", payload)
+
+
+def handle_voice_service(args):
+    action = str(args.get("action") or "").strip()
+    if not action:
+        return {"ok": False, "error": "action is required"}
+    payload = {"action": action}
+    for key in ("status_text", "speakerphone"):
+        if key in args and args[key] is not None:
+            payload[key] = args[key]
+    resp = gateway_post("voice_service", payload)
+    if action == "status" and not resp.get("ok") and "unknown command" in str(resp.get("error", "")).lower():
+        return gateway_get("/gateway/voice/status")
+    return resp
+
+
+def handle_clipboard_get(_args):
+    return gateway_post("clipboard", {"action": "get"})
+
+
+def handle_clipboard_set(args):
+    text = args.get("text")
+    if text is None:
+        return {"ok": False, "error": "text is required"}
+    return gateway_post("clipboard", {"action": "set", "text": str(text)})
+
+
+def handle_toast(args):
+    message = args.get("message")
+    if message is None:
+        return {"ok": False, "error": "message is required"}
+    duration = str(args.get("duration") or "short")
+    return gateway_post("toast", {"message": str(message), "duration": duration})
+
+
+def handle_vibrate(args):
+    duration_ms = int(args.get("duration_ms", 100))
+    duration_ms = max(10, min(duration_ms, 5000))
+    return gateway_post("vibrate", {"duration_ms": duration_ms})
+
+
+def handle_torch(args):
+    if "enabled" not in args:
+        return {"ok": False, "error": "enabled boolean is required"}
+    enabled = bool(args["enabled"])
+    resp = gateway_post("torch", {"enabled": enabled})
+    if resp.get("ok"):
+        return resp
+    # Fallback for older gateway builds without direct torch command
+    if "unknown command" in str(resp.get("error", "")).lower():
+        rish_bin = _find_rish_bin()
+        state = "true" if enabled else "false"
+        try:
+            proc = subprocess.run(
+                [rish_bin, "-c", f"am broadcast -a com.agy.ACTION_TORCH --ez enabled {state}"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            return {
+                "ok": proc.returncode == 0,
+                "enabled": enabled,
+                "via": "broadcast_fallback",
+                "stdout": (proc.stdout or "").strip(),
+                "stderr": (proc.stderr or "").strip(),
+            }
+        except Exception as e:
+            return {"ok": False, "error": f"torch fallback failed: {e}"}
+    return resp
+
+
+def handle_shizuku_exec(args):
+    command = str(args.get("command") or "").strip()
+    if not command:
+        return {"ok": False, "error": "command is required"}
+    timeout_sec = int(args.get("timeout_sec", 30))
+    timeout_sec = max(1, min(timeout_sec, 300))
+    rish_bin = _find_rish_bin()
+    try:
+        proc = subprocess.run(
+            [rish_bin, "-c", command],
+            capture_output=True,
+            text=True,
+            timeout=timeout_sec,
+        )
+        stdout = _truncate_text(proc.stdout or "")
+        stderr = _truncate_text(proc.stderr or "")
+        result = {
+            "ok": proc.returncode == 0,
+            "exit_code": proc.returncode,
+            "stdout": stdout,
+            "stderr": stderr,
+        }
+        if proc.returncode != 0 and "server is not running" in (stderr + stdout).lower():
+            result["hint"] = "Shizuku service is not running on the device. Ask the user to start Shizuku."
+        return result
+    except FileNotFoundError:
+        return {"ok": False, "error": f"rish binary not found at {rish_bin}"}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": f"Shizuku command timed out after {timeout_sec}s"}
+    except Exception as e:
+        return {"ok": False, "error": f"Shizuku exec failed: {e}"}
+
+
+def handle_browser_automate(args):
+    action = str(args.get("action") or "").strip()
+    if not action:
+        return {"ok": False, "error": "action is required"}
+
+    payload = {"action": action}
+    for key in ("url", "script", "selector", "text", "clear", "max_chars", "path", "timeout_ms", "width", "height"):
+        if key in args and args[key] is not None:
+            payload[key] = args[key]
+
+    timeout_ms = args.get("timeout_ms")
+    http_timeout = 35.0
+    if timeout_ms is not None:
+        try:
+            http_timeout = max(35.0, (float(timeout_ms) / 1000.0) + 10.0)
+        except (TypeError, ValueError):
+            pass
+
+    return gateway_post("browser_auto", payload, timeout=http_timeout)
+
+
+def _run_daemon_cli(cli_args, timeout_sec=20):
+    daemon_bin = _find_daemon_bin()
+    cmd = [sys.executable, daemon_bin] + cli_args if os.path.isfile(daemon_bin) else [daemon_bin] + cli_args
+    env = os.environ.copy()
+    env["PREFIX"] = get_prefix()
+    env["HOME"] = get_home()
+    try:
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout_sec,
+            env=env,
+        )
+        stdout = (proc.stdout or "").strip()
+        stderr = (proc.stderr or "").strip()
+        parsed = None
+        if stdout:
+            try:
+                parsed = json.loads(stdout)
+            except json.JSONDecodeError:
+                parsed = None
+        if proc.returncode != 0:
+            return {
+                "ok": False,
+                "exit_code": proc.returncode,
+                "error": (parsed.get("error") if isinstance(parsed, dict) and "error" in parsed else None)
+                or stderr
+                or stdout
+                or f"agy-daemon exited with {proc.returncode}",
+                "output": parsed if parsed is not None else stdout,
+            }
+        if parsed is not None:
+            if isinstance(parsed, dict):
+                result = dict(parsed)
+                result.setdefault("ok", result.get("status") != "error")
+                return result
+            return {"ok": True, "tasks": parsed}
+        return {"ok": True, "output": stdout}
+    except FileNotFoundError:
+        return {"ok": False, "error": f"agy-daemon binary not found at {daemon_bin}"}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": f"agy-daemon timed out after {timeout_sec}s"}
+    except Exception as e:
+        return {"ok": False, "error": f"agy-daemon invocation failed: {e}"}
+
+
+def handle_schedule_task(args):
+    action = str(args.get("action") or "").strip()
+    if action == "status":
+        return _run_daemon_cli(["status"])
+
+    if action == "list":
+        cli_args = ["task", "list", "--json"]
+        if args.get("active_only"):
+            cli_args.append("--active-only")
+        return _run_daemon_cli(cli_args)
+
+    if action in ("pause", "resume", "remove", "run_now"):
+        task_id = str(args.get("id") or "").strip()
+        if not task_id:
+            return {"ok": False, "error": f"id is required for action '{action}'"}
+        subcmd = "run-now" if action == "run_now" else action
+        return _run_daemon_cli(["task", subcmd, task_id, "--json"])
+
+    if action == "add":
+        cli_args = ["task", "add", "--json"]
+        flag_map = (
+            ("name", "--name"),
+            ("prompt", "--prompt"),
+            ("command", "--command"),
+            ("project", "--project"),
+            ("conversation_id", "--conversation-id"),
+            ("delay", "--delay"),
+            ("interval", "--interval"),
+            ("cron", "--cron"),
+            ("watch_file", "--watch-file"),
+            ("github_pr", "--github-pr"),
+            ("github_issue", "--github-issue"),
+            ("battery_below", "--battery-below"),
+        )
+        for key, flag in flag_map:
+            val = args.get(key)
+            if val is not None and str(val) != "":
+                cli_args.extend([flag, str(val)])
+        if args.get("wake_app"):
+            cli_args.append("--wake-app")
+        return _run_daemon_cli(cli_args)
+
+    return {"ok": False, "error": f"unsupported action: {action}"}
+
+
+TOOL_HANDLERS = {
+    "android_device_info": handle_device_info,
+    "android_notify": handle_notify,
+    "android_wait_approval": handle_wait_approval,
+    "android_subagent_notify": handle_subagent_notify,
+    "android_voice_service": handle_voice_service,
+    "android_clipboard_get": handle_clipboard_get,
+    "android_clipboard_set": handle_clipboard_set,
+    "android_toast": handle_toast,
+    "android_vibrate": handle_vibrate,
+    "android_torch": handle_torch,
+    "android_shizuku_exec": handle_shizuku_exec,
+    "android_browser_automate": handle_browser_automate,
+    "android_schedule_task": handle_schedule_task,
+}
+
+
+# -----------------------------------------------------------------------------
+# JSON-RPC 2.0 / MCP Protocol Dispatcher
+# -----------------------------------------------------------------------------
+def _rpc_result(req_id, result):
+    return {"jsonrpc": "2.0", "id": req_id, "result": result}
+
+
+def _rpc_error(req_id, code, message, data=None):
+    err = {"code": code, "message": message}
+    if data is not None:
+        err["data"] = data
+    return {"jsonrpc": "2.0", "id": req_id, "error": err}
+
+
+def handle_message(msg):
+    if not isinstance(msg, dict):
+        return _rpc_error(None, -32600, "Invalid Request")
+
+    method = msg.get("method")
+    req_id = msg.get("id")
+    params = msg.get("params") or {}
+    is_notification = ("id" not in msg) or (isinstance(method, str) and method.startswith("notifications/"))
+
+    if not isinstance(method, str) or not method:
+        return None if is_notification else _rpc_error(req_id, -32600, "Missing method")
+
+    if method == "notifications/initialized" or method.startswith("notifications/"):
+        return None
+
+    if method == "initialize":
+        requested = params.get("protocolVersion") if isinstance(params, dict) else None
+        version = requested if requested in SUPPORTED_PROTOCOL_VERSIONS else DEFAULT_PROTOCOL_VERSION
+        return _rpc_result(req_id, {
+            "protocolVersion": version,
+            "capabilities": {
+                "tools": {"listChanged": False},
+            },
+            "serverInfo": {
+                "name": SERVER_NAME,
+                "version": SERVER_VERSION,
+            },
+        })
+
+    if method == "ping":
+        return _rpc_result(req_id, {})
+
+    if method == "tools/list":
+        return _rpc_result(req_id, {"tools": TOOLS})
+
+    if method == "tools/call":
+        if not isinstance(params, dict):
+            return _rpc_error(req_id, -32602, "Invalid params: object expected")
+        tool_name = params.get("name")
+        arguments = params.get("arguments")
+        if arguments is None:
+            arguments = {}
+        if not isinstance(arguments, dict):
+            return _rpc_error(req_id, -32602, "Invalid tool arguments: object expected")
+
+        handler = TOOL_HANDLERS.get(tool_name)
+        if handler is None:
+            return _rpc_error(req_id, -32602, f"Unknown tool: {tool_name}")
+
+        try:
+            result = handler(arguments)
+            is_error = isinstance(result, dict) and (result.get("ok") is False)
+            text = json.dumps(result, ensure_ascii=False, indent=2)
+            return _rpc_result(req_id, {
+                "content": [{"type": "text", "text": text}],
+                "isError": is_error,
+            })
+        except Exception as e:
+            return _rpc_result(req_id, {
+                "content": [{"type": "text", "text": json.dumps({"ok": False, "error": str(e)})}],
+                "isError": True,
+            })
+
+    if is_notification:
+        return None
+    return _rpc_error(req_id, -32601, f"Method not found: {method}")
+
+
+def serve_stdio(stdin=None, stdout=None):
+    in_stream = stdin if stdin is not None else sys.stdin
+    out_stream = stdout if stdout is not None else sys.stdout
+
+    while True:
+        line = in_stream.readline()
+        if not line:
+            break
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        try:
+            msg = json.loads(stripped)
+        except json.JSONDecodeError as e:
+            resp = _rpc_error(None, -32700, f"Parse error: {e}")
+            out_stream.write(json.dumps(resp, ensure_ascii=False) + "\n")
+            out_stream.flush()
+            continue
+
+        resp = handle_message(msg)
+        if resp is not None:
+            out_stream.write(json.dumps(resp, ensure_ascii=False) + "\n")
+            out_stream.flush()
+
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] in ("--version", "-v"):
+        print(f"{SERVER_NAME} {SERVER_VERSION}")
+        return 0
+    if len(sys.argv) > 1 and sys.argv[1] in ("--help", "-h"):
+        print("agy-mcp-android: MCP stdio server for native Android device tools.")
+        print("Run with no arguments to serve JSON-RPC 2.0 over stdin/stdout.")
+        return 0
+
+    try:
+        serve_stdio()
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -49,6 +49,16 @@ src/patches/theme_sync/notify.js
 src/patches/theme_sync/install.js
 src/patches/theme_sync/public-api.js
 
+bundle iife patches/mobile_bridge.js
+src/patches/mobile_bridge/config.js
+src/patches/mobile_bridge/composer.js
+src/patches/mobile_bridge/share.js
+src/patches/mobile_bridge/extra_keys.js
+src/patches/mobile_bridge/voice.js
+src/patches/mobile_bridge/clipboard_image.js
+src/patches/mobile_bridge/controls.js
+src/patches/mobile_bridge/public-api.js
+
 bundle iife patches/startup_ready.js
 src/patches/startup_ready/signal.js
 src/patches/startup_ready/error-capture.js

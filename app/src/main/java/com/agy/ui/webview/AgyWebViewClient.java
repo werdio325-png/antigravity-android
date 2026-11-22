@@ -25,6 +25,7 @@ public final class AgyWebViewClient extends WebViewClient {
     private final Context context;
     private final OAuthManager oauth;
     private final LocalAssetServer assetServer;
+    private final LoopbackSidecarProxy sidecarProxy = new LoopbackSidecarProxy();
     private final AndroidBridge bridge;
     private final WebViewHost.Listener listener;
 
@@ -55,13 +56,27 @@ public final class AgyWebViewClient extends WebViewClient {
         Log.i(TAG, "shouldOverrideUrlLoading url="
                 + SensitiveDataRedactor.safeUrl(uri.toString()));
         if (!request.isForMainFrame()) {
-            // The web UI intentionally embeds HTTPS previews. Keep those working,
-            // while refusing file/javascript/intent and other non-web subframes.
+            // The web UI intentionally embeds HTTPS previews and loopback HTTP
+            // dev-server previews. Keep those working while refusing arbitrary
+            // external HTTP, file/javascript/intent, and other non-web subframes.
             String scheme = uri.getScheme();
-            return !"https".equalsIgnoreCase(scheme)
-                    && !"about".equalsIgnoreCase(scheme);
+            if ("https".equalsIgnoreCase(scheme) || "about".equalsIgnoreCase(scheme)) {
+                return false;
+            }
+            if ("http".equalsIgnoreCase(scheme) && isLoopbackHost(uri)) {
+                return false;
+            }
+            return true;
         }
         return handleNavigation(v, uri.toString());
+    }
+
+    private static boolean isLoopbackHost(Uri uri) {
+        if (uri == null || uri.getUserInfo() != null) {
+            return false;
+        }
+        String host = uri.getHost();
+        return "127.0.0.1".equals(host) || "localhost".equalsIgnoreCase(host);
     }
 
     @Override
@@ -150,8 +165,12 @@ public final class AgyWebViewClient extends WebViewClient {
         if (request == null || request.getUrl() == null) {
             return null;
         }
-        return assetServer.intercept(context, request.getUrl(), request.getMethod(),
+        WebResourceResponse asset = assetServer.intercept(context, request.getUrl(), request.getMethod(),
                 bridge.getEnginePort());
+        if (asset != null) {
+            return asset;
+        }
+        return sidecarProxy.intercept(request, bridge.getEnginePort());
     }
 
     @Override

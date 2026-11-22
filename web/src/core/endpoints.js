@@ -47,7 +47,7 @@ try {
       for (var qk in fromQuery) { if (Object.prototype.hasOwnProperty.call(fromQuery, qk)) ENDPOINTS[qk] = fromQuery[qk]; }
     }
     var port = qp.get('port') || qp.get('enginePort');
-    if (port) { ENDPOINTS.core_http = 'http://127.0.0.1:' + port; ENDPOINTS.enginePort = port; }
+    if (port) { ENDPOINTS.core_http = 'https://127.0.0.1:' + port; ENDPOINTS.enginePort = port; }
   }
 } catch (e) { warn('endpoint parse', e); }
 global.__AG_ENDPOINTS__ = ENDPOINTS;
