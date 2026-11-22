@@ -1,15 +1,29 @@
 ---
 name: android-browser
-description: Automate an isolated headless Android WebView via `android_browser_automate` for web scraping, DOM interaction, JS evaluation, console log inspection, and PNG screenshots, and preview local dev servers safely on localhost.
+description: Automate an isolated headless Android WebView via the pre-registered `chrome_devtools` MCP server (`agy-mcp-browser`) or `android_browser_automate` for web scraping, DOM snapshots, clicking/filling, JS evaluation, console logs, PNG screenshots, and localhost live preview.
 ---
 
 # Android Browser Automation & Localhost Live Preview
 
-Antigravity for Android provides two complementary browser capabilities without requiring desktop Chrome or Puppeteer:
-1. **Headless Browser Subagent (`android_browser_automate` MCP tool)** — isolated offscreen Android WebView (no `AndroidBridge`, file access disabled, `http`/`https` only) controlled through `SystemGatewayServer`.
-2. **Safe Localhost Live Preview** — inspect local web apps bound to `127.0.0.1` / `localhost` directly inside Antigravity.
+Antigravity for Android pre-configures **two** native browser automation interfaces backed by an isolated offscreen Android WebView (no `AndroidBridge`, file access disabled, `http`/`https` only) via `SystemGatewayServer`, requiring zero desktop Chrome or Node binaries:
+1. **`chrome_devtools` MCP Server (`$HOME/runtime/bin/agy-mcp-browser`)** — seeded globally in `$HOME/.gemini/config/mcp_config.json`, exposing standard Chrome DevTools MCP tool names (`navigate_page`, `new_page`, `list_pages`, `select_page`, `take_snapshot`, `take_screenshot`, `click`, `fill`, `press_key`, `evaluate_script`, `list_console_messages`, `wait_for`, `close_page`).
+2. **`android-device` MCP Server (`android_browser_automate`)** — direct single-tool interface to `browser_auto`.
 
-## 1. Headless Automation (`android_browser_automate`)
+## 1. Preferred Workflow (`chrome_devtools` MCP)
+
+1. **Open page:** `navigate_page(url="https://example.com")` (or `new_page(url="http://127.0.0.1:5173")`)
+2. **Inspect interactive DOM with `uid`s:** `take_snapshot()` -> returns page title/URL, interactive elements (`uid=e1 link "..."`, `uid=e2 textbox "..."`), and readable text.
+3. **Interact:**
+   - `fill(uid="e2", value="search query")`
+   - `click(uid="e1")` or `press_key(key="Enter")`
+   - `wait_for(text="Results", timeout=10000)`
+   - `evaluate_script(function="() => document.title")`
+4. **Capture screenshot & console logs:**
+   - `take_screenshot()` (returns saved PNG path + inline image block)
+   - `list_console_messages(types=["error", "warning"])`
+5. **Release memory when done:** Always call `close_page()` (or `android_browser_automate(action="close")`) so the offscreen WebView does not linger in RAM.
+
+## 2. Direct Fallback (`android_browser_automate`)
 
 All actions share a single lazy-initialized offscreen WebView session (default viewport `1080x1920`).
 

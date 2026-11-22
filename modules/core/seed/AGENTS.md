@@ -17,7 +17,7 @@
   - Runtime Internals: `$HOME/runtime/bin`.
   - Core & Gateway State: `$HOME/logs/core.state.json` and `$HOME/logs/gateway.port`.
   - External / Shared Storage: `/storage/emulated/0` (Projects typically reside in `/storage/emulated/0/Documents/`).
-  - AI State, MCP Config & Skills: `$HOME/.gemini/config/`, `$HOME/.gemini/antigravity-app/mcp_config.json`, `$HOME/.gemini/antigravity-app/skills/`.
+  - AI State, Global MCP Config & Skills: `$HOME/.gemini/config/mcp_config.json`, `$HOME/.gemini/config/skills/`, `$HOME/.gemini/config/AGENTS.md`.
   - Conversation Brain & Artifacts: `$HOME/.gemini/antigravity-app/brain/<conversation-id>/`.
 
 ---
@@ -49,10 +49,15 @@
 
 ---
 
-## 3. Native Android MCP Server (`android-device`) & Bundled Skills
+## 3. Native Android MCP Servers (`android-device` & `chrome_devtools`) & Bundled Skills
 
-### Pre-configured MCP Server (`agy-mcp-android`)
-Antigravity automatically seeds the zero-dependency stdio MCP server `android-device` (`$PREFIX/bin/agy-mcp-android`) into `$HOME/.gemini/antigravity-app/mcp_config.json`. It communicates with the embedded `SystemGatewayServer` (`127.0.0.1:<port>`, port in `$HOME/logs/gateway.port`, default `45160`), Shizuku (`rish`), and `agy-daemon`:
+### Pre-configured MCP Servers (`~/.gemini/config/mcp_config.json`)
+Antigravity automatically seeds two zero-dependency stdio MCP servers into `$HOME/.gemini/config/mcp_config.json` (invoked via Bionic bridges in `$HOME/runtime/bin/`):
+
+1. **`chrome_devtools` (`$HOME/runtime/bin/agy-mcp-browser` -> `$PREFIX/bin/agy-mcp-browser`)**:
+   - Standard Chrome DevTools MCP tool surface backed by native Android WebView (`SystemGatewayServer` `browser_auto`, zero desktop Chrome required): `list_pages`, `new_page`, `select_page`, `close_page`, `navigate_page`, `take_snapshot` (assigns `uid=e1..eN` to interactive elements), `take_screenshot` (PNG path + inline image), `click`, `fill`, `press_key`, `evaluate_script`, `list_console_messages`, `wait_for`.
+2. **`android-device` (`$HOME/runtime/bin/agy-mcp-android` -> `$PREFIX/bin/agy-mcp-android`)**:
+   - Communicates with `SystemGatewayServer` (`127.0.0.1:<port>`, port in `$HOME/logs/gateway.port`, default `45160`), Shizuku (`rish`), and `agy-daemon`:
 
 - **Device & Feedback:** `android_device_info` (battery, charging, network, memory, storage), `android_toast`, `android_vibrate`, `android_torch`.
 - **Clipboard:** `android_clipboard_get`, `android_clipboard_set`.
@@ -63,7 +68,7 @@ Antigravity automatically seeds the zero-dependency stdio MCP server `android-de
 - **Autonomous Scheduling:** `android_schedule_task` (`add`, `list`, `pause`, `resume`, `remove`, `run_now`, `status` on `agy-daemon`).
 
 ### Bundled Skills
-Three curated skills are automatically seeded into `$HOME/.gemini/antigravity-app/skills/` (and mirrored in `$PREFIX/etc/antigravity/skills/`):
+Three curated skills are automatically seeded into `$HOME/.gemini/config/skills/` (and mirrored in `$PREFIX/etc/antigravity/skills/`):
 - **`android-device`**: Device telemetry, clipboard, interactive Approve/Reject notifications, torch/haptics, Shizuku `rish` workflows, and `SystemGatewayServer`.
 - **`android-browser`**: Headless mobile browser automation (`android_browser_automate`) for scraping, UI verification, screenshots, and localhost live preview.
 - **`android-daemon`**: Autonomous background AI task scheduling, watchers, and ConnectRPC execution.

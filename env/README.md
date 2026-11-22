@@ -28,6 +28,7 @@ env/
 │   │   ├── agy-daemon      # Фоновый автономный диспетчер задач и планировщик (ConnectRPC + shell)
 │   │   ├── agy-fix-paths   # Утилита динамической нормализации шебангов и путей
 │   │   ├── agy-mcp-android # Нативный stdio MCP-сервер (SystemGateway, браузер, Shizuku, daemon)
+│   │   ├── agy-mcp-browser # Chrome DevTools-совместимый stdio MCP-сервер поверх Android WebView
 │   │   ├── agy-notify      # Утилита управления системными уведомлениями Android
 │   │   ├── agy-upgrade     # Менеджер безопасного обновления, бэкапа и миграций
 │   │   ├── rish            # Клиент Shizuku для привилегированного шелла (uid=2000)

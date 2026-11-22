@@ -35,7 +35,7 @@ public final class ShellBridgeInstaller {
     /** Records which prefix the bulk bridges were generated for. Bump when the
      *  bridge script format changes so a warm launch regenerates them once. */
     private static final String BRIDGE_MARKER = ".agy-bridges";
-    private static final int BRIDGE_FORMAT = 3;
+    private static final int BRIDGE_FORMAT = 4;
 
     private ShellBridgeInstaller() {
     }
@@ -63,7 +63,10 @@ public final class ShellBridgeInstaller {
         normalizeRuntimeBinScripts(bin);
         if (context != null) {
             File prefix = EnvInstaller.prefix(context);
-            writeNodeBridge(new File(bin, "node"), prefix, context.getFilesDir(), context.getPackageName());
+            File filesDir = context.getFilesDir();
+            String appId = context.getPackageName();
+            writeNodeBridge(new File(bin, "node"), prefix, filesDir, appId);
+            writeMcpAndPythonBridges(bin, prefix, filesDir, appId);
         }
     }
 
@@ -163,9 +166,11 @@ public final class ShellBridgeInstaller {
             return;
         }
         String appId = rm.appContext().getPackageName();
+        File filesDir = rm.appContext().getFilesDir();
         writeBridge(new File(bin, "bash"), prefix, "bash", appId);
         writeBridge(new File(bin, "sh"), prefix, "bash", appId);
-        writeNodeBridge(new File(bin, "node"), prefix, rm.appContext().getFilesDir(), appId);
+        writeNodeBridge(new File(bin, "node"), prefix, filesDir, appId);
+        writeMcpAndPythonBridges(bin, prefix, filesDir, appId);
         File[] prefixTools = new File(prefix, "bin").listFiles();
         int toolCount = countFiles(prefixTools);
         File marker = new File(bin, BRIDGE_MARKER);
@@ -176,7 +181,13 @@ public final class ShellBridgeInstaller {
             for (File toolFile : prefixTools) {
                 if (toolFile.isFile()) {
                     String name = toolFile.getName();
-                    if ("rish".equals(name) || "node".equals(name) || isOpenUrlShim(name)) {
+                    if ("rish".equals(name)
+                            || "node".equals(name)
+                            || "agy-mcp-android".equals(name)
+                            || "agy-mcp-browser".equals(name)
+                            || "python3".equals(name)
+                            || "python".equals(name)
+                            || isOpenUrlShim(name)) {
                         continue;
                     }
                     writeBridge(new File(bin, name), prefix, name, appId);
@@ -425,6 +436,66 @@ public final class ShellBridgeInstaller {
         sb.append("  run_node \"$@\"\n");
         sb.append("fi\n");
         sb.append("echo \"agy node bridge: $PREFIX/bin/node not installed (see $LOG_FILE)\" >&2\n");
+        sb.append("exit 127\n");
+        writeScript(bridge, sb.toString());
+    }
+
+    /**
+     * Installs dedicated Bionic bridges for bundled MCP servers and Python so
+     * glibc {@code language_server} can spawn them reliably even on first launch
+     * and across in-place upgrades without inheriting incompatible {@code LD_*} vars.
+     */
+    private static void writeMcpAndPythonBridges(File bin, File prefix, File filesDir, String appId) {
+        writeExecBridge(new File(bin, "agy-mcp-android"), prefix, filesDir, "agy-mcp-android", null, appId);
+        writeExecBridge(new File(bin, "agy-mcp-browser"), prefix, filesDir, "agy-mcp-browser", null, appId);
+        writeExecBridge(new File(bin, "python3"), prefix, filesDir, "python3", null, appId);
+        writeExecBridge(new File(bin, "python"), prefix, filesDir, "python", "python3", appId);
+    }
+
+    private static void writeExecBridge(File bridge, File prefix, File filesDir,
+                                        String target, String fallbackTarget, String appId) {
+        String p = ShellQuote.quote(prefix.getAbsolutePath());
+        String homeDir = ShellQuote.quote(filesDir.getAbsolutePath());
+        String pkgName = ShellQuote.quote(appId != null ? appId : "com.agy");
+        StringBuilder sb = new StringBuilder();
+        sb.append("#!/system/bin/sh\n");
+        sb.append("# AGY Bionic exec bridge -> $PREFIX/bin/").append(target).append('\n');
+        sb.append("PREFIX=").append(p).append('\n');
+        sb.append("HOME_DIR=").append(homeDir).append('\n');
+        sb.append("AGY_APPLICATION_ID=").append(pkgName).append('\n');
+        sb.append("export PREFIX AGY_APPLICATION_ID\n");
+        sb.append("if [ -z \"$HOME\" ]; then export HOME=\"$HOME_DIR\"; fi\n");
+        sb.append("if [ -z \"$TMPDIR\" ]; then export TMPDIR=\"$PREFIX/tmp\"; fi\n");
+        sb.append("mkdir -p \"$TMPDIR\" 2>/dev/null || true\n");
+        sb.append("if [ -f \"$PREFIX/lib/libtermux-exec.so\" ]; then\n");
+        sb.append("  export LD_PRELOAD=\"$PREFIX/lib/libtermux-exec.so\"\n");
+        sb.append("else\n");
+        sb.append("  unset LD_PRELOAD\n");
+        sb.append("fi\n");
+        sb.append("export LD_LIBRARY_PATH=\"$PREFIX/lib\"\n");
+        sb.append("export PATH=\"$PREFIX/bin:$HOME_DIR/runtime/bin:/system/bin\"\n");
+        sb.append("export OPENSSL_CONF=\"$PREFIX/etc/tls/openssl.cnf\"\n");
+        sb.append("export SSL_CERT_FILE=\"$PREFIX/etc/tls/cert.pem\"\n");
+        sb.append("export CURL_CA_BUNDLE=\"$PREFIX/etc/tls/cert.pem\"\n");
+        sb.append("export LANG=\"C.UTF-8\"\n");
+        sb.append("WAIT=0\n");
+        sb.append("while [ ! -x \"$PREFIX/bin/").append(target).append("\" ]");
+        if (fallbackTarget != null) {
+            sb.append(" && [ ! -x \"$PREFIX/bin/").append(fallbackTarget).append("\" ]");
+        }
+        sb.append(" && [ \"$WAIT\" -lt 10 ]; do\n");
+        sb.append("  sleep 1\n");
+        sb.append("  WAIT=$((WAIT + 1))\n");
+        sb.append("done\n");
+        sb.append("if [ -x \"$PREFIX/bin/").append(target).append("\" ]; then\n");
+        sb.append("  exec \"$PREFIX/bin/").append(target).append("\" \"$@\"\n");
+        sb.append("fi\n");
+        if (fallbackTarget != null) {
+            sb.append("if [ -x \"$PREFIX/bin/").append(fallbackTarget).append("\" ]; then\n");
+            sb.append("  exec \"$PREFIX/bin/").append(fallbackTarget).append("\" \"$@\"\n");
+            sb.append("fi\n");
+        }
+        sb.append("echo \"agy bridge: $PREFIX/bin/").append(target).append(" not found\" >&2\n");
         sb.append("exit 127\n");
         writeScript(bridge, sb.toString());
     }
