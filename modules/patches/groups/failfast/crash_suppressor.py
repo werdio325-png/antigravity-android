@@ -3,11 +3,11 @@ crash_suppressor.py - Bypasses preinit CPU feature check and preinit atomic flag
 """
 from typing import Tuple, Dict, Any, List, Union
 
-TARGET_CPU = bytes.fromhex("d3f800900a60905268de41f9e903282a3f010aeae1020054e8033836e8045036")
+TARGET_CPU = bytes.fromhex("b30701d00a60905268be40f9e903282a3f010aeae1020054e8033836e8045036")
 REPLACEMENT_CPU = bytes.fromhex("190000141f2003d51f2003d51f2003d51f2003d51f2003d51f2003d51f2003d5")
 
-TARGET_ATOMIC = bytes.fromhex("88f500f008a13591290080520801e9f8480000b4c0035fd61f2003d5")
-REPLACEMENT_ATOMIC = bytes.fromhex("88f500f008a13591090140f92a008052490000b4c0035fd60a0100f9")
+TARGET_ATOMIC = bytes.fromhex("680401f008a12c91290080520801e9f8480000b4c0035fd61f2003d5")
+REPLACEMENT_ATOMIC = bytes.fromhex("680401f008a12c91090140f92a008052490000b4c0035fd60a0100f9")
 
 def find_all(data: Union[bytes, bytearray, memoryview], pattern: bytes) -> List[int]:
     matches = []

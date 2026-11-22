@@ -26,17 +26,21 @@ public final class WebViewHost {
     private final OAuthManager oauth;
     private final AndroidBridge bridge;
     private final WebView webView;
+    private final AgyWebChromeClient chromeClient;
     private Listener listener;
 
     public WebViewHost(Context context, ThemeManager theme, OAuthManager oauth,
-                       AndroidBridge bridge, AgyWebChromeClient.FileChooserCallback fileChooserCallback) {
+                       AndroidBridge bridge, AgyWebChromeClient.FileChooserCallback fileChooserCallback,
+                       AgyWebChromeClient.AudioPermissionCallback audioPermissionCallback) {
         this.context = context;
         this.theme = theme;
         this.oauth = oauth;
         this.bridge = bridge;
         this.webView = WebViewFactory.create(context, bridge, theme);
-        this.webView.setWebChromeClient(new AgyWebChromeClient(
-                new PopupWindowHandler(context, oauth), fileChooserCallback));
+        this.chromeClient = new AgyWebChromeClient(
+                context, bridge, new PopupWindowHandler(context, oauth),
+                fileChooserCallback, audioPermissionCallback);
+        this.webView.setWebChromeClient(this.chromeClient);
         this.webView.setWebViewClient(new AgyWebViewClient(
                 context, oauth, new LocalAssetServer(), bridge, new Listener() {
             @Override
@@ -60,8 +64,21 @@ public final class WebViewHost {
     }
 
     public WebViewHost(Context context, ThemeManager theme, OAuthManager oauth,
+                       AndroidBridge bridge, AgyWebChromeClient.FileChooserCallback fileChooserCallback) {
+        this(context, theme, oauth, bridge, fileChooserCallback, null);
+    }
+
+    public WebViewHost(Context context, ThemeManager theme, OAuthManager oauth,
                        AndroidBridge bridge) {
-        this(context, theme, oauth, bridge, null);
+        this(context, theme, oauth, bridge, null, null);
+    }
+
+    public void onRecordAudioPermissionResult(boolean granted) {
+        chromeClient.onRecordAudioPermissionResult(granted);
+    }
+
+    public void cancelPendingPermissions() {
+        chromeClient.cancelPendingPermissions();
     }
 
     public WebView getWebView() {

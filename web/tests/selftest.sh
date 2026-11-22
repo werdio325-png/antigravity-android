@@ -12,6 +12,8 @@ bash "$TMP/web/build.sh"
 after="$(sha256sum "$TMP/web/main.js" | cut -d' ' -f1)"
 [ "$before" = "$after" ] || { echo "web/build.sh modified source main.js" >&2; exit 1; }
 [ -s "$TMP/web/generated/main.js" ] || { echo "generated/main.js missing" >&2; exit 1; }
+[ -s "$TMP/web/generated/patches/mobile_bridge.js" ] || { echo "generated/patches/mobile_bridge.js missing" >&2; exit 1; }
+grep -Fq 'src="./generated/patches/mobile_bridge.js"' "$TMP/web/index.html"
 grep -Fq 'src="./generated/main.js"' "$TMP/web/index.html"
 
 # Verify no double IIFE wrappers in generated bundles (excluding vendor main.js)
@@ -35,5 +37,9 @@ for f in "$TMP"/web/generated/boot/*.js "$TMP"/web/generated/patches/*.js; do
         exit 1
     fi
 done
+
+if command -v node >/dev/null 2>&1 && [ -f "$TMP/web/tests/test_web_patches.mjs" ]; then
+    node "$TMP/web/tests/test_web_patches.mjs"
+fi
 
 echo "web build selftest: OK"

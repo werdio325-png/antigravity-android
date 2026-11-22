@@ -26,12 +26,12 @@
     {
       "name": "sigill",
       "description": "Preserve LD_PRELOAD SIGILL handler in rt_sigaction",
-      "expected": 2
+      "expected": 1
     },
     {
       "name": "resolv",
       "description": "Redirect /etc/resolv.conf",
-      "expected": 2
+      "expected": 1
     },
     {
       "name": "failfast",

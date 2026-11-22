@@ -153,7 +153,15 @@ emit_bundle
 [ -f "$SCRIPT_DIR/main.js" ] || die "main.js not found"
 [ -f "$SCRIPT_DIR/patch_main.py" ] || die "patch_main.py not found"
 cp -f "$SCRIPT_DIR/main.js" "$GEN_DIR/main.js"
-python3 "$SCRIPT_DIR/patch_main.py" "$GEN_DIR/main.js" \
+PYTHON_BIN=""
+if command -v python3 >/dev/null 2>&1 && python3 -c 'import sys; sys.exit(0 if sys.version_info[0] >= 3 else 1)' >/dev/null 2>&1; then
+    PYTHON_BIN="python3"
+elif command -v python >/dev/null 2>&1 && python -c 'import sys; sys.exit(0 if sys.version_info[0] >= 3 else 1)' >/dev/null 2>&1; then
+    PYTHON_BIN="python"
+else
+    die "python3 not found"
+fi
+"$PYTHON_BIN" "$SCRIPT_DIR/patch_main.py" "$GEN_DIR/main.js" \
     || die "web/patch_main.py failed"
 
 printf 'web: generated %d bundle(s) from %d fragment(s)\n' \

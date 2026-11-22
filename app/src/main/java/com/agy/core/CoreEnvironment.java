@@ -70,6 +70,9 @@ public final class CoreEnvironment {
         env.put("XDG_DATA_DIRS", rm.getRuntimeDir().getAbsolutePath());
         env.put("XDG_DATA_HOME", new File(files, ".local/share").getAbsolutePath());
         env.put("XDG_CONFIG_HOME", new File(files, ".config").getAbsolutePath());
+        env.put("PREFIX", prefix.getAbsolutePath());
+        env.put("AGY_GATEWAY_PORT", String.valueOf(com.agy.gateway.SystemGatewayServer.getActivePort()));
+        env.put("AGY_CORE_STATE_FILE", new File(files, CoreProcessSupervisor.CORE_STATE_REL_PATH).getAbsolutePath());
         // The glibc loader resolves libraries via --library-path; keep bionic's out of the way.
         env.remove("LD_LIBRARY_PATH");
         // Do NOT export LD_PRELOAD into the process environment!

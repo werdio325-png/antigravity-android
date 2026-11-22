@@ -414,10 +414,12 @@ def cmd_task_run_now(args):
             print(f"[agy-daemon] {msg}")
         return
 
-    print(f"[agy-daemon] Triggering immediate run for task [{target_task['id']}]...")
-    execute_action_async(target_task)
     if getattr(args, "json", False):
+        execute_action_async(target_task)
         print(json.dumps({"status": "triggered", "id": target_task["id"]}))
+    else:
+        print(f"[agy-daemon] Triggering immediate run for task [{target_task['id']}]...")
+        execute_action_async(target_task)
 
 
 def cmd_task_logs(args):

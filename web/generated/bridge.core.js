@@ -41,6 +41,7 @@ try {
   if (!p.type) p.type = 'renderer';
   p.browser = p.browser !== undefined ? p.browser : true;
   if (!p.env || typeof p.env !== 'object') p.env = {};
+  if (!p.env.NODE_ENV) p.env.NODE_ENV = (CONFIG && CONFIG.devMode) ? 'development' : 'production';
   if (!p.versions || typeof p.versions !== 'object') p.versions = {};
   if (typeof p.cwd !== 'function') p.cwd = function () { return CONFIG.workspaceRoot || '/'; };
   if (typeof p.nextTick !== 'function') {
@@ -90,13 +91,43 @@ try {
  * Sources (first hit wins): explicit global, meta tag, generated fallback.
  * Publishes `csrfToken`/`csrf_token` cookies that main.js and native read.
  */
+var generatedCsrfFallback = '';
+
+function generateFallbackCsrf() {
+  if (generatedCsrfFallback) return generatedCsrfFallback;
+  try {
+    var c = global.crypto || global.msCrypto;
+    if (c && typeof c.randomUUID === 'function') {
+      generatedCsrfFallback = c.randomUUID();
+      return generatedCsrfFallback;
+    }
+    if (c && typeof c.getRandomValues === 'function') {
+      var bytes = new Uint8Array(16);
+      c.getRandomValues(bytes);
+      var hex = '';
+      for (var i = 0; i < bytes.length; i++) {
+        var b = bytes[i].toString(16);
+        hex += b.length < 2 ? '0' + b : b;
+      }
+      generatedCsrfFallback = hex;
+      return generatedCsrfFallback;
+    }
+  } catch (e) {}
+  var out = '';
+  for (var j = 0; j < 32; j++) {
+    out += Math.floor(Math.random() * 16).toString(16);
+  }
+  generatedCsrfFallback = out;
+  return generatedCsrfFallback;
+}
+
 function readCsrf() {
   try {
     if (window.__AG_CSRF__) return String(window.__AG_CSRF__);
     var m = document.querySelector('meta[name="csrf-token"], meta[name="csrfToken"]');
     if (m && m.getAttribute('content')) return m.getAttribute('content');
   } catch (e) {}
-  return CONFIG.csrfToken || 'agy-standalone-token';
+  return CONFIG.csrfToken || generateFallbackCsrf();
 }
 
 function syncCsrf() {
@@ -163,7 +194,7 @@ try {
       for (var qk in fromQuery) { if (Object.prototype.hasOwnProperty.call(fromQuery, qk)) ENDPOINTS[qk] = fromQuery[qk]; }
     }
     var port = qp.get('port') || qp.get('enginePort');
-    if (port) { ENDPOINTS.core_http = 'http://127.0.0.1:' + port; ENDPOINTS.enginePort = port; }
+    if (port) { ENDPOINTS.core_http = 'https://127.0.0.1:' + port; ENDPOINTS.enginePort = port; }
   }
 } catch (e) { warn('endpoint parse', e); }
 global.__AG_ENDPOINTS__ = ENDPOINTS;

@@ -42,12 +42,14 @@ public final class WebSettingsFactory {
         applyDesktopMode(view, desktop);
 
         // The app document uses its pinned HTTPS loopback origin; file:// access
-        // and HTTP mixed content are not needed and expand the bridge attack surface.
+        // is disabled, and compatibility mixed-content mode lets loopback HTTP
+        // dev-server preview iframes load while AgyWebViewClient, CSP, and
+        // network_security_config strictly block arbitrary external HTTP.
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(true); // Needed for content:// file-picker results.
         settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
-        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         }

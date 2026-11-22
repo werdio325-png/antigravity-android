@@ -12,6 +12,7 @@ try {
   if (!p.type) p.type = 'renderer';
   p.browser = p.browser !== undefined ? p.browser : true;
   if (!p.env || typeof p.env !== 'object') p.env = {};
+  if (!p.env.NODE_ENV) p.env.NODE_ENV = (CONFIG && CONFIG.devMode) ? 'development' : 'production';
   if (!p.versions || typeof p.versions !== 'object') p.versions = {};
   if (typeof p.cwd !== 'function') p.cwd = function () { return CONFIG.workspaceRoot || '/'; };
   if (typeof p.nextTick !== 'function') {

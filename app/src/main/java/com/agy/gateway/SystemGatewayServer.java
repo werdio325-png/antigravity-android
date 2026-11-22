@@ -3,6 +3,8 @@ package com.agy.gateway;
 import android.content.Context;
 import android.util.Log;
 
+import com.agy.core.ApprovalActionReceiver;
+import com.agy.core.VoiceForegroundService;
 import com.agy.log.CrashRecorder;
 import com.agy.log.LogRingBuffer;
 
@@ -17,24 +19,27 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Lightweight embedded HTTP Server listening strictly on 127.0.0.1:45158.
+ * Lightweight embedded HTTP Server listening strictly on 127.0.0.1:45160.
  * Zero external dependencies; exposes the Android System Gateway to the Linux/agent layer.
  */
 public final class SystemGatewayServer {
 
     private static final String TAG = "SystemGateway";
     public static final int DEFAULT_PORT = 45160;
+    private static final int CLIENT_SOCKET_TIMEOUT_MS = 30_000;
+    private static volatile int activePort = DEFAULT_PORT;
 
     private final Context context;
-    private int port;
+    private volatile int port;
     private final GatewayDispatcher dispatcher;
     private final LogRingBuffer logBuffer;
-    private final ExecutorService executor = Executors.newFixedThreadPool(4);
+    private final ExecutorService executor = Executors.newFixedThreadPool(8);
 
     private volatile boolean running = false;
     private ServerSocket serverSocket;
@@ -47,8 +52,17 @@ public final class SystemGatewayServer {
     public SystemGatewayServer(Context context, LogRingBuffer logBuffer, int port) {
         this.context = context;
         this.port = port;
+        activePort = port;
         this.logBuffer = logBuffer;
         this.dispatcher = new GatewayDispatcher(context, logBuffer);
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public static int getActivePort() {
+        return activePort;
     }
 
     public synchronized void start() {
@@ -68,6 +82,7 @@ public final class SystemGatewayServer {
                     serverSocket.setReuseAddress(true);
                     serverSocket.bind(new java.net.InetSocketAddress(InetAddress.getByName("127.0.0.1"), port), 50);
                 }
+                activePort = port;
                 Log.i(TAG, "System Gateway listening on http://127.0.0.1:" + port + "/gateway");
                 try {
                     File pFile = new File(context.getFilesDir(), "logs/gateway.port");
@@ -78,7 +93,7 @@ public final class SystemGatewayServer {
                 while (running && !serverSocket.isClosed()) {
                     try {
                         Socket client = serverSocket.accept();
-                        client.setSoTimeout(3000);
+                        client.setSoTimeout(CLIENT_SOCKET_TIMEOUT_MS);
                         executor.submit(() -> handleClient(client));
                     } catch (Exception e) {
                         if (!running) break;
@@ -152,6 +167,12 @@ public final class SystemGatewayServer {
                 JSONObject crash = CrashRecorder.getLatestCrash();
                 responseJson.put("ok", true);
                 responseJson.put("crash", crash != null ? crash : JSONObject.NULL);
+            } else if ("GET".equals(method) && path.startsWith("/gateway/approval")) {
+                String id = parseQueryParam(path, "id");
+                long waitMs = parseLongQueryParam(path, "wait_ms", 0L);
+                responseJson = ApprovalActionReceiver.poll(context, id, waitMs);
+            } else if ("GET".equals(method) && path.startsWith("/gateway/voice/status")) {
+                responseJson = VoiceForegroundService.getStatusJson();
             } else if ("POST".equals(method) && path.startsWith("/gateway")) {
                 String bodyStr = "";
                 if (contentLength > 0) {
@@ -211,5 +232,42 @@ public final class SystemGatewayServer {
             return null;
         }
         return baos.toString("UTF-8");
+    }
+
+    private static String parseQueryParam(String path, String key) {
+        if (path == null || key == null) {
+            return "";
+        }
+        int q = path.indexOf('?');
+        if (q < 0 || q + 1 >= path.length()) {
+            return "";
+        }
+        String query = path.substring(q + 1);
+        String[] pairs = query.split("&");
+        for (String pair : pairs) {
+            int eq = pair.indexOf('=');
+            String k = eq >= 0 ? pair.substring(0, eq) : pair;
+            String v = eq >= 0 ? pair.substring(eq + 1) : "";
+            try {
+                k = URLDecoder.decode(k, "UTF-8");
+                if (key.equals(k)) {
+                    return URLDecoder.decode(v, "UTF-8");
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return "";
+    }
+
+    private static long parseLongQueryParam(String path, String key, long fallback) {
+        String raw = parseQueryParam(path, key);
+        if (raw == null || raw.isEmpty()) {
+            return fallback;
+        }
+        try {
+            return Long.parseLong(raw.trim());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
     }
 }

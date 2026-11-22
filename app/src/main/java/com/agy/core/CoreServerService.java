@@ -24,6 +24,7 @@ public final class CoreServerService extends Service {
     private RuntimeManager runtime;
     private WakeLockHolder wakeLock;
     private OpenUrlWatcher openUrlWatcher;
+    private CoreEventWatcher coreEventWatcher;
     private CoreProcessSupervisor supervisor;
     private com.agy.log.LogRingBuffer logBuffer;
     private com.agy.gateway.SystemGatewayServer gatewayServer;
@@ -55,7 +56,9 @@ public final class CoreServerService extends Service {
         openUrlWatcher = new OpenUrlWatcher(this);
         openUrlWatcher.start();
 
-        supervisor = new CoreProcessSupervisor(this, runtime, openUrlWatcher, logBuffer,
+        coreEventWatcher = new CoreEventWatcher(this);
+
+        supervisor = new CoreProcessSupervisor(this, runtime, openUrlWatcher, coreEventWatcher, logBuffer,
                 this::onSupervisorTerminated);
         supervisor.start();
 
@@ -74,6 +77,7 @@ public final class CoreServerService extends Service {
                     pb.directory(getFilesDir());
                     pb.environment().put("PATH", getFilesDir().getAbsolutePath() + "/usr/bin:" + System.getenv("PATH"));
                     pb.environment().put("HOME", getFilesDir().getAbsolutePath());
+                    pb.environment().put("PREFIX", new File(getFilesDir(), "usr").getAbsolutePath());
                     pb.start();
                 }
             } catch (Exception e) {
@@ -91,6 +95,7 @@ public final class CoreServerService extends Service {
                 pb.directory(getFilesDir());
                 pb.environment().put("PATH", getFilesDir().getAbsolutePath() + "/usr/bin:" + System.getenv("PATH"));
                 pb.environment().put("HOME", getFilesDir().getAbsolutePath());
+                pb.environment().put("PREFIX", new File(getFilesDir(), "usr").getAbsolutePath());
                 Process p = pb.start();
                 if (!p.waitFor(1500, TimeUnit.MILLISECONDS)) {
                     Log.w(TAG, "agy-daemon stop timed out after 1500ms; destroying forcibly");
@@ -111,6 +116,7 @@ public final class CoreServerService extends Service {
                 }
                 CoreRuntimeState.serverUrl = null;
                 CoreRuntimeState.restarting = false;
+                CoreProcessSupervisor.clearCoreStateFile(getFilesDir());
                 if (CoreRuntimeState.lastError == null) {
                     CoreRuntimeState.lastError = "core supervisor stopped unexpectedly";
                 }
@@ -153,6 +159,7 @@ public final class CoreServerService extends Service {
         CoreRuntimeState.serverUrl = null;
         CoreRuntimeState.lastError = null;
         CoreRuntimeState.restarting = false;
+        CoreProcessSupervisor.clearCoreStateFile(getFilesDir());
         super.onDestroy();
     }
 

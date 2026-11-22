@@ -13,7 +13,7 @@ import byte_replacer
 
 TARGET = bytes.fromhex("e00740f9e10b40f9e20f40f9e31340f9c81080d2010000d4e02b00b9c0035fd6")
 REPLACEMENT = bytes.fromhex("e08740a9e28f41a91f1000f1c81080d240000054010000d4ff2b00b9c0035fd6")
-EXPECTED_COUNT = 2
+EXPECTED_COUNT = 1
 
 def apply(data: bytearray, verify: bool = False, dry_run: bool = False, allow_missing: bool = False) -> Tuple[bool, Dict[str, Any]]:
     raw_offsets = byte_replacer.find_offsets(data, TARGET)

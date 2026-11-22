@@ -31,7 +31,7 @@ class TestElfValidator(unittest.TestCase):
             elf_header.validate_elf_header(self.archive_path)
 
     def test_03_checksum_verification(self):
-        expected_archive_sha = "a48ddf734b66d5bd5b087e2170a5219283793a27eea494648b09abf65e74e3fe"
+        expected_archive_sha = "6847c8e03731e801465a253cbb8c286ffa63c9ee4567dd7a8d5f26ccadaba390"
         self.assertTrue(checksum_checker.verify_checksum(self.archive_path, expected_archive_sha))
 
 if __name__ == "__main__":
