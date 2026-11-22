@@ -166,6 +166,9 @@ public final class SeedPackageInstaller {
             int result = process.exitValue();
             if (result != 0) {
                 appendLog(logFile, "\n[AGY] exit=" + result + " command=" + command + "\n");
+                String tail = readTail(logFile, 12, 1200);
+                Log.w(TAG, "pkg command failed (exit=" + result + ") " + command
+                        + (tail.isEmpty() ? "" : "\n--- pkg output tail ---\n" + tail));
             }
             return result == 0;
         } catch (Exception e) {
@@ -323,5 +326,35 @@ public final class SeedPackageInstaller {
             output.write(message.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         } catch (IOException ignored) {
         }
+    }
+
+    private static String readTail(File file, int maxLines, int maxChars) {
+        if (file == null || !file.isFile()) {
+            return "";
+        }
+        List<String> lines = new ArrayList<>();
+        try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(file))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                lines.add(line);
+                if (lines.size() > maxLines) {
+                    lines.remove(0);
+                }
+            }
+        } catch (Exception ignored) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < lines.size(); i++) {
+            if (i > 0) {
+                sb.append('\n');
+            }
+            sb.append(lines.get(i));
+        }
+        String out = sb.toString().trim();
+        if (out.length() > maxChars) {
+            out = out.substring(out.length() - maxChars);
+        }
+        return out;
     }
 }

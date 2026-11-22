@@ -16,7 +16,13 @@ def pack_certs(certs_dir: str, dest_certs_dir: str) -> list:
         src = os.path.join(certs_dir, item)
         if os.path.isfile(src):
             dst = os.path.join(dest_certs_dir, item)
-            shutil.copyfile(src, dst)
+            if item.endswith((".crt", ".pem")):
+                with open(src, "rb") as rf:
+                    raw = rf.read().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+                with open(dst, "wb") as wf:
+                    wf.write(raw)
+            else:
+                shutil.copyfile(src, dst)
             copied.append(item)
             
     return copied

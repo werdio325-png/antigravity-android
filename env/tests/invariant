@@ -6,20 +6,29 @@ SELF="$(cd "$(dirname "$0")" && pwd)"
 ENV_DIR="$(cd "$SELF/.." && pwd)"
 DIST="${ASSETS:-$ENV_DIR/dist}"
 
+if python3 -c "import sys" >/dev/null 2>&1; then
+    PYTHON="python3"
+else
+    PYTHON="python"
+fi
+
 fail=0
 ok()  { printf 'PASS  %s\n' "$1"; }
 bad() { printf 'FAIL  %s\n' "$1"; fail=$((fail + 1)); }
 
-# 1. pkg/ and overlay/ copied byte-for-byte
+# 1. pkg/ and overlay/ copied byte-for-byte (ignoring stray source __pycache__/*.pyc)
 for src in pkg overlay; do
     n=0; bad_n=0
     while IFS= read -r -d '' f; do
+        case "$f" in
+            */__pycache__/*|*.pyc|*.pyo) continue ;;
+        esac
         n=$((n + 1))
         rel="${f#"$ENV_DIR/$src/"}"
         dst="$DIST/env/$src/$rel"
         if [ ! -f "$dst" ]; then bad "missing: $src/$rel"; bad_n=$((bad_n + 1)); continue; fi
         if [ "$(sha256sum "$f" | cut -d' ' -f1)" != "$(sha256sum "$dst" | cut -d' ' -f1)" ]; then
-            bad "content differs: $src/$rel"; bad_n=$((bad_n + 1))
+            bad "content differs: $src/$rel"; bad_n=$((bad_n + 1));
         fi
     done < <(find "$ENV_DIR/$src" -type f -print0)
     [ "$bad_n" = 0 ] && ok "$src: $n files 1:1" || true
@@ -36,7 +45,7 @@ if [ -f "$ENV_DIR/seed-packages.txt" ]; then
 else
     ok "no seed packages configured (empty seed list)"
 fi
-python3 "$ENV_DIR/scripts/make_manifest.py" --check "$DIST/env" \
+"$PYTHON" -B "$ENV_DIR/scripts/make_manifest.py" --check "$DIST/env" \
     && ok "env manifest matches staged inputs" || bad "env manifest stale/missing"
 
 # 3. bootstrap archive present and preserves symlinks
@@ -53,12 +62,30 @@ else
     bad "missing bootstrap.tar.gz"
 fi
 
-# 4. no build metadata leaked into pkg/overlay
+# 4. no build metadata, __pycache__, *.pyc, or Windows CRLF leaked into staged pkg/overlay
 while IFS= read -r -d '' f; do
     case "$f" in
-        *.tmp|*.part) bad "stray temp file: ${f#"$DIST/"}" ;;
+        *.tmp|*.part|*.pyc|*.pyo|*/__pycache__/*) bad "stray build artifact: ${f#"$DIST/"}" ;;
     esac
 done < <(find "$DIST/env/pkg" "$DIST/env/overlay" -type f -print0)
+
+crlf_hits="$("$PYTHON" -B -c '
+import os, sys
+hits = []
+for root_dir in sys.argv[1:]:
+    for r, _, fns in os.walk(root_dir):
+        for fn in fns:
+            p = os.path.join(r, fn)
+            data = open(p, "rb").read()
+            if b"\x00" not in data[:8192] and b"\r\n" in data:
+                hits.append(p)
+print("\n".join(hits))
+' "$DIST/env/pkg" "$DIST/env/overlay")"
+if [ -n "$crlf_hits" ]; then
+    bad "CRLF detected in staged env text files: $crlf_hits"
+else
+    ok "staged pkg/overlay free of CRLF and bytecode"
+fi
 
 printf '== failures: %s ==\n' "$fail"
 [ "$fail" = 0 ]

@@ -116,7 +116,10 @@ function createMockDom() {
       this.selectionStart = this._value.length;
       this.selectionEnd = this._value.length;
     }
-    get textContent() { return this._textContent; }
+    get textContent() {
+      if (this._textContent) return this._textContent;
+      return this.children.map((c) => c.textContent || '').join(' ');
+    }
     set textContent(v) { this._textContent = String(v); }
     get isContentEditable() { return this.getAttribute('contenteditable') === 'true'; }
     setAttribute(k, v) { this.attributes.set(k, String(v)); }
@@ -207,7 +210,10 @@ function createMockDom() {
 
   function markConnected(node, connected) {
     node.isConnected = connected;
-    if (connected && node._id) elementsById.set(node._id, node);
+    if (node._id) {
+      if (connected) elementsById.set(node._id, node);
+      else elementsById.delete(node._id);
+    }
     for (const ch of node.children || []) markConnected(ch, connected);
   }
 
@@ -380,8 +386,20 @@ function createMockDom() {
 
   assert.equal(typeof windowObj.__agDeliverSharedPayload, 'function');
   assert.equal(typeof windowObj.__agExtraKey, 'function');
-  assert.ok(document.getElementById('ag-mb-pill'), 'Quick Controls pill should mount');
-  assert.ok(document.getElementById('ag-mb-drawer'), 'Quick Controls drawer should mount');
+  assert.equal(document.getElementById('ag-mb-pill'), null, 'No floating Tools pill should clutter the chat/Swarm canvas');
+
+  // Mount a native-like Settings -> Appearance screen and verify "Android Tools" card injects cleanly
+  const settingsScreen = document.createElement('div');
+  const appearanceSec = document.createElement('div');
+  appearanceSec.className = 'space-y-2';
+  const appearanceCard = document.createElement('div');
+  appearanceCard.className = 'agy-card';
+  appearanceCard.textContent = 'Appearance Theme Contrast Font';
+  appearanceSec.appendChild(appearanceCard);
+  settingsScreen.appendChild(appearanceSec);
+  body.appendChild(settingsScreen);
+  assert.equal(windowObj.__agMobileBridge.injectSettingsControls(), true, 'Android Tools should inject into Settings');
+  assert.ok(document.getElementById('ag-mb-settings-section'), 'Android Tools section should exist inside Settings');
 
   // 1a. Share Sheet before composer exists -> buffers + shows banner
   const bufferedRes = windowObj.__agDeliverSharedPayload({
@@ -447,8 +465,7 @@ function createMockDom() {
   windowObj.__agExtraKey('ArrowDown', false);
   assert.equal(receivedInput.length, 0, 'Should not double-inject when xterm handles keydown');
 
-  // 1d. Quick Controls toggles & Localhost Preview
-  windowObj.__agMobileBridge.openDrawer();
+  // 1d. Settings "Android Tools" toggles & Localhost Preview
   document.getElementById('ag-mb-toggle-desktop').dispatchEvent(new windowObj.Event('click', { bubbles: true, cancelable: true }));
   document.getElementById('ag-mb-toggle-extrakeys').dispatchEvent(new windowObj.Event('click', { bubbles: true, cancelable: true }));
   assert.deepEqual(calls.desktop, [true]);
@@ -579,22 +596,14 @@ function createMockDom() {
   assert.equal(calls.clipboardReads.length, 2);
   assert.equal(pastedFiles.length, 3);
 
-  // 1j. Non-overlapping Tools pill docks strictly 8px above the composer card (drawer opens above pill)
-  const card = document.createElement('div');
-  card.getBoundingClientRect = () => ({ top: 640, left: 16, right: 384, bottom: 780, width: 368, height: 140 });
-  const cardComposer = document.createElement('textarea');
-  cardComposer.getBoundingClientRect = () => ({ top: 660, left: 28, right: 372, bottom: 710, width: 344, height: 50 });
-  card.appendChild(cardComposer);
-  body.appendChild(card);
-  cardComposer.focus();
-  windowObj.__agMobileBridge.repositionControls();
-  const pillEl = document.getElementById('ag-mb-pill');
-  const drawerEl = document.getElementById('ag-mb-drawer');
-  const pillBottom = parseInt(pillEl.style.bottom, 10);
-  const drawerBottom = parseInt(drawerEl.style.bottom, 10);
-  // Viewport height is 800, card.top is 640 -> pill bottom must be 800 - 640 + 8 = 168px (zero overlap!)
-  assert.equal(pillBottom, 168, 'Tools pill must dock 8px above composer card top edge');
-  assert.ok(drawerBottom >= pillBottom + 28 + 8, 'Drawer must open strictly above Tools pill');
+  // 1j. Confirm programmatic drawer fallback also works cleanly when Settings is not mounted
+  settingsScreen.parentNode.removeChild(settingsScreen);
+  assert.equal(document.getElementById('ag-mb-settings-section'), null);
+  windowObj.__agMobileBridge.openDrawer();
+  assert.ok(document.getElementById('ag-mb-drawer').classList.contains('ag-mb-open'));
+  windowObj.__agMobileBridge.closeDrawer();
+  assert.equal(document.getElementById('ag-mb-drawer').classList.contains('ag-mb-open'), false);
+  assert.equal(document.getElementById('ag-mb-pill'), null, 'Still zero floating pill after programmatic drawer');
 
   console.log('test mobile_bridge.js: OK');
 }

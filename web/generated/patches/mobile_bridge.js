@@ -1559,63 +1559,50 @@ function installClipboardImageInterceptor() {
 }
 
 /**
- * patches/mobile_bridge/controls.js - resilient Quick Controls pill & drawer.
+ * patches/mobile_bridge/controls.js - native Settings "Android Tools" section.
  *
- * Provides one-tap access to Desktop Mode, Extra-Keys Bar, and Localhost
- * Preview independent of main.js internals, so upstream UI changes never lock
- * the user out of mobile controls.
+ * Keeps the chat and Swarm screens 100% clean (zero floating pill overlay!).
+ * Automatically injects a native-styled "Android Tools" card into Settings
+ * (Appearance / Application) via MutationObserver, providing resilient access
+ * to Desktop Mode, Extra-Keys Bar, Localhost Preview, PC Remote Control,
+ * Voice Dictation / Voice Service, and Clipboard Image Paste independent of
+ * upstream main.js internals.
  */
+var settingsObserver = null;
+var settingsScanTimer = 0;
+
 function ensureBridgeStyles() {
   if (!doc || doc.getElementById('ag-mb-styles')) return;
   var style = doc.createElement('style');
   style.id = 'ag-mb-styles';
   style.textContent = [
-    '#ag-mb-pill {',
-    '  position: fixed; right: 12px; bottom: 16px; z-index: 2147483000;',
-    '  display: inline-flex; align-items: center; gap: 4px;',
-    '  height: 28px; padding: 0 10px; border-radius: 999px;',
-    '  border: 1px solid rgba(148,163,184,0.26);',
-    '  background: rgba(20,23,30,0.88); color: #e2e8f0;',
-    '  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);',
-    '  font: 600 11px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;',
-    '  box-shadow: 0 3px 10px rgba(0,0,0,0.26); cursor: pointer;',
-    '  opacity: 0.86; transition: opacity 0.16s ease, bottom 0.12s ease;',
-    '  user-select: none; -webkit-user-select: none;',
+    '#ag-mb-settings-section {',
+    '  margin-top: 20px;',
+    '  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;',
     '}',
-    '#ag-mb-pill:active, #ag-mb-pill[aria-expanded="true"] { opacity: 1; }',
-    'html.light #ag-mb-pill {',
-    '  background: rgba(255,255,255,0.92); color: #0f172a;',
-    '  border-color: rgba(15,23,42,0.16); box-shadow: 0 3px 10px rgba(15,23,42,0.12);',
+    '.ag-mb-sec-heading {',
+    '  font-size: 13px; font-weight: 600; opacity: 0.9; margin-bottom: 8px;',
     '}',
-    '#ag-mb-drawer {',
-    '  position: fixed; right: 12px; bottom: 52px; z-index: 2147483001;',
-    '  width: min(296px, calc(100vw - 24px)); max-height: calc(100vh - 120px);',
-    '  overflow-y: auto; overscroll-behavior: contain; border-radius: 14px; padding: 12px;',
-    '  border: 1px solid rgba(148,163,184,0.28);',
-    '  background: rgba(15,23,42,0.96); color: #f1f5f9;',
-    '  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);',
-    '  box-shadow: 0 14px 36px rgba(0,0,0,0.42);',
-    '  font: 13px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;',
-    '  display: none;',
+    '.ag-mb-card {',
+    '  border-radius: 12px; overflow: hidden;',
+    '  border: 1px solid rgba(148,163,184,0.22);',
+    '  background: rgba(15,23,42,0.22);',
     '}',
-    '#ag-mb-drawer.ag-mb-open { display: block; }',
-    'html.light #ag-mb-drawer {',
-    '  background: rgba(255,255,255,0.97); color: #0f172a;',
-    '  border-color: rgba(15,23,42,0.14); box-shadow: 0 14px 36px rgba(15,23,42,0.18);',
-    '}',
-    '.ag-mb-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }',
-    '.ag-mb-title { font-size: 13px; font-weight: 700; letter-spacing: 0.01em; }',
-    '.ag-mb-close {',
-    '  width: 28px; height: 28px; border: 0; border-radius: 8px; cursor: pointer;',
-    '  background: transparent; color: inherit; font-size: 18px; line-height: 1;',
+    'html.light .ag-mb-card {',
+    '  border-color: rgba(15,23,42,0.12); background: rgba(15,23,42,0.02);',
     '}',
     '.ag-mb-row {',
-    '  display: flex; align-items: center; justify-content: space-between; gap: 10px;',
-    '  padding: 8px 0; border-top: 1px solid rgba(148,163,184,0.16);',
+    '  display: flex; align-items: center; justify-content: space-between; gap: 12px;',
+    '  padding: 12px 14px; border-top: 1px solid rgba(148,163,184,0.14);',
     '}',
-    '.ag-mb-row-label { display: flex; flex-direction: column; gap: 2px; }',
+    '.ag-mb-row:first-child { border-top: 0; }',
+    '.ag-mb-row-col {',
+    '  display: flex; flex-direction: column; gap: 6px;',
+    '  padding: 12px 14px; border-top: 1px solid rgba(148,163,184,0.14);',
+    '}',
+    '.ag-mb-row-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }',
     '.ag-mb-row-title { font-weight: 600; font-size: 13px; }',
-    '.ag-mb-row-sub { font-size: 11px; opacity: 0.72; }',
+    '.ag-mb-row-sub { font-size: 12px; opacity: 0.7; }',
     '.ag-mb-toggle {',
     '  position: relative; width: 42px; height: 24px; flex: 0 0 auto; border: 0;',
     '  border-radius: 999px; background: rgba(148,163,184,0.38); cursor: pointer;',
@@ -1628,36 +1615,58 @@ function ensureBridgeStyles() {
     '  border-radius: 50%; background: #ffffff; transition: transform 0.16s ease;',
     '}',
     '.ag-mb-toggle[aria-checked="true"]::after { transform: translateX(18px); }',
-    '.ag-mb-section { padding-top: 9px; margin-top: 2px; border-top: 1px solid rgba(148,163,184,0.16); }',
-    '.ag-mb-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }',
+    '.ag-mb-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }',
     '.ag-mb-chip {',
     '  height: 30px; padding: 0 10px; border-radius: 8px; cursor: pointer;',
     '  border: 1px solid rgba(148,163,184,0.28); background: rgba(56,189,248,0.12);',
     '  color: inherit; font: 600 12px/1 monospace;',
     '}',
-    '.ag-mb-custom { display: flex; gap: 6px; margin-top: 8px; }',
+    '.ag-mb-custom { display: flex; gap: 6px; margin-top: 4px; }',
     '.ag-mb-input {',
-    '  flex: 1; min-width: 0; height: 32px; padding: 0 9px; border-radius: 8px;',
-    '  border: 1px solid rgba(148,163,184,0.3); background: rgba(148,163,184,0.1);',
+    '  flex: 1; min-width: 0; height: 34px; padding: 0 10px; border-radius: 8px;',
+    '  border: 1px solid rgba(148,163,184,0.3); background: rgba(148,163,184,0.08);',
     '  color: inherit; font: 12px/1 monospace;',
     '}',
     '.ag-mb-btn {',
-    '  height: 32px; padding: 0 11px; border-radius: 8px; border: 0; cursor: pointer;',
+    '  height: 34px; padding: 0 12px; border-radius: 8px; border: 0; cursor: pointer;',
     '  background: #38bdf8; color: #082f49; font-weight: 700; font-size: 12px;',
     '}',
     'html.light .ag-mb-btn { background: #0284c7; color: #ffffff; }',
     '.ag-mb-btn-secondary {',
-    '  height: 32px; padding: 0 10px; border-radius: 8px; cursor: pointer;',
-    '  border: 1px solid rgba(148,163,184,0.32); background: rgba(148,163,184,0.14);',
+    '  height: 34px; padding: 0 12px; border-radius: 8px; cursor: pointer;',
+    '  border: 1px solid rgba(148,163,184,0.32); background: rgba(148,163,184,0.12);',
     '  color: inherit; font-weight: 600; font-size: 12px;',
     '}',
     '.ag-mb-btn[data-active="true"] { background: #ef4444; color: #ffffff; }',
-    '.ag-mb-voice-row { display: flex; gap: 6px; margin-top: 8px; }',
-    '.ag-mb-voice-status { font-size: 11px; opacity: 0.78; margin-top: 6px; }',
-    '#ag-mb-voice-interim { font-size: 11px; opacity: 0.85; margin-top: 4px; font-style: italic; display: none; }',
+    '.ag-mb-voice-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }',
+    '.ag-mb-voice-status { font-size: 12px; opacity: 0.74; }',
+    '#ag-mb-voice-interim { font-size: 12px; opacity: 0.85; font-style: italic; display: none; }',
     '#ag-mb-voice-interim.ag-mb-visible { display: block; }',
-    '#ag-mb-drawer-share { margin-top: 8px; width: 100%; display: none; }',
+    '#ag-mb-drawer-share { width: 100%; display: none; }',
     '#ag-mb-drawer-share.ag-mb-visible { display: block; }',
+    '#ag-mb-drawer {',
+    '  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);',
+    '  z-index: 2147483001; width: min(320px, calc(100vw - 24px));',
+    '  max-height: calc(100vh - 64px); overflow-y: auto; overscroll-behavior: contain;',
+    '  border-radius: 14px; padding: 14px;',
+    '  border: 1px solid rgba(148,163,184,0.28);',
+    '  background: rgba(15,23,42,0.97); color: #f1f5f9;',
+    '  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);',
+    '  box-shadow: 0 18px 42px rgba(0,0,0,0.48);',
+    '  font: 13px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;',
+    '  display: none;',
+    '}',
+    '#ag-mb-drawer.ag-mb-open { display: block; }',
+    'html.light #ag-mb-drawer {',
+    '  background: rgba(255,255,255,0.98); color: #0f172a;',
+    '  border-color: rgba(15,23,42,0.14); box-shadow: 0 18px 42px rgba(15,23,42,0.2);',
+    '}',
+    '.ag-mb-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }',
+    '.ag-mb-title { font-size: 14px; font-weight: 700; }',
+    '.ag-mb-close {',
+    '  width: 28px; height: 28px; border: 0; border-radius: 8px; cursor: pointer;',
+    '  background: transparent; color: inherit; font-size: 18px; line-height: 1;',
+    '}',
     '#ag-mb-share-banner {',
     '  position: fixed; left: 10px; right: 10px; top: max(10px, env(safe-area-inset-top));',
     '  z-index: 2147483002; display: flex; align-items: center; gap: 8px;',
@@ -1759,24 +1768,6 @@ function syncDrawerState() {
   }
 }
 
-function setDrawerOpen(open) {
-  state.drawerOpen = !!open;
-  if (!doc) return;
-  var drawer = doc.getElementById('ag-mb-drawer');
-  var pill = doc.getElementById('ag-mb-pill');
-  if (drawer) {
-    if (state.drawerOpen) {
-      syncDrawerState();
-      drawer.classList.add('ag-mb-open');
-    } else {
-      drawer.classList.remove('ag-mb-open');
-    }
-  }
-  if (pill) {
-    pill.setAttribute('aria-expanded', state.drawerOpen ? 'true' : 'false');
-  }
-}
-
 function createToggleRow(id, title, subtitle, onToggle) {
   var row = doc.createElement('div');
   row.className = 'ag-mb-row';
@@ -1812,214 +1803,41 @@ function createToggleRow(id, title, subtitle, onToggle) {
   return row;
 }
 
-var PILL_HEIGHT_PX = 28;
-var COMPOSER_GAP_PX = 8;
-var TOP_SAFE_CLEARANCE_PX = 56;
-var observedComposerCard = null;
-var composerResizeObserver = null;
-var repositionTimer = 0;
+function buildAndroidToolsCard(onActionDone) {
+  var card = doc.createElement('div');
+  card.className = 'agy-card bg-transparent rounded-xl border border-border overflow-hidden divide-y divide-border ag-mb-card';
 
-function getViewportSize() {
-  var vv = global.visualViewport;
-  var h = (vv && vv.height > 0 ? vv.height : 0) || global.innerHeight || 800;
-  var w = (vv && vv.width > 0 ? vv.width : 0) || global.innerWidth || 400;
-  return { height: h, width: w };
-}
-
-function findComposerCard() {
-  var composer = findComposer();
-  if (!composer || !composer.isConnected) return null;
-  var vp = getViewportSize();
-  var maxCardH = Math.min(340, Math.round(vp.height * 0.52));
-  var cur = composer;
-  var styledBest = null;
-  var fallbackBest = null;
-
-  for (var depth = 0; depth < 8 && cur && cur !== doc.body && cur !== doc.documentElement; depth++) {
-    if (cur.id === 'root' || isOwnBridgeElement(cur)) break;
-    var rect = null;
-    try { rect = cur.getBoundingClientRect(); } catch (_) { rect = null; }
-    if (!rect || rect.height <= 0 || rect.width <= 0) {
-      cur = cur.parentNode;
-      continue;
-    }
-    if (rect.height > maxCardH) break;
-    if (rect.width >= 180 && rect.height >= 36) {
-      fallbackBest = cur;
-      try {
-        var cs = global.getComputedStyle ? global.getComputedStyle(cur) : null;
-        var br = cs && cs.borderRadius ? parseFloat(cs.borderRadius) : 0;
-        var bw = cs && cs.borderTopWidth ? parseFloat(cs.borderTopWidth) : 0;
-        var bg = cs && cs.backgroundColor ? cs.backgroundColor : '';
-        var hasBg = !!(bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)');
-        if (br >= 8 || bw > 0 || hasBg || (cur.tagName || '').toUpperCase() === 'FORM') {
-          styledBest = cur;
-        }
-      } catch (_) {}
-    }
-    cur = cur.parentNode;
-  }
-  return styledBest || fallbackBest || composer;
-}
-
-function observeComposerCard(card) {
-  if (card === observedComposerCard) return;
-  if (composerResizeObserver && observedComposerCard) {
-    try { composerResizeObserver.unobserve(observedComposerCard); } catch (_) {}
-  }
-  observedComposerCard = card;
-  if (!card || typeof global.ResizeObserver !== 'function') return;
-  if (!composerResizeObserver) {
-    try {
-      composerResizeObserver = new global.ResizeObserver(function () {
-        scheduleRepositionQuickControls();
-      });
-    } catch (_) {
-      composerResizeObserver = null;
-      return;
-    }
-  }
-  try { composerResizeObserver.observe(card); } catch (_) {}
-}
-
-function repositionQuickControls() {
-  if (!doc) return;
-  var pill = doc.getElementById('ag-mb-pill');
-  var drawer = doc.getElementById('ag-mb-drawer');
-  if (!pill) return;
-
-  var vp = getViewportSize();
-  var card = findComposerCard();
-  observeComposerCard(card);
-
-  var pillBottom = 16;
-  var pillRight = 12;
-
-  if (card) {
-    var rect = null;
-    try { rect = card.getBoundingClientRect(); } catch (_) { rect = null; }
-    if (rect && rect.height > 0 && rect.top > 0 && rect.bottom > vp.height * 0.35) {
-      // Dock strictly above the composer card's top border with an 8px gap so it never overlaps inputs or buttons.
-      var desiredBottom = Math.round(vp.height - rect.top + COMPOSER_GAP_PX);
-      var maxBottom = Math.max(16, Math.round(vp.height - TOP_SAFE_CLEARANCE_PX - PILL_HEIGHT_PX));
-      pillBottom = Math.max(16, Math.min(desiredBottom, maxBottom));
-      if (rect.right > 0 && rect.right <= vp.width) {
-        pillRight = Math.max(12, Math.min(28, Math.round(vp.width - rect.right)));
-      }
-    }
-  }
-
-  pill.style.top = 'auto';
-  pill.style.bottom = pillBottom + 'px';
-  pill.style.right = pillRight + 'px';
-
-  if (drawer) {
-    var drawerBottom = pillBottom + PILL_HEIGHT_PX + COMPOSER_GAP_PX;
-    var maxDrawerH = Math.max(160, Math.round(vp.height - drawerBottom - TOP_SAFE_CLEARANCE_PX));
-    drawer.style.top = 'auto';
-    drawer.style.bottom = drawerBottom + 'px';
-    drawer.style.right = pillRight + 'px';
-    drawer.style.maxHeight = maxDrawerH + 'px';
-  }
-}
-
-function scheduleRepositionQuickControls() {
-  if (repositionTimer) return;
-  repositionTimer = setTimeout(function () {
-    repositionTimer = 0;
-    repositionQuickControls();
-  }, 60);
-}
-
-function installQuickControlsDocking() {
-  repositionQuickControls();
-  try {
-    global.addEventListener('resize', scheduleRepositionQuickControls);
-    if (global.visualViewport && typeof global.visualViewport.addEventListener === 'function') {
-      global.visualViewport.addEventListener('resize', scheduleRepositionQuickControls);
-    }
-  } catch (_) {}
-  if (typeof global.MutationObserver === 'function') {
-    var root = (doc && (doc.getElementById('root') || doc.body)) || null;
-    if (root) {
-      try {
-        var mo = new global.MutationObserver(scheduleRepositionQuickControls);
-        mo.observe(root, { childList: true, subtree: true });
-      } catch (_) {}
-    }
-  }
-}
-
-function mountQuickControls() {
-  if (state.uiMounted || !doc || !doc.body) return;
-  state.uiMounted = true;
-  ensureBridgeStyles();
-
-  var pill = doc.createElement('button');
-  pill.id = 'ag-mb-pill';
-  pill.type = 'button';
-  pill.setAttribute('data-ag-mobile-bridge', 'true');
-  pill.setAttribute('aria-label', 'Mobile quick controls');
-  pill.setAttribute('aria-expanded', 'false');
-  pill.textContent = '\u2699 Tools';
-  pill.addEventListener('click', function (ev) {
-    ev.preventDefault();
-    ev.stopPropagation();
-    repositionQuickControls();
-    setDrawerOpen(!state.drawerOpen);
-  });
-
-  var drawer = doc.createElement('div');
-  drawer.id = 'ag-mb-drawer';
-  drawer.setAttribute('data-ag-mobile-bridge', 'true');
-  drawer.setAttribute('role', 'dialog');
-  drawer.setAttribute('aria-label', 'Mobile Quick Controls');
-
-  var header = doc.createElement('div');
-  header.className = 'ag-mb-hdr';
-  var title = doc.createElement('span');
-  title.className = 'ag-mb-title';
-  title.textContent = 'Mobile Controls';
-  var closeBtn = doc.createElement('button');
-  closeBtn.type = 'button';
-  closeBtn.className = 'ag-mb-close';
-  closeBtn.setAttribute('aria-label', 'Close mobile controls');
-  closeBtn.textContent = '\u00d7';
-  closeBtn.addEventListener('click', function () { setDrawerOpen(false); });
-  header.appendChild(title);
-  header.appendChild(closeBtn);
-  drawer.appendChild(header);
-
-  drawer.appendChild(createToggleRow(
+  card.appendChild(createToggleRow(
     'ag-mb-toggle-desktop',
     'Desktop Mode',
-    'Desktop viewport and user agent',
+    'Use desktop viewport and user agent',
     function (next) {
       setDesktopModeState(next);
       showBridgeToast(next ? 'Desktop Mode enabled' : 'Desktop Mode disabled');
     }
   ));
 
-  drawer.appendChild(createToggleRow(
+  card.appendChild(createToggleRow(
     'ag-mb-toggle-extrakeys',
     'Extra-Keys Bar',
-    'ESC, TAB, CTRL, arrows & symbols',
+    'ESC, TAB, CTRL, arrows & symbols above keyboard',
     function (next) {
       setExtraKeysState(next);
       showBridgeToast(next ? 'Extra-Keys Bar shown' : 'Extra-Keys Bar hidden');
     }
   ));
 
-  var previewSec = doc.createElement('div');
-  previewSec.className = 'ag-mb-section';
+  // Localhost Preview
+  var previewRow = doc.createElement('div');
+  previewRow.className = 'ag-mb-row-col';
   var previewLabel = doc.createElement('div');
   previewLabel.className = 'ag-mb-row-title';
   previewLabel.textContent = 'Localhost Preview';
   var previewSub = doc.createElement('div');
   previewSub.className = 'ag-mb-row-sub';
   previewSub.textContent = 'Open isolated preview for local dev servers';
-  previewSec.appendChild(previewLabel);
-  previewSec.appendChild(previewSub);
+  previewRow.appendChild(previewLabel);
+  previewRow.appendChild(previewSub);
 
   var chips = doc.createElement('div');
   chips.className = 'ag-mb-chips';
@@ -2035,14 +1853,14 @@ function mountQuickControls() {
       writeStorage(STORAGE_KEYS.previewPort, p);
       var res = triggerLocalPreview('http://localhost:' + p);
       if (res.ok) {
-        setDrawerOpen(false);
+        if (onActionDone) onActionDone();
       } else {
         showBridgeToast('Preview bridge unavailable');
       }
     });
     chips.appendChild(chip);
   }
-  previewSec.appendChild(chips);
+  previewRow.appendChild(chips);
 
   var customRow = doc.createElement('div');
   customRow.className = 'ag-mb-custom';
@@ -2062,7 +1880,7 @@ function mountQuickControls() {
     var res = triggerLocalPreview(raw);
     if (res.ok) {
       writeStorage(STORAGE_KEYS.previewPort, raw);
-      setDrawerOpen(false);
+      if (onActionDone) onActionDone();
     } else if (res.reason === 'invalid_url') {
       showBridgeToast('Enter a localhost port or URL');
     } else {
@@ -2071,50 +1889,53 @@ function mountQuickControls() {
   });
   customRow.appendChild(portInput);
   customRow.appendChild(openBtn);
-  previewSec.appendChild(customRow);
-  drawer.appendChild(previewSec);
+  previewRow.appendChild(customRow);
+  card.appendChild(previewRow);
 
-  var remoteSec = doc.createElement('div');
-  remoteSec.className = 'ag-mb-section';
-  var remoteLabel = doc.createElement('div');
-  remoteLabel.className = 'ag-mb-row-title';
-  remoteLabel.textContent = 'PC Remote Control';
-  var remoteSub = doc.createElement('div');
+  // PC Remote Control
+  var remoteRow = doc.createElement('div');
+  remoteRow.className = 'ag-mb-row';
+  var remoteText = doc.createElement('div');
+  remoteText.className = 'ag-mb-row-label';
+  var remoteTitle = doc.createElement('span');
+  remoteTitle.className = 'ag-mb-row-title';
+  remoteTitle.textContent = 'PC Remote Control';
+  var remoteSub = doc.createElement('span');
   remoteSub.className = 'ag-mb-row-sub';
-  remoteSub.textContent = 'Control desktop & cloud sessions (antigravity.google.com)';
+  remoteSub.textContent = 'Open antigravity.google.com dashboard';
+  remoteText.appendChild(remoteTitle);
+  remoteText.appendChild(remoteSub);
+
   var remoteBtn = doc.createElement('button');
   remoteBtn.id = 'ag-mb-remote-portal';
   remoteBtn.type = 'button';
   remoteBtn.className = 'ag-mb-btn';
-  remoteBtn.style.marginTop = '8px';
-  remoteBtn.style.width = '100%';
-  remoteBtn.textContent = 'Open PC Remote Control';
+  remoteBtn.textContent = 'Open';
   remoteBtn.addEventListener('click', function () {
     var res = triggerRemotePortal();
     if (res.ok) {
-      setDrawerOpen(false);
+      if (onActionDone) onActionDone();
     } else {
       showBridgeToast('Remote Control bridge unavailable');
     }
   });
-  remoteSec.appendChild(remoteLabel);
-  remoteSec.appendChild(remoteSub);
-  remoteSec.appendChild(remoteBtn);
-  drawer.appendChild(remoteSec);
+  remoteRow.appendChild(remoteText);
+  remoteRow.appendChild(remoteBtn);
+  card.appendChild(remoteRow);
 
-  var voiceSec = doc.createElement('div');
-  voiceSec.className = 'ag-mb-section';
-  var voiceLabel = doc.createElement('div');
-  voiceLabel.className = 'ag-mb-row-title';
-  voiceLabel.textContent = 'Voice';
-  var voiceRow = doc.createElement('div');
-  voiceRow.className = 'ag-mb-voice-row';
+  // Voice Dictation & Voice Service
+  var voiceRowWrap = doc.createElement('div');
+  voiceRowWrap.className = 'ag-mb-row-col';
+  var voiceTitle = doc.createElement('div');
+  voiceTitle.className = 'ag-mb-row-title';
+  voiceTitle.textContent = 'Android Voice';
+  var voiceBtns = doc.createElement('div');
+  voiceBtns.className = 'ag-mb-voice-row';
 
   var dictateBtn = doc.createElement('button');
   dictateBtn.id = 'ag-mb-voice-dictate';
   dictateBtn.type = 'button';
   dictateBtn.className = 'ag-mb-btn';
-  dictateBtn.style.flex = '1';
   dictateBtn.textContent = '\ud83c\udfa4 Voice Dictation';
   dictateBtn.addEventListener('click', function () {
     if (state.dictating) {
@@ -2156,45 +1977,199 @@ function mountQuickControls() {
   voiceStatus.className = 'ag-mb-voice-status';
   voiceStatus.textContent = 'Voice service: Idle';
 
-  voiceRow.appendChild(dictateBtn);
-  voiceRow.appendChild(muteBtn);
-  voiceRow.appendChild(stopSvcBtn);
-  voiceSec.appendChild(voiceLabel);
-  voiceSec.appendChild(voiceRow);
-  voiceSec.appendChild(interimEl);
-  voiceSec.appendChild(voiceStatus);
-  drawer.appendChild(voiceSec);
+  voiceBtns.appendChild(dictateBtn);
+  voiceBtns.appendChild(muteBtn);
+  voiceBtns.appendChild(stopSvcBtn);
+  voiceRowWrap.appendChild(voiceTitle);
+  voiceRowWrap.appendChild(voiceBtns);
+  voiceRowWrap.appendChild(interimEl);
+  voiceRowWrap.appendChild(voiceStatus);
+  card.appendChild(voiceRowWrap);
 
-  var clipSec = doc.createElement('div');
-  clipSec.className = 'ag-mb-section';
+  // Clipboard Image Paste
+  var clipRow = doc.createElement('div');
+  clipRow.className = 'ag-mb-row';
+  var clipText = doc.createElement('div');
+  clipText.className = 'ag-mb-row-label';
+  var clipTitle = doc.createElement('span');
+  clipTitle.className = 'ag-mb-row-title';
+  clipTitle.textContent = 'Clipboard Image';
+  var clipSub = doc.createElement('span');
+  clipSub.className = 'ag-mb-row-sub';
+  clipSub.textContent = 'Attach screenshot from Android clipboard';
+  clipText.appendChild(clipTitle);
+  clipText.appendChild(clipSub);
+
   var pasteImgBtn = doc.createElement('button');
   pasteImgBtn.id = 'ag-mb-paste-image';
   pasteImgBtn.type = 'button';
   pasteImgBtn.className = 'ag-mb-btn-secondary';
-  pasteImgBtn.style.width = '100%';
-  pasteImgBtn.textContent = '\ud83d\uddbc Paste Image from Clipboard';
+  pasteImgBtn.textContent = 'Paste Image';
   pasteImgBtn.addEventListener('click', function () {
-    setDrawerOpen(false);
+    if (onActionDone) onActionDone();
     pasteImageFromNativeClipboard();
   });
-  clipSec.appendChild(pasteImgBtn);
-  drawer.appendChild(clipSec);
+  clipRow.appendChild(clipText);
+  clipRow.appendChild(pasteImgBtn);
+  card.appendChild(clipRow);
 
+  // Buffered Share Sheet action (only visible when buffered)
+  var shareWrap = doc.createElement('div');
+  shareWrap.className = 'ag-mb-row-col';
+  shareWrap.style.paddingTop = '0';
+  shareWrap.style.paddingBottom = '0';
+  shareWrap.style.borderTop = '0';
   var pasteBtn = doc.createElement('button');
   pasteBtn.id = 'ag-mb-drawer-share';
   pasteBtn.type = 'button';
   pasteBtn.className = 'ag-mb-btn';
+  pasteBtn.style.margin = '10px 0';
   pasteBtn.textContent = 'Paste Shared Content into Chat';
   pasteBtn.addEventListener('click', function () {
-    setDrawerOpen(false);
+    if (onActionDone) onActionDone();
     applyBufferedShare();
   });
-  drawer.appendChild(pasteBtn);
+  shareWrap.appendChild(pasteBtn);
+  card.appendChild(shareWrap);
 
-  doc.body.appendChild(pill);
-  doc.body.appendChild(drawer);
+  return card;
+}
 
-  // Close drawer when tapping outside.
+function findSettingsInjectionHost() {
+  if (!doc) return null;
+  var cards = [];
+  try {
+    cards = doc.querySelectorAll('.agy-card');
+  } catch (_) {
+    return null;
+  }
+  if (!cards || cards.length === 0) return null;
+
+  var preferredHost = null;
+  for (var i = 0; i < cards.length; i++) {
+    var card = cards[i];
+    if (!card || isOwnBridgeElement(card)) continue;
+    var section = card.parentNode;
+    var screen = section && section.parentNode ? section.parentNode : null;
+    if (!screen || screen === doc.body || screen === doc.documentElement) continue;
+
+    var txt = ((card.textContent || '') + ' ' + (section.textContent || '') + ' ' + (screen.textContent || '')).slice(0, 800);
+    if (/\b(Appearance|Application)\b/.test(txt) && /\b(Theme|Contrast|Font|General|Remote Control|Updates|Desktop Mode)\b/.test(txt)) {
+      preferredHost = screen;
+      break;
+    }
+  }
+  return preferredHost;
+}
+
+function tryInjectSettingsSection() {
+  if (!doc || !doc.body) return false;
+  var existing = doc.getElementById('ag-mb-settings-section');
+  if (existing && existing.isConnected) {
+    syncDrawerState();
+    return true;
+  }
+
+  var host = findSettingsInjectionHost();
+  if (!host) return false;
+
+  // Close programmatic modal if open so element IDs stay unique.
+  setDrawerOpen(false);
+  var modal = doc.getElementById('ag-mb-drawer');
+  if (modal && modal.parentNode) {
+    modal.parentNode.removeChild(modal);
+  }
+
+  ensureBridgeStyles();
+  var section = doc.createElement('div');
+  section.id = 'ag-mb-settings-section';
+  section.className = 'space-y-2';
+  section.setAttribute('data-ag-mobile-bridge', 'true');
+
+  var heading = doc.createElement('div');
+  heading.className = 'ag-mb-sec-heading text-sm font-medium text-foreground';
+  heading.textContent = 'Android Tools';
+
+  section.appendChild(heading);
+  section.appendChild(buildAndroidToolsCard(null));
+  host.appendChild(section);
+  syncDrawerState();
+  return true;
+}
+
+function scheduleSettingsScan() {
+  if (settingsScanTimer) return;
+  settingsScanTimer = setTimeout(function () {
+    settingsScanTimer = 0;
+    tryInjectSettingsSection();
+  }, 100);
+}
+
+function setDrawerOpen(open) {
+  state.drawerOpen = !!open;
+  if (!doc || !doc.body) return;
+
+  var drawer = doc.getElementById('ag-mb-drawer');
+  if (!state.drawerOpen) {
+    if (drawer) drawer.classList.remove('ag-mb-open');
+    return;
+  }
+
+  // If Settings section is currently mounted, remove it temporarily only if programmatic drawer opens;
+  // usually openDrawer() is only called programmatically when Settings is closed.
+  var existingSec = doc.getElementById('ag-mb-settings-section');
+  if (existingSec && existingSec.parentNode) {
+    existingSec.parentNode.removeChild(existingSec);
+  }
+
+  ensureBridgeStyles();
+  if (!drawer) {
+    drawer = doc.createElement('div');
+    drawer.id = 'ag-mb-drawer';
+    drawer.setAttribute('data-ag-mobile-bridge', 'true');
+    drawer.setAttribute('role', 'dialog');
+    drawer.setAttribute('aria-label', 'Android Tools');
+
+    var header = doc.createElement('div');
+    header.className = 'ag-mb-hdr';
+    var title = doc.createElement('span');
+    title.className = 'ag-mb-title';
+    title.textContent = 'Android Tools';
+    var closeBtn = doc.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'ag-mb-close';
+    closeBtn.setAttribute('aria-label', 'Close Android Tools');
+    closeBtn.textContent = '\u00d7';
+    closeBtn.addEventListener('click', function () { setDrawerOpen(false); });
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+    drawer.appendChild(header);
+    drawer.appendChild(buildAndroidToolsCard(function () { setDrawerOpen(false); }));
+    doc.body.appendChild(drawer);
+  }
+  syncDrawerState();
+  drawer.classList.add('ag-mb-open');
+}
+
+function mountQuickControls() {
+  if (state.uiMounted || !doc || !doc.body) return;
+  state.uiMounted = true;
+  ensureBridgeStyles();
+
+  // No floating pill on the chat/Swarm canvas!
+  // Watch for Settings (Appearance / Application) to inject the native Android Tools card.
+  tryInjectSettingsSection();
+  if (typeof global.MutationObserver === 'function') {
+    var root = doc.getElementById('root') || doc.body;
+    if (root) {
+      try {
+        settingsObserver = new global.MutationObserver(scheduleSettingsScan);
+        settingsObserver.observe(root, { childList: true, subtree: true });
+      } catch (_) {}
+    }
+  }
+
+  // Close programmatic modal when tapping outside.
   doc.addEventListener('pointerdown', function (ev) {
     if (!state.drawerOpen) return;
     var target = ev.target;
@@ -2205,8 +2180,6 @@ function mountQuickControls() {
   if (state.pendingShare && state.pendingShare.formatted) {
     showShareBanner();
   }
-  syncDrawerState();
-  installQuickControlsDocking();
 }
 
 /**
@@ -2279,10 +2252,10 @@ global.__agMobileBridge = {
   onVoiceDictationStateChanged: onVoiceDictationStateChanged,
   onVoiceServiceStateChanged: onVoiceServiceStateChanged,
   applyBufferedShare: applyBufferedShare,
-  openDrawer: function () { repositionQuickControls(); setDrawerOpen(true); },
+  openDrawer: function () { setDrawerOpen(true); },
   closeDrawer: function () { setDrawerOpen(false); },
-  toggleDrawer: function () { repositionQuickControls(); setDrawerOpen(!state.drawerOpen); },
-  repositionControls: repositionQuickControls,
+  toggleDrawer: function () { setDrawerOpen(!state.drawerOpen); },
+  injectSettingsControls: tryInjectSettingsSection,
   isDesktopMode: getDesktopModeState,
   setDesktopMode: setDesktopModeState,
   isExtraKeysVisible: getExtraKeysState,

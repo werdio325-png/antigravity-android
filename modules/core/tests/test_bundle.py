@@ -63,5 +63,19 @@ class TestBundle(unittest.TestCase):
         manifest_path = os.path.join(rt_dir, "manifest.json")
         self.assertTrue(manifest_verifier.verify_manifest(manifest_path, rt_dir))
 
+        # Regression check: no CRLF (\r) in any packed shell shim, etc config, cert, or seed text file
+        binary_bins = {"liblanguage_server.so", "libloader.so", "ld-linux-aarch64.so.1", "rish_shizuku.dex"}
+        for sub in ("bin", "etc", "certs", "seed"):
+            sub_dir = os.path.join(rt_dir, sub)
+            for r, _, fns in os.walk(sub_dir):
+                for fn in fns:
+                    if sub == "bin" and fn in binary_bins:
+                        continue
+                    fp = os.path.join(r, fn)
+                    if os.path.islink(fp):
+                        continue
+                    with open(fp, "rb") as f:
+                        self.assertNotIn(b"\r", f.read(), f"CRLF found in packed runtime file: {sub}/{fn}")
+
 if __name__ == "__main__":
     unittest.main()

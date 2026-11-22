@@ -17,6 +17,7 @@ import java.util.regex.Matcher;
 public final class TermuxShebangRewriter {
 
     private static final String TAG = "TermuxShebangRewriter";
+    private static final long MAX_NORMALIZE_BYTES = 2L * 1024L * 1024L;
 
     private TermuxShebangRewriter() {
     }
@@ -55,8 +56,19 @@ public final class TermuxShebangRewriter {
         return rewritten;
     }
 
+    private static boolean isScriptOrConfigName(String name) {
+        return name.endsWith(".sh")
+                || name.endsWith(".bash")
+                || name.endsWith(".awk")
+                || name.endsWith(".conf")
+                || name.endsWith(".py")
+                || "profile".equals(name)
+                || "pkg".equals(name);
+    }
+
     private static boolean rewriteFile(File file, String newPrefix) {
-        if (file.length() < 2) {
+        long len = file.length();
+        if (len < 2 || len > MAX_NORMALIZE_BYTES) {
             return false;
         }
         byte[] head = new byte[256];
@@ -66,30 +78,46 @@ public final class TermuxShebangRewriter {
         } catch (IOException e) {
             return false;
         }
-        if (headLen < 4 || head[0] != '#' || head[1] != '!') {
+        boolean hasShebang = headLen >= 4 && head[0] == '#' && head[1] == '!';
+        boolean isNamedTextScript = isScriptOrConfigName(file.getName());
+        if (!hasShebang && !isNamedTextScript) {
             return false;
         }
-        int nl = -1;
-        for (int i = 2; i < headLen; i++) {
-            if (head[i] == '\n') {
-                nl = i;
+
+        boolean isTermux = false;
+        boolean isEnv = false;
+        boolean hasHeadCr = false;
+        for (int i = 0; i < headLen; i++) {
+            if (head[i] == '\r') {
+                hasHeadCr = true;
                 break;
             }
         }
-        // A line longer than the window is not safe to rewrite blindly.
-        if (nl < 0 && headLen == head.length) {
+        if (hasShebang) {
+            int nl = -1;
+            for (int i = 2; i < headLen; i++) {
+                if (head[i] == '\n') {
+                    nl = i;
+                    break;
+                }
+            }
+            // A shebang line longer than the window is not safe to rewrite blindly.
+            if (nl < 0 && headLen == head.length) {
+                return false;
+            }
+            int lineEnd = nl >= 0 ? nl : headLen;
+            String firstLine = new String(head, 0, lineEnd, StandardCharsets.ISO_8859_1);
+            if (firstLine.endsWith("\r")) {
+                firstLine = firstLine.substring(0, firstLine.length() - 1);
+            }
+            isTermux = EnvPaths.TERMUX_SHEBANG.matcher(firstLine).matches();
+            isEnv = EnvPaths.ENV_SHEBANG.matcher(firstLine).matches();
+        }
+        // Fast skip for clean LF files that don't need shebang rewriting
+        if (!isTermux && !isEnv && !hasHeadCr && !isNamedTextScript) {
             return false;
         }
-        int lineEnd = nl >= 0 ? nl : headLen;
-        String firstLine = new String(head, 0, lineEnd, StandardCharsets.ISO_8859_1);
-        if (firstLine.endsWith("\r")) {
-            firstLine = firstLine.substring(0, firstLine.length() - 1);
-        }
-        boolean isTermux = EnvPaths.TERMUX_SHEBANG.matcher(firstLine).matches();
-        boolean isEnv = EnvPaths.ENV_SHEBANG.matcher(firstLine).matches();
-        if (!isTermux && !isEnv) {
-            return false;
-        }
+
         byte[] full;
         try (InputStream in = new FileInputStream(file)) {
             full = IoUtil.readAllBytes(in);
@@ -97,8 +125,15 @@ public final class TermuxShebangRewriter {
             Log.w(TAG, "cannot read " + file + ": " + e);
             return false;
         }
+        if (!TextFileDetector.isTextFile(full)) {
+            return false;
+        }
         String content = new String(full, StandardCharsets.ISO_8859_1);
         String replaced = content;
+        // Defense-in-depth: strip Windows CRLF so Android execve/bash never fails with ENOENT/127.
+        if (replaced.indexOf('\r') >= 0) {
+            replaced = replaced.replace("\r\n", "\n");
+        }
         if (isTermux) {
             replaced = EnvPaths.TERMUX_SHEBANG_LINES.matcher(replaced)
                     .replaceAll("#!" + Matcher.quoteReplacement(newPrefix) + "$2");

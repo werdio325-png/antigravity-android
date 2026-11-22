@@ -24,7 +24,13 @@ def pack_seed(seed_dir: str, dest_seed_dir: str) -> list:
             rel_path = fn if rel_root == "." else os.path.join(rel_root, fn)
             dst = os.path.join(dest_seed_dir, rel_path)
             os.makedirs(os.path.dirname(dst), exist_ok=True)
-            shutil.copyfile(src, dst)
+            if fn.endswith((".md", ".pbtxt", ".txt", ".json", ".sh", ".env")):
+                with open(src, "rb") as rf:
+                    raw = rf.read().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+                with open(dst, "wb") as wf:
+                    wf.write(raw)
+            else:
+                shutil.copyfile(src, dst)
             copied.append(rel_path.replace(os.sep, "/"))
 
     return copied

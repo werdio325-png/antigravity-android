@@ -60,9 +60,41 @@ public final class ShellBridgeInstaller {
             writeScript(sh, "#!/system/bin/sh\n# AGY fallback shell\nexec /system/bin/sh \"$@\"\n");
         }
         writeTorchShims(bin, context);
+        normalizeRuntimeBinScripts(bin);
         if (context != null) {
             File prefix = EnvInstaller.prefix(context);
             writeNodeBridge(new File(bin, "node"), prefix, context.getFilesDir(), context.getPackageName());
+        }
+    }
+
+    /** Strips accidental Windows CRLF from any shell/script shim unpacked into runtime/bin. */
+    private static void normalizeRuntimeBinScripts(File bin) {
+        File[] children = bin.listFiles();
+        if (children == null) {
+            return;
+        }
+        for (File child : children) {
+            if (!child.isFile() || child.length() < 4 || child.length() > (1L << 20)) {
+                continue;
+            }
+            try (InputStream in = new FileInputStream(child)) {
+                byte[] full = com.agy.util.IoUtil.readAllBytes(in);
+                if (full.length < 4 || full[0] != '#' || full[1] != '!') {
+                    continue;
+                }
+                if (!com.agy.install.TextFileDetector.isTextFile(full)) {
+                    continue;
+                }
+                String text = new String(full, java.nio.charset.StandardCharsets.ISO_8859_1);
+                if (text.indexOf('\r') < 0) {
+                    continue;
+                }
+                String normalized = text.replace("\r\n", "\n");
+                if (!normalized.equals(text)) {
+                    writeScript(child, normalized);
+                }
+            } catch (Throwable ignored) {
+            }
         }
     }
 

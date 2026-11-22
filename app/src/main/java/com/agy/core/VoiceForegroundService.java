@@ -26,8 +26,9 @@ import java.util.Locale;
 
 /**
  * Foreground service keeping Antigravity Live Voice Call and Voice Dictation
- * alive in the background with AudioFocus, communication/speakerphone routing,
- * a bounded partial wake lock, and notification shade Mute/Stop controls.
+ * alive in the background with a bounded partial wake lock, non-intrusive
+ * gentle audio focus (yielding VoIP audio mode / routing to Chromium WebView's
+ * AAudio MMAP stream), and notification shade Mute/Stop controls.
  */
 public final class VoiceForegroundService extends Service {
 
@@ -67,37 +68,19 @@ public final class VoiceForegroundService extends Service {
     private AudioFocusRequest audioFocusRequest;
     private PowerManager.WakeLock wakeLock;
 
-    private boolean audioConfigured = false;
     private boolean hasAudioFocus = false;
-    private boolean autoMutedByFocusLoss = false;
-    private boolean speakerphoneRequested = true;
-    private int savedAudioMode = AudioManager.MODE_NORMAL;
-    private boolean savedSpeakerphoneOn = false;
-    private boolean savedMicMute = false;
     private boolean sessionStarted = false;
 
+    /**
+     * Passive focus listener: never calls setMode/setMicrophoneMute/stopSelf on
+     * focus transitions, because Chromium WebView requests its own in-process
+     * audio focus for AudioContext / AAudio MMAP streams.
+     */
     private final AudioManager.OnAudioFocusChangeListener focusChangeListener =
             new AudioManager.OnAudioFocusChangeListener() {
                 @Override
                 public void onAudioFocusChange(int focusChange) {
-                    if (!active) {
-                        return;
-                    }
-                    if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
-                        Log.i(TAG, "permanent audio focus loss; stopping voice session");
-                        stopSessionAndSelf();
-                    } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT
-                            || focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
-                        if (!muted) {
-                            autoMutedByFocusLoss = true;
-                            applyMuted(true);
-                        }
-                    } else if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
-                        if (autoMutedByFocusLoss) {
-                            autoMutedByFocusLoss = false;
-                            applyMuted(false);
-                        }
-                    }
+                    Log.d(TAG, "gentle audio focus change: " + focusChange);
                 }
             };
 
@@ -284,7 +267,6 @@ public final class VoiceForegroundService extends Service {
                 stopSessionAndSelf();
                 return START_NOT_STICKY;
             }
-            autoMutedByFocusLoss = false;
             applyMuted(!muted);
             return START_NOT_STICKY;
         }
@@ -297,7 +279,6 @@ public final class VoiceForegroundService extends Service {
                 stopSelf();
                 return START_NOT_STICKY;
             }
-            autoMutedByFocusLoss = false;
             applyMuted(targetMute);
             return START_NOT_STICKY;
         }
@@ -309,16 +290,14 @@ public final class VoiceForegroundService extends Service {
         } else if (currentStatusText == null || currentStatusText.isEmpty()) {
             currentStatusText = DEFAULT_STATUS_TEXT;
         }
-        speakerphoneRequested = intent == null || intent.getBooleanExtra(EXTRA_SPEAKERPHONE, true);
 
         boolean newlyStarted = !sessionStarted;
         sessionStarted = true;
         active = true;
-        autoMutedByFocusLoss = false;
 
         startForegroundSafe(buildNotification(currentStatusText, muted));
         acquireWakeLock();
-        configureAudioAndFocus();
+        configureGentleAudioFocus();
 
         if (newlyStarted) {
             recordVoiceEvent("voice.session.started", true, muted);
@@ -334,9 +313,8 @@ public final class VoiceForegroundService extends Service {
         active = false;
         muted = false;
         currentStatusText = "";
-        autoMutedByFocusLoss = false;
 
-        releaseAudioAndFocus();
+        releaseGentleAudioFocus();
         releaseWakeLock();
 
         try {
@@ -366,8 +344,7 @@ public final class VoiceForegroundService extends Service {
         active = false;
         muted = false;
         currentStatusText = "";
-        autoMutedByFocusLoss = false;
-        releaseAudioAndFocus();
+        releaseGentleAudioFocus();
         releaseWakeLock();
         try {
             stopForeground(true);
@@ -380,13 +357,9 @@ public final class VoiceForegroundService extends Service {
 
     private void applyMuted(boolean targetMuted) {
         muted = targetMuted;
-        if (audioManager != null) {
-            try {
-                audioManager.setMicrophoneMute(targetMuted);
-            } catch (Throwable t) {
-                Log.w(TAG, "setMicrophoneMute failed: " + t.getMessage());
-            }
-        }
+        // Delegate live mic muting to WebView MediaStreamTrack via StateListener /
+        // ACTION_VOICE_STATE_CHANGED instead of AudioManager.setMicrophoneMute() so
+        // we never disrupt Chromium WebView's active AAudio MMAP capture stream.
         updateNotification();
         recordVoiceEvent("voice.mute.changed", active, muted);
         dispatchStateChanged(this, active, muted);
@@ -507,78 +480,60 @@ public final class VoiceForegroundService extends Service {
     }
 
     @SuppressWarnings("deprecation")
-    private void configureAudioAndFocus() {
-        if (audioManager == null) {
+    private void configureGentleAudioFocus() {
+        if (audioManager == null || hasAudioFocus) {
             return;
         }
         try {
-            if (!audioConfigured) {
-                savedAudioMode = audioManager.getMode();
-                savedSpeakerphoneOn = audioManager.isSpeakerphoneOn();
-                savedMicMute = audioManager.isMicrophoneMute();
-                audioConfigured = true;
+            // If Chromium WebView already entered MODE_IN_COMMUNICATION for its VoIP/AAudio
+            // MMAP stream, do NOT call setMode(), setSpeakerphoneOn(), or request competing
+            // audio focus — stealing route/focus invalidates WebView's AAudio MMAP stream.
+            if (audioManager.getMode() == AudioManager.MODE_IN_COMMUNICATION) {
+                Log.d(TAG, "WebView already owns MODE_IN_COMMUNICATION; skipping competing AudioFocus/mode changes");
+                return;
             }
 
-            if (!hasAudioFocus) {
-                int focusResult;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    AudioAttributes attrs = new AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                            .build();
-                    audioFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
-                            .setAudioAttributes(attrs)
-                            .setAcceptsDelayedFocusGain(false)
-                            .setOnAudioFocusChangeListener(focusChangeListener)
-                            .build();
-                    focusResult = audioManager.requestAudioFocus(audioFocusRequest);
-                } else {
-                    focusResult = audioManager.requestAudioFocus(
-                            focusChangeListener,
-                            AudioManager.STREAM_VOICE_CALL,
-                            AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
-                }
-                hasAudioFocus = (focusResult == AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
+            int focusResult;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                AudioAttributes attrs = new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ASSISTANT)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build();
+                audioFocusRequest = new AudioFocusRequest.Builder(
+                        AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                        .setAudioAttributes(attrs)
+                        .setAcceptsDelayedFocusGain(false)
+                        .setOnAudioFocusChangeListener(focusChangeListener)
+                        .build();
+                focusResult = audioManager.requestAudioFocus(audioFocusRequest);
+            } else {
+                focusResult = audioManager.requestAudioFocus(
+                        focusChangeListener,
+                        AudioManager.STREAM_MUSIC,
+                        AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK);
             }
-
-            audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
-            boolean headsetActive = audioManager.isWiredHeadsetOn() || audioManager.isBluetoothScoOn();
-            if (speakerphoneRequested && !headsetActive) {
-                audioManager.setSpeakerphoneOn(true);
-            }
-            audioManager.setMicrophoneMute(muted);
+            hasAudioFocus = (focusResult == AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
         } catch (Throwable t) {
-            Log.w(TAG, "configureAudioAndFocus failed: " + t.getMessage());
+            Log.w(TAG, "configureGentleAudioFocus failed: " + t.getMessage());
         }
     }
 
     @SuppressWarnings("deprecation")
-    private void releaseAudioAndFocus() {
-        if (audioManager == null) {
+    private void releaseGentleAudioFocus() {
+        if (audioManager == null || !hasAudioFocus) {
             return;
         }
         try {
-            if (hasAudioFocus) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && audioFocusRequest != null) {
-                    audioManager.abandonAudioFocusRequest(audioFocusRequest);
-                } else {
-                    audioManager.abandonAudioFocus(focusChangeListener);
-                }
-                hasAudioFocus = false;
-                audioFocusRequest = null;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && audioFocusRequest != null) {
+                audioManager.abandonAudioFocusRequest(audioFocusRequest);
+            } else {
+                audioManager.abandonAudioFocus(focusChangeListener);
             }
         } catch (Throwable t) {
             Log.w(TAG, "abandonAudioFocus failed: " + t.getMessage());
-        }
-        try {
-            if (audioConfigured) {
-                audioManager.setMicrophoneMute(savedMicMute);
-                audioManager.setSpeakerphoneOn(savedSpeakerphoneOn);
-                audioManager.setMode(savedAudioMode);
-                audioConfigured = false;
-            }
-        } catch (Throwable t) {
-            Log.w(TAG, "restore audio routing failed: " + t.getMessage());
+        } finally {
+            hasAudioFocus = false;
+            audioFocusRequest = null;
         }
     }
 

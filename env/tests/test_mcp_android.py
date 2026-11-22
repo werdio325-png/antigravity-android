@@ -497,5 +497,62 @@ class TestPackSeedSkills(unittest.TestCase):
             shutil.rmtree(tmp_out, ignore_errors=True)
 
 
+class TestEnvStageHygiene(unittest.TestCase):
+    def test_sanitize_stage_strips_bytecode_and_normalizes_crlf(self):
+        scripts_dir = os.path.join(ENV_DIR, "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        import sanitize_stage  # noqa: E402
+        from pathlib import Path
+
+        tmp = tempfile.mkdtemp(prefix="agy_sanitize_test_")
+        try:
+            root = Path(tmp)
+            script_file = root / "bin" / "hello.sh"
+            script_file.parent.mkdir(parents=True, exist_ok=True)
+            script_file.write_bytes(b"#!/usr/bin/env bash\r\necho hi\r\n")
+
+            bin_file = root / "lib" / "native.so"
+            bin_file.parent.mkdir(parents=True, exist_ok=True)
+            raw_elf = b"\x7fELF\x02\x01\x01\x00\r\nPAYLOAD"
+            bin_file.write_bytes(raw_elf)
+
+            pycache_dir = root / "lib" / "daemon" / "__pycache__"
+            pycache_dir.mkdir(parents=True, exist_ok=True)
+            (pycache_dir / "executor.cpython-312.pyc").write_bytes(b"\x00pyc")
+            stray_pyc = root / "stray.pyc"
+            stray_pyc.write_bytes(b"\x00pyc")
+
+            removed, normalized = sanitize_stage.sanitize_tree(root)
+            self.assertGreaterEqual(removed, 2)
+            self.assertEqual(normalized, 1)
+            self.assertEqual(script_file.read_bytes(), b"#!/usr/bin/env bash\necho hi\n")
+            self.assertEqual(bin_file.read_bytes(), raw_elf)
+            self.assertFalse(pycache_dir.exists())
+            self.assertFalse(stray_pyc.exists())
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_env_sources_have_no_crlf_or_pycache(self):
+        crlf_files = []
+        pycache_hits = []
+        for sub in ("pkg", "overlay"):
+            base = os.path.join(ENV_DIR, sub)
+            for r, dirs, files in os.walk(base):
+                if "__pycache__" in dirs:
+                    pycache_hits.append(os.path.join(r, "__pycache__"))
+                for fn in files:
+                    p = os.path.join(r, fn)
+                    if fn.endswith((".pyc", ".pyo")):
+                        pycache_hits.append(p)
+                        continue
+                    with open(p, "rb") as f:
+                        data = f.read()
+                    if b"\x00" not in data[:8192] and b"\r\n" in data:
+                        crlf_files.append(p)
+        self.assertEqual(pycache_hits, [], f"Bytecode artifacts found in env sources: {pycache_hits}")
+        self.assertEqual(crlf_files, [], f"CRLF files found in env sources: {crlf_files}")
+
+
 if __name__ == "__main__":
     unittest.main()
