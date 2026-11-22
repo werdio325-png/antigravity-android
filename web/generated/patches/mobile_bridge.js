@@ -1571,27 +1571,28 @@ function ensureBridgeStyles() {
   style.id = 'ag-mb-styles';
   style.textContent = [
     '#ag-mb-pill {',
-    '  position: fixed; right: 10px; bottom: 76px; z-index: 2147483000;',
-    '  display: inline-flex; align-items: center; gap: 5px;',
-    '  height: 36px; padding: 0 11px; border-radius: 999px;',
-    '  border: 1px solid rgba(148,163,184,0.32);',
-    '  background: rgba(15,23,42,0.78); color: #e2e8f0;',
+    '  position: fixed; right: 12px; bottom: 16px; z-index: 2147483000;',
+    '  display: inline-flex; align-items: center; gap: 4px;',
+    '  height: 28px; padding: 0 10px; border-radius: 999px;',
+    '  border: 1px solid rgba(148,163,184,0.26);',
+    '  background: rgba(20,23,30,0.88); color: #e2e8f0;',
     '  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);',
-    '  font: 600 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;',
-    '  box-shadow: 0 4px 14px rgba(0,0,0,0.28); cursor: pointer;',
-    '  opacity: 0.72; transition: opacity 0.16s ease, transform 0.16s ease;',
-    '  touch-action: none; user-select: none; -webkit-user-select: none;',
+    '  font: 600 11px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;',
+    '  box-shadow: 0 3px 10px rgba(0,0,0,0.26); cursor: pointer;',
+    '  opacity: 0.86; transition: opacity 0.16s ease, bottom 0.12s ease;',
+    '  user-select: none; -webkit-user-select: none;',
     '}',
     '#ag-mb-pill:active, #ag-mb-pill[aria-expanded="true"] { opacity: 1; }',
     'html.light #ag-mb-pill {',
-    '  background: rgba(255,255,255,0.88); color: #0f172a;',
-    '  border-color: rgba(15,23,42,0.16); box-shadow: 0 4px 14px rgba(15,23,42,0.14);',
+    '  background: rgba(255,255,255,0.92); color: #0f172a;',
+    '  border-color: rgba(15,23,42,0.16); box-shadow: 0 3px 10px rgba(15,23,42,0.12);',
     '}',
     '#ag-mb-drawer {',
-    '  position: fixed; right: 10px; bottom: 120px; z-index: 2147483001;',
-    '  width: min(296px, calc(100vw - 20px)); border-radius: 14px; padding: 12px;',
+    '  position: fixed; right: 12px; bottom: 52px; z-index: 2147483001;',
+    '  width: min(296px, calc(100vw - 24px)); max-height: calc(100vh - 120px);',
+    '  overflow-y: auto; overscroll-behavior: contain; border-radius: 14px; padding: 12px;',
     '  border: 1px solid rgba(148,163,184,0.28);',
-    '  background: rgba(15,23,42,0.95); color: #f1f5f9;',
+    '  background: rgba(15,23,42,0.96); color: #f1f5f9;',
     '  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);',
     '  box-shadow: 0 14px 36px rgba(0,0,0,0.42);',
     '  font: 13px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;',
@@ -1811,53 +1812,142 @@ function createToggleRow(id, title, subtitle, onToggle) {
   return row;
 }
 
-function attachPillDrag(pill) {
-  var savedTop = parseFloat(readStorage(STORAGE_KEYS.pillTop));
-  if (!isNaN(savedTop) && savedTop >= 24 && savedTop <= (global.innerHeight || 900) - 60) {
-    pill.style.top = savedTop + 'px';
-    pill.style.bottom = 'auto';
+var PILL_HEIGHT_PX = 28;
+var COMPOSER_GAP_PX = 8;
+var TOP_SAFE_CLEARANCE_PX = 56;
+var observedComposerCard = null;
+var composerResizeObserver = null;
+var repositionTimer = 0;
+
+function getViewportSize() {
+  var vv = global.visualViewport;
+  var h = (vv && vv.height > 0 ? vv.height : 0) || global.innerHeight || 800;
+  var w = (vv && vv.width > 0 ? vv.width : 0) || global.innerWidth || 400;
+  return { height: h, width: w };
+}
+
+function findComposerCard() {
+  var composer = findComposer();
+  if (!composer || !composer.isConnected) return null;
+  var vp = getViewportSize();
+  var maxCardH = Math.min(340, Math.round(vp.height * 0.52));
+  var cur = composer;
+  var styledBest = null;
+  var fallbackBest = null;
+
+  for (var depth = 0; depth < 8 && cur && cur !== doc.body && cur !== doc.documentElement; depth++) {
+    if (cur.id === 'root' || isOwnBridgeElement(cur)) break;
+    var rect = null;
+    try { rect = cur.getBoundingClientRect(); } catch (_) { rect = null; }
+    if (!rect || rect.height <= 0 || rect.width <= 0) {
+      cur = cur.parentNode;
+      continue;
+    }
+    if (rect.height > maxCardH) break;
+    if (rect.width >= 180 && rect.height >= 36) {
+      fallbackBest = cur;
+      try {
+        var cs = global.getComputedStyle ? global.getComputedStyle(cur) : null;
+        var br = cs && cs.borderRadius ? parseFloat(cs.borderRadius) : 0;
+        var bw = cs && cs.borderTopWidth ? parseFloat(cs.borderTopWidth) : 0;
+        var bg = cs && cs.backgroundColor ? cs.backgroundColor : '';
+        var hasBg = !!(bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)');
+        if (br >= 8 || bw > 0 || hasBg || (cur.tagName || '').toUpperCase() === 'FORM') {
+          styledBest = cur;
+        }
+      } catch (_) {}
+    }
+    cur = cur.parentNode;
   }
+  return styledBest || fallbackBest || composer;
+}
 
-  var dragging = false;
-  var moved = false;
-  var startY = 0;
-  var startTop = 0;
+function observeComposerCard(card) {
+  if (card === observedComposerCard) return;
+  if (composerResizeObserver && observedComposerCard) {
+    try { composerResizeObserver.unobserve(observedComposerCard); } catch (_) {}
+  }
+  observedComposerCard = card;
+  if (!card || typeof global.ResizeObserver !== 'function') return;
+  if (!composerResizeObserver) {
+    try {
+      composerResizeObserver = new global.ResizeObserver(function () {
+        scheduleRepositionQuickControls();
+      });
+    } catch (_) {
+      composerResizeObserver = null;
+      return;
+    }
+  }
+  try { composerResizeObserver.observe(card); } catch (_) {}
+}
 
-  pill.addEventListener('pointerdown', function (ev) {
-    if (ev.button && ev.button !== 0) return;
-    dragging = true;
-    moved = false;
-    startY = ev.clientY;
-    var rect = pill.getBoundingClientRect();
-    startTop = rect.top;
-    try { pill.setPointerCapture(ev.pointerId); } catch (_) {}
-  });
+function repositionQuickControls() {
+  if (!doc) return;
+  var pill = doc.getElementById('ag-mb-pill');
+  var drawer = doc.getElementById('ag-mb-drawer');
+  if (!pill) return;
 
-  pill.addEventListener('pointermove', function (ev) {
-    if (!dragging) return;
-    var dy = ev.clientY - startY;
-    if (!moved && Math.abs(dy) < 6) return;
-    moved = true;
-    var maxTop = Math.max(48, (global.innerHeight || 640) - 52);
-    var nextTop = Math.max(24, Math.min(maxTop, startTop + dy));
-    pill.style.top = nextTop + 'px';
-    pill.style.bottom = 'auto';
-  });
+  var vp = getViewportSize();
+  var card = findComposerCard();
+  observeComposerCard(card);
 
-  function endDrag(ev) {
-    if (!dragging) return;
-    dragging = false;
-    try { pill.releasePointerCapture(ev.pointerId); } catch (_) {}
-    if (moved) {
-      var rect = pill.getBoundingClientRect();
-      writeStorage(STORAGE_KEYS.pillTop, Math.round(rect.top));
-      pill.__agJustDragged = true;
-      setTimeout(function () { pill.__agJustDragged = false; }, 120);
+  var pillBottom = 16;
+  var pillRight = 12;
+
+  if (card) {
+    var rect = null;
+    try { rect = card.getBoundingClientRect(); } catch (_) { rect = null; }
+    if (rect && rect.height > 0 && rect.top > 0 && rect.bottom > vp.height * 0.35) {
+      // Dock strictly above the composer card's top border with an 8px gap so it never overlaps inputs or buttons.
+      var desiredBottom = Math.round(vp.height - rect.top + COMPOSER_GAP_PX);
+      var maxBottom = Math.max(16, Math.round(vp.height - TOP_SAFE_CLEARANCE_PX - PILL_HEIGHT_PX));
+      pillBottom = Math.max(16, Math.min(desiredBottom, maxBottom));
+      if (rect.right > 0 && rect.right <= vp.width) {
+        pillRight = Math.max(12, Math.min(28, Math.round(vp.width - rect.right)));
+      }
     }
   }
 
-  pill.addEventListener('pointerup', endDrag);
-  pill.addEventListener('pointercancel', endDrag);
+  pill.style.top = 'auto';
+  pill.style.bottom = pillBottom + 'px';
+  pill.style.right = pillRight + 'px';
+
+  if (drawer) {
+    var drawerBottom = pillBottom + PILL_HEIGHT_PX + COMPOSER_GAP_PX;
+    var maxDrawerH = Math.max(160, Math.round(vp.height - drawerBottom - TOP_SAFE_CLEARANCE_PX));
+    drawer.style.top = 'auto';
+    drawer.style.bottom = drawerBottom + 'px';
+    drawer.style.right = pillRight + 'px';
+    drawer.style.maxHeight = maxDrawerH + 'px';
+  }
+}
+
+function scheduleRepositionQuickControls() {
+  if (repositionTimer) return;
+  repositionTimer = setTimeout(function () {
+    repositionTimer = 0;
+    repositionQuickControls();
+  }, 60);
+}
+
+function installQuickControlsDocking() {
+  repositionQuickControls();
+  try {
+    global.addEventListener('resize', scheduleRepositionQuickControls);
+    if (global.visualViewport && typeof global.visualViewport.addEventListener === 'function') {
+      global.visualViewport.addEventListener('resize', scheduleRepositionQuickControls);
+    }
+  } catch (_) {}
+  if (typeof global.MutationObserver === 'function') {
+    var root = (doc && (doc.getElementById('root') || doc.body)) || null;
+    if (root) {
+      try {
+        var mo = new global.MutationObserver(scheduleRepositionQuickControls);
+        mo.observe(root, { childList: true, subtree: true });
+      } catch (_) {}
+    }
+  }
 }
 
 function mountQuickControls() {
@@ -1875,10 +1965,9 @@ function mountQuickControls() {
   pill.addEventListener('click', function (ev) {
     ev.preventDefault();
     ev.stopPropagation();
-    if (pill.__agJustDragged) return;
+    repositionQuickControls();
     setDrawerOpen(!state.drawerOpen);
   });
-  attachPillDrag(pill);
 
   var drawer = doc.createElement('div');
   drawer.id = 'ag-mb-drawer';
@@ -2117,6 +2206,7 @@ function mountQuickControls() {
     showShareBanner();
   }
   syncDrawerState();
+  installQuickControlsDocking();
 }
 
 /**
@@ -2189,9 +2279,10 @@ global.__agMobileBridge = {
   onVoiceDictationStateChanged: onVoiceDictationStateChanged,
   onVoiceServiceStateChanged: onVoiceServiceStateChanged,
   applyBufferedShare: applyBufferedShare,
-  openDrawer: function () { setDrawerOpen(true); },
+  openDrawer: function () { repositionQuickControls(); setDrawerOpen(true); },
   closeDrawer: function () { setDrawerOpen(false); },
-  toggleDrawer: function () { setDrawerOpen(!state.drawerOpen); },
+  toggleDrawer: function () { repositionQuickControls(); setDrawerOpen(!state.drawerOpen); },
+  repositionControls: repositionQuickControls,
   isDesktopMode: getDesktopModeState,
   setDesktopMode: setDesktopModeState,
   isExtraKeysVisible: getExtraKeysState,

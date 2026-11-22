@@ -28,13 +28,18 @@ public final class CoreEnvironment {
                 + " projectsDir=" + rm.getProjectsDir().getAbsolutePath()
                 + " TMPDIR=" + rm.appContext().getCacheDir().getAbsolutePath());
         env.put("SSL_CERT_FILE", rm.getCertFile().getAbsolutePath());
+        File prefix = new File(files, com.agy.install.EnvPaths.PREFIX_DIR);
+        File prefixBin = new File(prefix, "bin");
         String inheritedPath = env.get("PATH");
+        // Keep runtime/bin first so glibc language_server resolves Bionic tools
+        // (node, python3, git, ...) through their clean LD_LIBRARY_PATH bridges,
+        // followed by $PREFIX/bin so newly installed Termux binaries are always on PATH.
         env.put("PATH", bin.getAbsolutePath()
+                + ":" + prefixBin.getAbsolutePath()
                 + (inheritedPath == null || inheritedPath.isEmpty() ? "" : ":" + inheritedPath));
         // The core's PTY spawner uses $SHELL (or falls back to /bin/bash, which
         // does not exist on Android). Prefer the prefix bash, then the bridge in
         // runtime/bin, then Android's own sh.
-        File prefix = new File(files, com.agy.install.EnvPaths.PREFIX_DIR);
         File prefixBash = new File(prefix, com.agy.install.EnvPaths.BASH_REL);
         File runtimeBash = new File(bin, "bash");
         if (prefixBash.isFile() && prefixBash.canExecute()) {

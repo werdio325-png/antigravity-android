@@ -15,13 +15,13 @@ public final class AppHtmlInjector {
     /** Web layer generates the ready signal under generated/patches. */
     private static final String READY_SCRIPT = "./generated/patches/startup_ready.js";
     private static final String CSP = "default-src 'self' https: data: blob:; "
-            + "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; "
+            + "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data:; "
             + "style-src 'self' 'unsafe-inline' https:; "
             + "img-src 'self' https: data: blob:; font-src 'self' https: data:; "
             + "media-src 'self' https: data: blob:; "
-            + "connect-src 'self' https: wss: http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*; "
+            + "connect-src 'self' https: wss: data: blob: http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*; "
             + "frame-src https: data: blob: http://127.0.0.1:* http://localhost:*; "
-            + "worker-src 'self' blob:; object-src 'none'; base-uri 'self'";
+            + "worker-src 'self' blob: data:; object-src 'none'; base-uri 'self'";
 
     private AppHtmlInjector() {
     }

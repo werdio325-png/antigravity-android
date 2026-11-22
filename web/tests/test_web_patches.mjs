@@ -579,6 +579,23 @@ function createMockDom() {
   assert.equal(calls.clipboardReads.length, 2);
   assert.equal(pastedFiles.length, 3);
 
+  // 1j. Non-overlapping Tools pill docks strictly 8px above the composer card (drawer opens above pill)
+  const card = document.createElement('div');
+  card.getBoundingClientRect = () => ({ top: 640, left: 16, right: 384, bottom: 780, width: 368, height: 140 });
+  const cardComposer = document.createElement('textarea');
+  cardComposer.getBoundingClientRect = () => ({ top: 660, left: 28, right: 372, bottom: 710, width: 344, height: 50 });
+  card.appendChild(cardComposer);
+  body.appendChild(card);
+  cardComposer.focus();
+  windowObj.__agMobileBridge.repositionControls();
+  const pillEl = document.getElementById('ag-mb-pill');
+  const drawerEl = document.getElementById('ag-mb-drawer');
+  const pillBottom = parseInt(pillEl.style.bottom, 10);
+  const drawerBottom = parseInt(drawerEl.style.bottom, 10);
+  // Viewport height is 800, card.top is 640 -> pill bottom must be 800 - 640 + 8 = 168px (zero overlap!)
+  assert.equal(pillBottom, 168, 'Tools pill must dock 8px above composer card top edge');
+  assert.ok(drawerBottom >= pillBottom + 28 + 8, 'Drawer must open strictly above Tools pill');
+
   console.log('test mobile_bridge.js: OK');
 }
 
