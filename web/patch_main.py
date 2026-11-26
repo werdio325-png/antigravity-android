@@ -227,7 +227,7 @@ def patch_main(file_path):
         + f'{color_themes_list}.map(function(t){{var active=colorTheme===t.id;'
         + f'return {react_id}.createElement("button",{{key:t.id,type:"button",onClick:()=>onColorThemeSelect(t.id),'
         + 'className:"px-2 py-1 text-[11px] rounded-md font-medium cursor-pointer flex items-center gap-1.5 transition-all border "+(active?"border-primary bg-primary/15 text-foreground shadow-xs":"border-border bg-secondary text-secondary-foreground hover:bg-muted")},'
-        + f'{react_id}.createElement("span",{{style:{{width:"10px",height:"10px",borderRadius:"9999px",backgroundColor:t.accent,border:"1.5px solid "+t.bg,display:"inline-block",flexShrink:0}}}}),t.name);}})}})'
+        + f'{react_id}.createElement("span",{{style:{{width:"10px",height:"10px",borderRadius:"9999px",backgroundColor:t.accent,border:"1.5px solid "+t.bg,display:"inline-block",flexShrink:0}}}}),t.name);}}))}})'
         + f',{react_id}.createElement({item_comp},{{label:"Desktop Mode",description:"Use desktop viewport and user agent for the workspace",'
         + f'rightElement:{react_id}.createElement({switch_comp},{{checked:isDesktop,onCheckedChange:onDesktopToggle}})}})'
         + f',{react_id}.createElement({item_comp},{{label:"OpenAI Compatible Model Sources",description:"Configure up to 5 OpenAI-compatible API keys, endpoints, and auto-detect models ("+openAiConfigs.filter(c=>c.apiKey&&c.apiKey.trim()).length+"/5 active)",'
