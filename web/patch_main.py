@@ -64,7 +64,7 @@ def patch_main(file_path):
         "setIsDesktop(v);try{localStorage.setItem('ag_desktop_mode',String(v));"
         "if(window.Android&&typeof window.Android.setDesktopMode==='function')window.Android.setDesktopMode(v)}catch(_){}},[]);"
         f"var [colorTheme,setColorTheme]=(0,{react_id}.useState)(()=>{{"
-        "try{return localStorage.getItem('ag_color_theme')||'default'}catch(_){return 'default'}}});"
+        "try{return localStorage.getItem('ag_color_theme')||'default'}catch(_){return 'default'}});"
         f"var onColorThemeSelect=(0,{react_id}.useCallback)(id=>{{"
         "var v=typeof window.__AG_SET_COLOR_THEME__==='function'?window.__AG_SET_COLOR_THEME__(id):id;"
         "setColorTheme(v);},[]);"
