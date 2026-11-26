@@ -103,6 +103,8 @@ public final class AndroidBridge {
     private static final String KEY_OPENAI_URL = "openai_gateway_url";
     private static final String KEY_OPENAI_KEY = "openai_gateway_api_key";
     private static final String KEY_OPENAI_MODELS = "openai_gateway_models";
+    private static final String KEY_OPENAI_CONFIGS = "openai_gateway_configs";
+    private static final int MAX_OPENAI_CONFIGS = 5;
     private static final String KEY_PROJECTS_DIR = "projects_directory";
     public static final String DEFAULT_PROJECTS_DIR = "/storage/emulated/0/Documents/Antigravity";
 
@@ -122,7 +124,121 @@ public final class AndroidBridge {
     }
 
     @JavascriptInterface
+    public String getOpenAiConfigs() {
+        try {
+            android.content.SharedPreferences sp = appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+            String raw = sp.getString(KEY_OPENAI_CONFIGS, "");
+            if (raw != null && !raw.trim().isEmpty()) {
+                org.json.JSONArray arr = new org.json.JSONArray(raw);
+                if (arr.length() > 0) {
+                    return arr.toString();
+                }
+            }
+            // Fallback: wrap legacy single config
+            org.json.JSONArray fallback = new org.json.JSONArray();
+            org.json.JSONObject item = new org.json.JSONObject();
+            item.put("id", "api-1");
+            item.put("name", "API 1");
+            item.put("url", sp.getString(KEY_OPENAI_URL, "https://api.openai.com/v1"));
+            item.put("apiKey", sp.getString(KEY_OPENAI_KEY, ""));
+            String modsStr = sp.getString(KEY_OPENAI_MODELS, "gpt-4o,gpt-4o-mini");
+            String firstModel = "gpt-4o";
+            org.json.JSONArray modsArr = new org.json.JSONArray();
+            for (String m : modsStr.split(",")) {
+                String t = m.trim();
+                if (!t.isEmpty()) {
+                    if (modsArr.length() == 0) firstModel = t;
+                    modsArr.put(t);
+                }
+            }
+            item.put("model", firstModel);
+            item.put("models", modsArr);
+            fallback.put(item);
+            return fallback.toString();
+        } catch (Exception e) {
+            return "[{\"id\":\"api-1\",\"name\":\"API 1\",\"url\":\"https://api.openai.com/v1\",\"apiKey\":\"\",\"model\":\"gpt-4o\",\"models\":[\"gpt-4o\",\"gpt-4o-mini\"]}]";
+        }
+    }
+
+    @JavascriptInterface
     public boolean setOpenAiConfig(String url, String apiKey, String models) {
+        return persistGatewayConfig(url, apiKey, models, null);
+    }
+
+    @JavascriptInterface
+    public boolean setOpenAiConfigs(String configsJson, int activeIndex) {
+        try {
+            org.json.JSONArray input = new org.json.JSONArray(configsJson == null ? "[]" : configsJson);
+            org.json.JSONArray capped = new org.json.JSONArray();
+            int limit = Math.min(input.length(), MAX_OPENAI_CONFIGS);
+            for (int i = 0; i < limit; i++) {
+                org.json.JSONObject src = input.optJSONObject(i);
+                if (src == null) continue;
+                org.json.JSONObject clean = new org.json.JSONObject();
+                String id = src.optString("id", "api-" + (i + 1));
+                String name = src.optString("name", "API " + (i + 1));
+                String url = src.optString("url", "https://api.openai.com/v1").trim();
+                if (url.isEmpty()) url = "https://api.openai.com/v1";
+                String key = src.optString("apiKey", "");
+                String model = src.optString("model", "gpt-4o");
+                org.json.JSONArray mods = src.optJSONArray("models");
+                if (mods == null) mods = new org.json.JSONArray();
+                clean.put("id", id);
+                clean.put("name", name.isEmpty() ? ("API " + (i + 1)) : name);
+                clean.put("url", url);
+                clean.put("apiKey", key);
+                clean.put("model", model);
+                clean.put("models", mods);
+                capped.put(clean);
+            }
+
+            android.content.SharedPreferences sp = appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+            sp.edit().putString(KEY_OPENAI_CONFIGS, capped.toString()).apply();
+
+            java.io.File homeDir = appContext.getFilesDir();
+            java.io.File geminiConfigDir = new java.io.File(homeDir, ".gemini/config");
+            if (!geminiConfigDir.exists()) geminiConfigDir.mkdirs();
+            java.io.File configsFile = new java.io.File(geminiConfigDir, "openai_configs.json");
+            com.agy.util.AtomicFileWriter.writeText(configsFile, capped.toString(2) + "\n");
+
+            if (capped.length() == 0) {
+                return persistGatewayConfig("https://api.openai.com/v1", "", "gpt-4o,gpt-4o-mini", capped);
+            }
+            int idx = (activeIndex >= 0 && activeIndex < capped.length()) ? activeIndex : 0;
+            org.json.JSONObject active = capped.getJSONObject(idx);
+            // If active has empty key, prefer first entry that has a key for native gateway
+            if (active.optString("apiKey", "").trim().isEmpty()) {
+                for (int i = 0; i < capped.length(); i++) {
+                    if (!capped.getJSONObject(i).optString("apiKey", "").trim().isEmpty()) {
+                        active = capped.getJSONObject(i);
+                        break;
+                    }
+                }
+            }
+            String activeUrl = active.optString("url", "https://api.openai.com/v1");
+            String activeKey = active.optString("apiKey", "");
+            StringBuilder modsSb = new StringBuilder();
+            org.json.JSONArray mArr = active.optJSONArray("models");
+            if (mArr != null) {
+                for (int j = 0; j < mArr.length(); j++) {
+                    String ms = mArr.optString(j, "").trim();
+                    if (!ms.isEmpty()) {
+                        if (modsSb.length() > 0) modsSb.append(",");
+                        modsSb.append(ms);
+                    }
+                }
+            }
+            if (modsSb.length() == 0) {
+                modsSb.append(active.optString("model", "gpt-4o"));
+            }
+            return persistGatewayConfig(activeUrl, activeKey, modsSb.toString(), capped);
+        } catch (Exception e) {
+            android.util.Log.w("AndroidBridge", "Failed to save OpenAI configs", e);
+            return false;
+        }
+    }
+
+    private boolean persistGatewayConfig(String url, String apiKey, String models, org.json.JSONArray allConfigs) {
         try {
             if (url == null || url.trim().isEmpty()) {
                 url = "https://api.openai.com/v1";
@@ -162,6 +278,9 @@ public final class AndroidBridge {
             gw.put("wireProtocol", "openai");
             gw.put("apiKey", apiKey);
             settings.put("gateway", gw);
+            if (allConfigs != null) {
+                settings.put("gateways", allConfigs);
+            }
 
             org.json.JSONArray modelsArr = new org.json.JSONArray();
             for (String m : models.split(",")) {

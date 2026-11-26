@@ -63,20 +63,40 @@ def patch_main(file_path):
         f"var onDesktopToggle=(0,{react_id}.useCallback)(v=>{{"
         "setIsDesktop(v);try{localStorage.setItem('ag_desktop_mode',String(v));"
         "if(window.Android&&typeof window.Android.setDesktopMode==='function')window.Android.setDesktopMode(v)}catch(_){}},[]);"
+        f"var [colorTheme,setColorTheme]=(0,{react_id}.useState)(()=>{{"
+        "try{return localStorage.getItem('ag_color_theme')||'default'}catch(_){return 'default'}}});"
+        f"var onColorThemeSelect=(0,{react_id}.useCallback)(id=>{{"
+        "var v=typeof window.__AG_SET_COLOR_THEME__==='function'?window.__AG_SET_COLOR_THEME__(id):id;"
+        "setColorTheme(v);},[]);"
         f"var [showOpenAiModal,setShowOpenAiModal]=(0,{react_id}.useState)(!1);"
-        f"var [openAiUrl,setOpenAiUrl]=(0,{react_id}.useState)(()=>{{"
-        "try{if(window.Android&&typeof window.Android.getOpenAiConfig==='function'){var c=JSON.parse(window.Android.getOpenAiConfig());return c.url||'https://api.openai.com/v1'}"
-        "var s=localStorage.getItem('ag_openai_config');return s?JSON.parse(s).url||'https://api.openai.com/v1':'https://api.openai.com/v1'}catch(_){return 'https://api.openai.com/v1'}});"
-        f"var [openAiKey,setOpenAiKey]=(0,{react_id}.useState)(()=>{{"
-        "try{if(window.Android&&typeof window.Android.getOpenAiConfig==='function'){var c=JSON.parse(window.Android.getOpenAiConfig());return c.apiKey||''}"
-        "var s=localStorage.getItem('ag_openai_config');return s?JSON.parse(s).apiKey||'':''}catch(_){return ''}});"
-        f"var [openAiModel,setOpenAiModel]=(0,{react_id}.useState)(()=>{{"
-        "try{if(window.Android&&typeof window.Android.getOpenAiConfig==='function'){var c=JSON.parse(window.Android.getOpenAiConfig());return c.model||'gpt-4o'}"
-        "var s=localStorage.getItem('ag_openai_config');return s?JSON.parse(s).model||'gpt-4o':'gpt-4o'}catch(_){return 'gpt-4o'}});"
+        f"var [openAiConfigs,setOpenAiConfigs]=(0,{react_id}.useState)(()=>{{"
+        "try{var raw='';if(window.Android&&typeof window.Android.getOpenAiConfigs==='function'){raw=window.Android.getOpenAiConfigs();}"
+        "if(!raw)raw=localStorage.getItem('ag_openai_configs')||'';"
+        "if(raw){var arr=JSON.parse(raw);if(Array.isArray(arr)&&arr.length>0)return arr.slice(0,5);}"
+        "var legacy=localStorage.getItem('ag_openai_config')||(window.Android&&typeof window.Android.getOpenAiConfig==='function'?window.Android.getOpenAiConfig():'');"
+        "if(legacy){var c=JSON.parse(legacy);var mods=Array.isArray(c.models)?c.models:(typeof c.models==='string'?c.models.split(',').map(x=>x.trim()).filter(Boolean):[]);"
+        "return [{id:'api-1',name:'API 1',url:c.url||'https://api.openai.com/v1',apiKey:c.apiKey||'',model:c.model||mods[0]||'gpt-4o',models:mods}];}"
+        "}catch(_){}"
+        "return [{id:'api-1',name:'API 1',url:'https://api.openai.com/v1',apiKey:'',model:'gpt-4o',models:[]}];}});"
+        f"var [activeApiIdx,setActiveApiIdx]=(0,{react_id}.useState)(0);"
+        "var activeCfg=openAiConfigs[activeApiIdx]||openAiConfigs[0]||{id:'api-1',name:'API 1',url:'https://api.openai.com/v1',apiKey:'',model:'gpt-4o',models:[]};"
+        f"var updateActiveCfg=(0,{react_id}.useCallback)(patch=>{{"
+        "setOpenAiConfigs(prev=>prev.map((item,i)=>i===activeApiIdx?Object.assign({},item,patch):item));"
+        "},[activeApiIdx]);"
         f"var [showKeyText,setShowKeyText]=(0,{react_id}.useState)(!1);"
-        f"var [detectedModels,setDetectedModels]=(0,{react_id}.useState)([]);"
         f"var [isDetecting,setIsDetecting]=(0,{react_id}.useState)(!1);"
         f"var [detectStatus,setDetectStatus]=(0,{react_id}.useState)('');"
+        f"var addApiSlot=(0,{react_id}.useCallback)(()=>{{"
+        "setOpenAiConfigs(prev=>{if(prev.length>=5)return prev;"
+        "var nextIdx=prev.length;"
+        "var next=prev.concat([{id:'api-'+(nextIdx+1),name:'API '+(nextIdx+1),url:'https://api.openai.com/v1',apiKey:'',model:'gpt-4o',models:[]}]);"
+        "setActiveApiIdx(nextIdx);setDetectStatus('');return next;});"
+        "},[]);"
+        f"var removeApiSlot=(0,{react_id}.useCallback)(idx=>{{"
+        "setOpenAiConfigs(prev=>{if(prev.length<=1)return prev;"
+        "var next=prev.filter((_,i)=>i!==idx);"
+        "setActiveApiIdx(a=>a>=next.length?next.length-1:(a>idx?a-1:a));setDetectStatus('');return next;});"
+        "},[]);"
         f"var detectModelsFn=(0,{react_id}.useCallback)(async(u,k)=>{{"
         "setIsDetecting(!0);setDetectStatus('Detecting models...');try{"
         "var raw='';"
@@ -91,19 +111,27 @@ def patch_main(file_path):
         "if(d.error){var em=typeof d.error==='string'?d.error:(d.error.message||JSON.stringify(d.error));setDetectStatus('Error: '+em);return;}"
         "var l=[];if(Array.isArray(d.data)){l=d.data.map(m=>m.id||m.name).filter(Boolean);}"
         "else if(Array.isArray(d.models)){l=d.models.map(m=>m.name||m.id||m.model).filter(Boolean);}"
-        "if(l.length>0){l.sort();setDetectedModels(l);setDetectStatus('Found '+l.length+' models!');if(!l.includes(openAiModel))setOpenAiModel(l[0]);}"
+        "if(l.length>0){l.sort();setDetectStatus('Found '+l.length+' models!');"
+        "updateActiveCfg({models:l,model:l.includes(activeCfg.model)?activeCfg.model:l[0]});}"
         "else{setDetectStatus('No models found at endpoint.');}"
         "}catch(err){setDetectStatus('Failed: '+(err.message||String(err)));}"
         "finally{setIsDetecting(!1);}"
-        "},[openAiModel]);"
+        "},[activeCfg,updateActiveCfg]);"
         f"var saveOpenAiConfigFn=(0,{react_id}.useCallback)(()=>{{"
-        "var u=openAiUrl||'https://api.openai.com/v1';var k=openAiKey||'';var m=openAiModel||'gpt-4o';"
-        "var allMods=detectedModels&&detectedModels.length>0?detectedModels:[m];"
-        "if(!allMods.includes(m))allMods.unshift(m);"
-        "try{if(window.Android&&typeof window.Android.setOpenAiConfig==='function')window.Android.setOpenAiConfig(u,k,allMods.join(','));"
-        "localStorage.setItem('ag_openai_config',JSON.stringify({url:u,apiKey:k,model:m,models:allMods}))}catch(_){}"
-        "setShowOpenAiModal(!1);"
-        "},[openAiUrl,openAiKey,openAiModel,detectedModels]);"
+        "var normalized=openAiConfigs.slice(0,5).map((c,idx)=>{"
+        "var u=(c.url||'').trim()||'https://api.openai.com/v1';var k=c.apiKey||'';var m=(c.model||'').trim()||'gpt-4o';"
+        "var mods=Array.isArray(c.models)&&c.models.length>0?c.models.slice():[m];"
+        "if(!mods.includes(m))mods.unshift(m);"
+        "return {id:c.id||('api-'+(idx+1)),name:(c.name||'').trim()||('API '+(idx+1)),url:u,apiKey:k,model:m,models:mods};});"
+        "var act=normalized[activeApiIdx]||normalized[0];"
+        "try{"
+        "localStorage.setItem('ag_openai_configs',JSON.stringify(normalized));"
+        "localStorage.setItem('ag_openai_config',JSON.stringify({url:act.url,apiKey:act.apiKey,model:act.model,models:act.models}));"
+        "if(window.Android&&typeof window.Android.setOpenAiConfigs==='function'){window.Android.setOpenAiConfigs(JSON.stringify(normalized),activeApiIdx);}"
+        "else if(window.Android&&typeof window.Android.setOpenAiConfig==='function'){window.Android.setOpenAiConfig(act.url,act.apiKey,act.models.join(','));}"
+        "}catch(_){}"
+        "setOpenAiConfigs(normalized);setShowOpenAiModal(!1);"
+        "},[openAiConfigs,activeApiIdx]);"
         + orig_hook
     )
 
@@ -124,14 +152,33 @@ def patch_main(file_path):
         f'showOpenAiModal?{react_id}.createElement(NC,{{'
         'isOpen:showOpenAiModal,'
         'onClose:()=>setShowOpenAiModal(!1),'
-        'title:"OpenAI Compatible Model Source",'
-        'className:"w-[90vw] max-w-[460px] rounded-xl",'
+        'title:"OpenAI Compatible Model Sources",'
+        'className:"w-[92vw] max-w-[480px] rounded-xl",'
         'zClassName:"z-[8500]"'
         f'}},{react_id}.createElement("div",{{className:"flex flex-col gap-3 py-1 text-foreground"}},'
-        f'{react_id}.createElement("p",{{className:"text-xs text-muted-foreground m-0 -mt-2 mb-1"}},"Configure endpoint, API key, and detect models"),'
+        f'{react_id}.createElement("p",{{className:"text-xs text-muted-foreground m-0 -mt-2"}},"Configure up to 5 OpenAI-compatible API endpoints & models"),'
+        f'{react_id}.createElement("div",{{className:"flex flex-wrap items-center gap-1.5 pb-1 border-b border-border"}},'
+        f'openAiConfigs.map(function(cfg,idx){{var isSel=idx===activeApiIdx;var hasKey=Boolean(cfg.apiKey&&cfg.apiKey.trim());'
+        f'return {react_id}.createElement("button",{{key:cfg.id||idx,type:"button",onClick:()=>{{setActiveApiIdx(idx);setDetectStatus("");}},'
+        'className:"px-2.5 py-1 text-xs rounded-md font-medium cursor-pointer flex items-center gap-1.5 transition-colors "+(isSel?"bg-primary text-primary-foreground border border-primary":"bg-secondary text-secondary-foreground border border-border hover:bg-muted")}},'
+        f'hasKey?{react_id}.createElement("span",{{className:"w-1.5 h-1.5 rounded-full "+(isSel?"bg-primary-foreground":"bg-emerald-500")}}):null,'
+        'cfg.name||("API "+(idx+1)));}}),'
+        f'openAiConfigs.length<5?{react_id}.createElement("button",{{type:"button",onClick:addApiSlot,'
+        'className:"px-2.5 py-1 text-xs rounded-md font-medium cursor-pointer bg-muted/60 text-foreground border border-dashed border-border hover:bg-muted transition-colors"},"+ Add API ("+openAiConfigs.length+"/5)"):null'
+        '),'
+        f'{react_id}.createElement("div",{{className:"flex flex-col gap-1.5"}},'
+        f'{react_id}.createElement("div",{{className:"flex items-center justify-between"}},'
+        f'{react_id}.createElement("label",{{className:"text-xs font-medium text-foreground"}},"Provider Label"),'
+        f'openAiConfigs.length>1?{react_id}.createElement("button",{{type:"button",onClick:()=>removeApiSlot(activeApiIdx),'
+        'className:"text-xs text-destructive hover:underline cursor-pointer bg-transparent border-none p-0"},"Remove Slot"):null'
+        '),'
+        f'{react_id}.createElement("input",{{type:"text",value:activeCfg.name||"",onChange:e=>updateActiveCfg({{name:e.target.value}}),'
+        'placeholder:"e.g. OpenAI, DeepSeek, Groq, OpenRouter, Ollama",'
+        'className:"w-full rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground transition-colors"})'
+        '),'
         f'{react_id}.createElement("div",{{className:"flex flex-col gap-1.5"}},'
         f'{react_id}.createElement("label",{{className:"text-xs font-medium text-foreground"}},"Base URL (Endpoint)"),'
-        f'{react_id}.createElement("input",{{type:"text",value:openAiUrl,onChange:e=>setOpenAiUrl(e.target.value),'
+        f'{react_id}.createElement("input",{{type:"text",value:activeCfg.url||"",onChange:e=>updateActiveCfg({{url:e.target.value}}),'
         'placeholder:"https://api.openai.com/v1",'
         'className:"w-full rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground transition-colors"})'
         '),'
@@ -141,24 +188,24 @@ def patch_main(file_path):
         f'{react_id}.createElement("button",{{type:"button",onClick:()=>setShowKeyText(!showKeyText),'
         'className:"text-xs text-primary hover:underline cursor-pointer bg-transparent border-none p-0"},showKeyText?"Hide":"Show")'
         '),'
-        f'{react_id}.createElement("input",{{type:showKeyText?"text":"password",value:openAiKey,onChange:e=>setOpenAiKey(e.target.value),'
+        f'{react_id}.createElement("input",{{type:showKeyText?"text":"password",value:activeCfg.apiKey||"",onChange:e=>updateActiveCfg({{apiKey:e.target.value}}),'
         'placeholder:"sk-...",'
         'className:"w-full rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground transition-colors"})'
         '),'
         f'{react_id}.createElement("div",{{className:"flex flex-wrap items-center gap-2 pt-1"}},'
-        f'{react_id}.createElement("button",{{type:"button",disabled:isDetecting||!openAiUrl,onClick:()=>detectModelsFn(openAiUrl,openAiKey),'
+        f'{react_id}.createElement("button",{{type:"button",disabled:isDetecting||!activeCfg.url,onClick:()=>detectModelsFn(activeCfg.url,activeCfg.apiKey),'
         'className:"px-3 py-1.5 text-xs rounded-md bg-secondary text-secondary-foreground font-medium hover:bg-muted border border-border cursor-pointer flex items-center gap-1.5 transition-colors disabled:opacity-50"},isDetecting?"Detecting...":"🔍 Detect Models"),'
         f'detectStatus?{react_id}.createElement("span",{{className:"text-xs "+(detectStatus.startsWith("Error")?"text-destructive font-medium":(detectStatus.startsWith("Found")?"text-emerald-500 font-medium":"text-muted-foreground"))}},detectStatus):null'
         '),'
         f'{react_id}.createElement("div",{{className:"flex flex-col gap-1.5 mt-1"}},'
         f'{react_id}.createElement("div",{{className:"flex items-center justify-between"}},'
         f'{react_id}.createElement("label",{{className:"text-xs font-medium text-foreground"}},"Model Name"),'
-        f'detectedModels.length>0?{react_id}.createElement("span",{{className:"text-[11px] text-muted-foreground"}},detectedModels.length+" detected"):null'
+        f'Array.isArray(activeCfg.models)&&activeCfg.models.length>0?{react_id}.createElement("span",{{className:"text-[11px] text-muted-foreground"}},activeCfg.models.length+" detected"):null'
         '),'
-        f'detectedModels.length>0?{react_id}.createElement("select",{{value:openAiModel,onChange:e=>setOpenAiModel(e.target.value),'
+        f'Array.isArray(activeCfg.models)&&activeCfg.models.length>0?{react_id}.createElement("select",{{value:activeCfg.model||"",onChange:e=>updateActiveCfg({{model:e.target.value}}),'
         'className:"w-full rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer transition-colors"},'
-        f'detectedModels.map(function(m){{return {react_id}.createElement("option",{{key:m,value:m}},m);}})):'
-        f'{react_id}.createElement("input",{{type:"text",value:openAiModel,onChange:e=>setOpenAiModel(e.target.value),'
+        f'activeCfg.models.map(function(m){{return {react_id}.createElement("option",{{key:m,value:m}},m);}})):'
+        f'{react_id}.createElement("input",{{type:"text",value:activeCfg.model||"",onChange:e=>updateActiveCfg({{model:e.target.value}}),'
         'placeholder:"e.g. gpt-4o, deepseek-chat, claude-3-5-sonnet",'
         'className:"w-full rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground transition-colors"})'
         '),'
@@ -166,19 +213,26 @@ def patch_main(file_path):
         f'{react_id}.createElement("button",{{type:"button",onClick:()=>setShowOpenAiModal(!1),'
         'className:"px-3.5 py-1.5 text-xs rounded-md bg-secondary text-secondary-foreground font-medium hover:bg-muted border border-border cursor-pointer transition-colors"},"Cancel"),'
         f'{react_id}.createElement("button",{{type:"button",onClick:saveOpenAiConfigFn,'
-        'className:"px-4 py-1.5 text-xs rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 cursor-pointer border-none shadow-xs transition-opacity"},"Save Settings")'
+        'className:"px-4 py-1.5 text-xs rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 cursor-pointer border-none shadow-xs transition-opacity"},"Save All ("+openAiConfigs.length+")")'
         ')'
         ')):null'
     )
 
+    color_themes_list = "(window.__AG_COLOR_THEMES__||[{id:'default',name:'Default',accent:'#007acc',bg:'#101010'}])"
     orig_theme = theme_match.group(0)
     injected_theme = (
         orig_theme
+        + f',{react_id}.createElement({item_comp},{{label:"Color Theme",description:"Choose a colorful theme palette for the interface",'
+        + f'rightElement:{react_id}.createElement("div",{{className:"flex flex-wrap items-center justify-end gap-1.5 max-w-[260px]"}},'
+        + f'{color_themes_list}.map(function(t){{var active=colorTheme===t.id;'
+        + f'return {react_id}.createElement("button",{{key:t.id,type:"button",onClick:()=>onColorThemeSelect(t.id),'
+        + 'className:"px-2 py-1 text-[11px] rounded-md font-medium cursor-pointer flex items-center gap-1.5 transition-all border "+(active?"border-primary bg-primary/15 text-foreground shadow-xs":"border-border bg-secondary text-secondary-foreground hover:bg-muted")},'
+        + f'{react_id}.createElement("span",{{style:{{width:"10px",height:"10px",borderRadius:"9999px",backgroundColor:t.accent,border:"1.5px solid "+t.bg,display:"inline-block",flexShrink:0}}}}),t.name);}})}})'
         + f',{react_id}.createElement({item_comp},{{label:"Desktop Mode",description:"Use desktop viewport and user agent for the workspace",'
         + f'rightElement:{react_id}.createElement({switch_comp},{{checked:isDesktop,onCheckedChange:onDesktopToggle}})}})'
-        + f',{react_id}.createElement({item_comp},{{label:"OpenAI Compatible Model Source",description:"Configure OpenAI-compatible API key, endpoint, and auto-detect models",'
+        + f',{react_id}.createElement({item_comp},{{label:"OpenAI Compatible Model Sources",description:"Configure up to 5 OpenAI-compatible API keys, endpoints, and auto-detect models ("+openAiConfigs.filter(c=>c.apiKey&&c.apiKey.trim()).length+"/5 active)",'
         + f'rightElement:{react_id}.createElement("button",{{type:"button",onClick:()=>setShowOpenAiModal(!0),'
-        + 'className:"px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground font-medium cursor-pointer hover:opacity-90 border-none"},"Configure")'
+        + 'className:"px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground font-medium cursor-pointer hover:opacity-90 border-none"},"Configure ("+openAiConfigs.length+"/5)")'
         + f'}})'
         + f',{react_id}.createElement({item_comp},{{label:"Projects Storage Folder",description:"Folder accessed by Android Files app for your projects (default: Documents/Antigravity)",'
         + f'rightElement:{react_id}.createElement("button",{{type:"button",onClick:async()=>{{'
@@ -238,7 +292,24 @@ def patch_main(file_path):
         print("[web-patch] Gzb state hooks and model detection injected")
 
     gzb_save_target = 'L=p(I.ModelInfoSchema,{modelId:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,apiProvider:I.APIProvider.API_PROVIDER_GOOGLE_EVERGREEN,chatModelName:k,modelName:m,maxTokens:Math.max(0,Math.min(Number(q)||0,Number.MAX_SAFE_INTEGER)),modelFeatures:L});b==="edit"&&e?g({type:"editCustomModel",oldLabel:e,label:k,modelInfo:L}):g({type:"addCustomModel",label:k,modelInfo:L});h({label:k,value:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,isCustom:!0,customModelUrl:L.modelName,disabled:!1});'
-    gzb_save_replacement = 'if(provider==="openai"){try{if(window.Android&&typeof window.Android.setOpenAiConfig==="function")window.Android.setOpenAiConfig(m||"https://api.openai.com/v1",apiKey,k);localStorage.setItem("ag_openai_config",JSON.stringify({url:m||"https://api.openai.com/v1",apiKey:apiKey,model:k}))}catch(_){}}L=p(I.ModelInfoSchema,{modelId:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,apiProvider:provider==="openai"?I.APIProvider.API_PROVIDER_OPENAI_VERTEX:I.APIProvider.API_PROVIDER_GOOGLE_EVERGREEN,chatModelName:k,modelName:m||(provider==="openai"?"https://api.openai.com/v1":""),maxTokens:Math.max(0,Math.min(Number(q)||0,Number.MAX_SAFE_INTEGER)),modelFeatures:L});b==="edit"&&e?g({type:"editCustomModel",oldLabel:e,label:k,modelInfo:L}):g({type:"addCustomModel",label:k,modelInfo:L});h({label:k,value:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,isCustom:!0,customModelUrl:L.modelName,disabled:!1});'
+    gzb_save_replacement = (
+        'if(provider==="openai"){try{var u=m||"https://api.openai.com/v1";'
+        'var rawC="";if(window.Android&&typeof window.Android.getOpenAiConfigs==="function")rawC=window.Android.getOpenAiConfigs();'
+        'if(!rawC)rawC=localStorage.getItem("ag_openai_configs")||"";'
+        'var cfgs=[];if(rawC){try{var pa=JSON.parse(rawC);if(Array.isArray(pa))cfgs=pa}catch(_){}}'
+        'var matchIdx=cfgs.findIndex(c=>c&&c.url===u&&c.apiKey===apiKey);'
+        'if(matchIdx<0)matchIdx=cfgs.findIndex(c=>c&&(!c.apiKey||!c.apiKey.trim()));'
+        'var modsToSave=gzbDetectedModels&&gzbDetectedModels.length>0?gzbDetectedModels.slice():[k];if(!modsToSave.includes(k))modsToSave.unshift(k);'
+        'if(matchIdx>=0){var exMods=Array.isArray(cfgs[matchIdx].models)?cfgs[matchIdx].models:[];modsToSave.forEach(x=>{if(x&&!exMods.includes(x))exMods.push(x)});cfgs[matchIdx]=Object.assign({},cfgs[matchIdx],{url:u,apiKey:apiKey,model:k,models:exMods});}'
+        'else if(cfgs.length<5){matchIdx=cfgs.length;cfgs.push({id:"api-"+(matchIdx+1),name:"API "+(matchIdx+1),url:u,apiKey:apiKey,model:k,models:modsToSave});}'
+        'else{matchIdx=cfgs.length-1;cfgs[matchIdx]=Object.assign({},cfgs[matchIdx],{url:u,apiKey:apiKey,model:k,models:modsToSave});}'
+        'localStorage.setItem("ag_openai_configs",JSON.stringify(cfgs));'
+        'localStorage.setItem("ag_openai_config",JSON.stringify({url:u,apiKey:apiKey,model:k,models:cfgs[matchIdx].models}));'
+        'if(window.Android&&typeof window.Android.setOpenAiConfigs==="function")window.Android.setOpenAiConfigs(JSON.stringify(cfgs),matchIdx);'
+        'else if(window.Android&&typeof window.Android.setOpenAiConfig==="function")window.Android.setOpenAiConfig(u,apiKey,cfgs[matchIdx].models.join(","));'
+        '}catch(_){}}'
+        'L=p(I.ModelInfoSchema,{modelId:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,apiProvider:provider==="openai"?I.APIProvider.API_PROVIDER_OPENAI_VERTEX:I.APIProvider.API_PROVIDER_GOOGLE_EVERGREEN,chatModelName:k,modelName:m||(provider==="openai"?"https://api.openai.com/v1":""),maxTokens:Math.max(0,Math.min(Number(q)||0,Number.MAX_SAFE_INTEGER)),modelFeatures:L});b==="edit"&&e?g({type:"editCustomModel",oldLabel:e,label:k,modelInfo:L}):g({type:"addCustomModel",label:k,modelInfo:L});h({label:k,value:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,isCustom:!0,customModelUrl:L.modelName,disabled:!1});'
+    )
     if gzb_save_target in content:
         content = content.replace(gzb_save_target, gzb_save_replacement, 1)
         print("[web-patch] Gzb save callback updated with OpenAI persistence")
@@ -306,21 +377,28 @@ def patch_main(file_path):
     # 6a. Inject _getAgOpenAiModels, update cKa, Py, and dKa
     cka_target = 'var cKa=a=>a?.customModels?Object.entries(a.customModels).map(([b,c])=>({label:b,value:c.modelId,isCustom:!0,customModelUrl:c.modelName})):[],Py=(a,b)=>{if(b?.customModels)return b.customModels[a]};var dKa=(a,b,c)=>{if(a=a.find(e=>e.label===c))return a;if(b=b.find(e=>e.label===c))return b};'
     cka_replacement = (
-        'var _getAgOpenAiModels=()=>{var res=[];try{var s=localStorage.getItem("ag_openai_config"),raw="";'
-        'if(window.Android&&typeof window.Android.getOpenAiConfig==="function")raw=window.Android.getOpenAiConfig();'
-        'var cfg=null;if(s){try{cfg=JSON.parse(s)}catch(_){}}else if(raw){try{var rc=JSON.parse(raw);if(rc.apiKey&&rc.apiKey.trim())cfg=rc}catch(_){}}'
-        'if(cfg){var url=cfg.url||"https://api.openai.com/v1",mods=[];if(cfg.model&&typeof cfg.model==="string"&&cfg.model.trim())mods.push(cfg.model.trim());'
+        'var _loadAgOpenAiConfigs=()=>{try{var raw="";'
+        'if(window.Android&&typeof window.Android.getOpenAiConfigs==="function")raw=window.Android.getOpenAiConfigs();'
+        'var ls=localStorage.getItem("ag_openai_configs");'
+        'if(ls){try{var arr=JSON.parse(ls);if(Array.isArray(arr)&&arr.length>0)return arr.slice(0,5)}catch(_){}}'
+        'if(raw){try{var arr2=JSON.parse(raw);if(Array.isArray(arr2)&&arr2.length>0)return arr2.slice(0,5)}catch(_){}}'
+        'var s=localStorage.getItem("ag_openai_config"),rLegacy="";'
+        'if(window.Android&&typeof window.Android.getOpenAiConfig==="function")rLegacy=window.Android.getOpenAiConfig();'
+        'var cfg=null;if(s){try{cfg=JSON.parse(s)}catch(_){}}else if(rLegacy){try{var rc=JSON.parse(rLegacy);if(rc.apiKey&&rc.apiKey.trim())cfg=rc}catch(_){}}'
+        'if(cfg)return [cfg]}catch(_){}return []};'
+        'var _extractMods=cfg=>{var mods=[];if(cfg.model&&typeof cfg.model==="string"&&cfg.model.trim())mods.push(cfg.model.trim());'
         'if(Array.isArray(cfg.models))cfg.models.forEach(m=>{if(m&&typeof m==="string"&&m.trim()&&!mods.includes(m.trim()))mods.push(m.trim())});'
-        'else if(typeof cfg.models==="string")cfg.models.split(",").forEach(m=>{m=m.trim();if(m&&!mods.includes(m))mods.push(m)});'
-        'if(mods.length===0)mods.push("gpt-4o");'
-        'for(var mod of mods)res.push({label:mod,value:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,isCustom:!0,customModelUrl:url,disabled:!1})}}catch(_){}'
+        'else if(typeof cfg.models==="string")cfg.models.split(",").forEach(m=>{m=m.trim();if(m&&!mods.includes(m))mods.push(m)});return mods};'
+        'var _getAgOpenAiModels=()=>{var res=[],seen={};try{var cfgs=_loadAgOpenAiConfigs();'
+        'for(var cfg of cfgs){if(!cfg)continue;var hasKey=cfg.apiKey&&String(cfg.apiKey).trim();var mods=_extractMods(cfg);'
+        'if(!hasKey&&mods.length===0)continue;var url=cfg.url||"https://api.openai.com/v1";if(mods.length===0)mods.push("gpt-4o");'
+        'for(var mod of mods){if(!seen[mod]){seen[mod]=1;res.push({label:mod,value:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,isCustom:!0,customModelUrl:url,disabled:!1})}}}}catch(_){}'
         'return res};'
         'var cKa=a=>{var base=a?.customModels?Object.entries(a.customModels).map(([b,c])=>({label:b,value:c.modelId,isCustom:!0,customModelUrl:c.modelName,disabled:!1})):[],ag=_getAgOpenAiModels();'
         'for(var m of ag)if(!base.some(x=>x.label===m.label))base.push(m);return base},'
-        'Py=(a,b)=>{if(b?.customModels&&b.customModels[a])return b.customModels[a];try{var s=localStorage.getItem("ag_openai_config"),raw="";'
-        'if(window.Android&&typeof window.Android.getOpenAiConfig==="function")raw=window.Android.getOpenAiConfig();'
-        'var cfg=null;if(s){try{cfg=JSON.parse(s)}catch(_){}}else if(raw){try{var rc=JSON.parse(raw);if(rc.apiKey&&rc.apiKey.trim())cfg=rc}catch(_){}}'
-        'if(cfg){var mUrl=cfg.url||"https://api.openai.com/v1";return p(I.ModelInfoSchema,{modelId:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,apiProvider:I.APIProvider.API_PROVIDER_OPENAI_VERTEX,chatModelName:a,modelName:mUrl,maxTokens:128000})}}catch(_){}};'
+        'Py=(a,b)=>{if(b?.customModels&&b.customModels[a])return b.customModels[a];try{var cfgs=_loadAgOpenAiConfigs();'
+        'var matched=cfgs.find(c=>c&&_extractMods(c).includes(a))||cfgs.find(c=>c&&c.apiKey&&String(c.apiKey).trim())||cfgs[0];'
+        'if(matched){var mUrl=matched.url||"https://api.openai.com/v1";return p(I.ModelInfoSchema,{modelId:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,apiProvider:I.APIProvider.API_PROVIDER_OPENAI_VERTEX,chatModelName:a,modelName:mUrl,maxTokens:128000})}}catch(_){}};'
         'var dKa=(a,b,c)=>{if(a=a?.find(e=>e.label===c))return a;if(b=b?.find(e=>e.label===c))return b;var ag=_getAgOpenAiModels(),found=ag.find(e=>e.label===c);if(found)return found};'
     )
     if cka_target in content:
