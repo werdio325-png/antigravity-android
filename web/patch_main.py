@@ -77,7 +77,7 @@ def patch_main(file_path):
         "if(legacy){var c=JSON.parse(legacy);var mods=Array.isArray(c.models)?c.models:(typeof c.models==='string'?c.models.split(',').map(x=>x.trim()).filter(Boolean):[]);"
         "return [{id:'api-1',name:'API 1',url:c.url||'https://api.openai.com/v1',apiKey:c.apiKey||'',model:c.model||mods[0]||'gpt-4o',models:mods}];}"
         "}catch(_){}"
-        "return [{id:'api-1',name:'API 1',url:'https://api.openai.com/v1',apiKey:'',model:'gpt-4o',models:[]}];}});"
+        "return [{id:'api-1',name:'API 1',url:'https://api.openai.com/v1',apiKey:'',model:'gpt-4o',models:[]}];});"
         f"var [activeApiIdx,setActiveApiIdx]=(0,{react_id}.useState)(0);"
         "var activeCfg=openAiConfigs[activeApiIdx]||openAiConfigs[0]||{id:'api-1',name:'API 1',url:'https://api.openai.com/v1',apiKey:'',model:'gpt-4o',models:[]};"
         f"var updateActiveCfg=(0,{react_id}.useCallback)(patch=>{{"
@@ -160,9 +160,9 @@ def patch_main(file_path):
         f'{react_id}.createElement("div",{{className:"flex flex-wrap items-center gap-1.5 pb-1 border-b border-border"}},'
         f'openAiConfigs.map(function(cfg,idx){{var isSel=idx===activeApiIdx;var hasKey=Boolean(cfg.apiKey&&cfg.apiKey.trim());'
         f'return {react_id}.createElement("button",{{key:cfg.id||idx,type:"button",onClick:()=>{{setActiveApiIdx(idx);setDetectStatus("");}},'
-        'className:"px-2.5 py-1 text-xs rounded-md font-medium cursor-pointer flex items-center gap-1.5 transition-colors "+(isSel?"bg-primary text-primary-foreground border border-primary":"bg-secondary text-secondary-foreground border border-border hover:bg-muted")}},'
+        'className:"px-2.5 py-1 text-xs rounded-md font-medium cursor-pointer flex items-center gap-1.5 transition-colors "+(isSel?"bg-primary text-primary-foreground border border-primary":"bg-secondary text-secondary-foreground border border-border hover:bg-muted")},'
         f'hasKey?{react_id}.createElement("span",{{className:"w-1.5 h-1.5 rounded-full "+(isSel?"bg-primary-foreground":"bg-emerald-500")}}):null,'
-        'cfg.name||("API "+(idx+1)));}}),'
+        'cfg.name||("API "+(idx+1)));}),'
         f'openAiConfigs.length<5?{react_id}.createElement("button",{{type:"button",onClick:addApiSlot,'
         'className:"px-2.5 py-1 text-xs rounded-md font-medium cursor-pointer bg-muted/60 text-foreground border border-dashed border-border hover:bg-muted transition-colors"},"+ Add API ("+openAiConfigs.length+"/5)"):null'
         '),'
