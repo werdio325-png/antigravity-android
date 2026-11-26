@@ -17,6 +17,7 @@ graph TD
         WVH --> AWVC["AgyWebViewClient (OAuth & Asset Interceptor)"]
         WVH --> AWCC["AgyWebChromeClient (Console, Files, Popups)"]
         WVH --> LAS["LocalAssetServer (Внутрипроцессная раздача files/web/)"]
+        WVH --> LSP["LoopbackSidecarProxy (Проксирование токенов sidecar)"]
         WVH --> AHI["AppHtmlInjector (Инжекция __APP_CONFIG__ и токенов)"]
     end
 
@@ -102,6 +103,8 @@ graph TD
 - **`LocalAssetServer`**:
   - Перехватывает вызовы `shouldInterceptRequest` в `AgyWebViewClient` для Same-Origin адреса `https://127.0.0.1:<port>/*`.
   - Статические файлы (`files/web/*`) отдаются напрямую из локального кэша приложения в памяти, не нагружая Go-сервер ядра. RPC и веб-сокеты (`/exa.*`, `/jetski.*`, streaming) прозрачно пропускаются к ядру.
+- **`LoopbackSidecarProxy`**:
+  - Перехватывает локальные HTTP-запросы sidecar-фреймов (`http://localhost:<port>` / `http://127.0.0.1:<port>`, кроме портов ядра и `SystemGatewayServer`), сохраняет токен из `?token=...` для порта и проксирует последующие `GET`/`HEAD`-запросы с заголовком `X-Sidecar-Token`, решая проблему блокировки cross-site cookie в WebView.
 - **`AppHtmlInjector`**:
   - Внедряет в `<head>` веб-бандла строгую директиву Content-Security-Policy (CSP).
   - Инициализирует глобальные объекты `window.__APP_CONFIG__`, `window.__AG_ENDPOINTS__`, `window.__AG_CSRF__` и одноразовый криптографический токен `blobBridgeToken`.

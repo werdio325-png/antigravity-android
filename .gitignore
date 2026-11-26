@@ -29,6 +29,7 @@ standalone_runtime/
 
 # IDE and OS
 .DS_Store
+.nomedia
 *.swp
 *~
 .idea/
