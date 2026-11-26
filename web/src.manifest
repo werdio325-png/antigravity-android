@@ -22,6 +22,7 @@ src/core/polyfills-process.js
 src/core/config.js
 src/core/csrf.js
 src/core/endpoints.js
+src/core/resume-stream-recovery.js
 src/core/fetch-rewrite.js
 src/core/public-api.js
 

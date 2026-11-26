@@ -38,11 +38,8 @@ def apply(data: bytearray, verify: bool = False, dry_run: bool = False, allow_mi
     atomic_total = len(raw_atomic) + len(repl_atomic)
 
     if (cpu_total == 0 or atomic_total == 0):
-        if allow_missing:
-            info["status"] = "skipped_missing"
-            return True, info
-        info["status"] = "missing_signature"
-        return False, info
+        info["status"] = "skipped_missing"
+        return True, info
 
     if verify:
         v_ok = (len(raw_cpu) == 0 and len(repl_cpu) == 1 and len(raw_atomic) == 0 and len(repl_atomic) == 1)

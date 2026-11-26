@@ -3,13 +3,34 @@
   <head>
     <meta charset="UTF-8" />
     <title>Jetski Web</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, interactive-widget=resizes-content" />
     <!-- Preconnect secondary CDNs for dynamic UI icons (Drive, Docs, Colab) -->
     <link rel="preconnect" href="https://www.gstatic.com" />
     <link rel="preconnect" href="https://ssl.gstatic.com" />
     <!-- Preconnect to font origins for dynamic Google Symbols loading -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <script>
+      // Polyfill Node process global for third-party libraries (e.g. TanStack Virtual)
+      window.process = window.process || {};
+      window.process.env = window.process.env || {};
+      if (!window.process.env.NODE_ENV) {
+        window.process.env.NODE_ENV = window.__APP_CONFIG__?.devMode ? "development" : "production";
+      }
+      // Set process.platform from the user agent. This MUST happen here, before
+      // any bundle (and therefore vscode-uri) loads. Since we are forced to set
+      // windows.process, we must also set process.platform because vscode-uri
+      // uses process.platform to determine if the OS is Windows.
+      if (!window.process.platform) {
+        const ua = navigator.userAgent || "";
+        window.process.platform =
+          ua.indexOf("Windows") >= 0
+            ? "win32"
+            : ua.indexOf("Macintosh") >= 0 || ua.indexOf("Mac OS") >= 0
+              ? "darwin"
+              : "linux";
+      }
+    </script>
 
     <link rel="icon" type="image/png" href="./antigravity-icon.png" />
     <link rel="stylesheet" href="./jetbox.css" />
@@ -56,7 +77,7 @@
         width: 100%;
         height: 100%;
       }
-      </style>
+    </style>
   </head>
   <body>
     <div id="root"></div>

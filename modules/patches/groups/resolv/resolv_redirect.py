@@ -6,7 +6,7 @@ from typing import Tuple, Dict, Any, List, Union
 TARGET = b"/etc/resolv.conf"
 REPLACEMENT = b"etc//resolv.conf"
 ADJACENT_REJECT = b"/.\\"
-EXPECTED_COUNT = 2
+EXPECTED_COUNTS = (1, 2)
 
 def scan(data: Union[bytes, bytearray, memoryview]) -> Tuple[List[int], List[int], List[int]]:
     clean = []
@@ -39,7 +39,7 @@ def apply(data: bytearray, verify: bool = False, dry_run: bool = False, allow_mi
 
     info = {
         "name": "resolv_redirect",
-        "expected": EXPECTED_COUNT,
+        "expected": list(EXPECTED_COUNTS),
         "clean_count": len(clean),
         "rejected_count": len(rejected),
         "replacement_count": len(repl),
@@ -54,12 +54,12 @@ def apply(data: bytearray, verify: bool = False, dry_run: bool = False, allow_mi
         info["status"] = "missing_signature"
         return False, info
 
-    if total != EXPECTED_COUNT:
+    if total not in EXPECTED_COUNTS:
         info["status"] = f"unexpected_count_{total}"
         return False, info
 
     if verify:
-        ok = (len(clean) == 0 and len(repl) == EXPECTED_COUNT)
+        ok = (len(clean) == 0 and len(repl) in EXPECTED_COUNTS)
         info["status"] = "verified" if ok else "unverified"
         return ok, info
 

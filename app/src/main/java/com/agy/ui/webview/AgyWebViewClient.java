@@ -12,6 +12,7 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import com.agy.BuildConfig;
 import com.agy.bridge.AndroidBridge;
 import com.agy.oauth.OAuthManager;
 import com.agy.util.SensitiveDataRedactor;
@@ -25,6 +26,7 @@ public final class AgyWebViewClient extends WebViewClient {
     private final Context context;
     private final OAuthManager oauth;
     private final LocalAssetServer assetServer;
+    private final LoopbackSidecarProxy sidecarProxy;
     private final AndroidBridge bridge;
     private final WebViewHost.Listener listener;
 
@@ -33,6 +35,7 @@ public final class AgyWebViewClient extends WebViewClient {
         this.context = context;
         this.oauth = oauth;
         this.assetServer = assetServer;
+        this.sidecarProxy = new LoopbackSidecarProxy(bridge.getEnginePort(), BuildConfig.GATEWAY_PORT);
         this.bridge = bridge;
         this.listener = listener;
     }
@@ -55,11 +58,18 @@ public final class AgyWebViewClient extends WebViewClient {
         Log.i(TAG, "shouldOverrideUrlLoading url="
                 + SensitiveDataRedactor.safeUrl(uri.toString()));
         if (!request.isForMainFrame()) {
-            // The web UI intentionally embeds HTTPS previews. Keep those working,
-            // while refusing file/javascript/intent and other non-web subframes.
+            // The web UI intentionally embeds HTTPS and loopback HTTP previews.
+            // Keep those working, while refusing arbitrary http, file, javascript,
+            // intent, and other non-web subframes.
             String scheme = uri.getScheme();
-            return !"https".equalsIgnoreCase(scheme)
-                    && !"about".equalsIgnoreCase(scheme);
+            if ("https".equalsIgnoreCase(scheme) || "about".equalsIgnoreCase(scheme)) {
+                return false;
+            }
+            if ("http".equalsIgnoreCase(scheme)) {
+                String host = uri.getHost();
+                return !"localhost".equalsIgnoreCase(host) && !"127.0.0.1".equals(host);
+            }
+            return true;
         }
         return handleNavigation(v, uri.toString());
     }
@@ -150,8 +160,12 @@ public final class AgyWebViewClient extends WebViewClient {
         if (request == null || request.getUrl() == null) {
             return null;
         }
-        return assetServer.intercept(context, request.getUrl(), request.getMethod(),
+        WebResourceResponse asset = assetServer.intercept(context, request.getUrl(), request.getMethod(),
                 bridge.getEnginePort());
+        if (asset != null) {
+            return asset;
+        }
+        return sidecarProxy.intercept(request);
     }
 
     @Override
@@ -161,7 +175,12 @@ public final class AgyWebViewClient extends WebViewClient {
             return null;
         }
         try {
-            return assetServer.intercept(context, Uri.parse(url), "GET", bridge.getEnginePort());
+            Uri uri = Uri.parse(url);
+            WebResourceResponse asset = assetServer.intercept(context, uri, "GET", bridge.getEnginePort());
+            if (asset != null) {
+                return asset;
+            }
+            return sidecarProxy.intercept(uri, "GET", null);
         } catch (Exception e) {
             return null;
         }

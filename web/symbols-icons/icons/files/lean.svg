@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="lean-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1E40AF"/>
+    </linearGradient>
+    <linearGradient id="accent-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="100%" stop-color="#3B82F6"/>
+    </linearGradient>
+  </defs>
+  <!-- Background Badge -->
+  <rect x="8" y="8" width="112" height="112" rx="24" fill="url(#lean-grad)"/>
+  <!-- Stylized Lean 'L' Math Symbol -->
+  <path d="M 38 28 L 52 28 L 52 82 L 90 82 L 90 96 L 38 96 Z" fill="#FFFFFF"/>
+  <!-- Superior Accent / Superscript 4 Polygon -->
+  <path d="M 72 32 L 86 32 L 86 52 L 96 52 L 96 64 L 86 64 L 86 72 L 72 72 L 72 64 L 62 64 L 62 50 Z M 72 52 L 72 44 L 66 52 Z" fill="url(#accent-grad)"/>
+</svg>
