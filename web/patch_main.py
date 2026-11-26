@@ -119,21 +119,14 @@ def patch_main(file_path):
             switch_comp = sw_m.group(1)
 
     modal_jsx = (
-        f'(showOpenAiModal&&typeof document!=="undefined")?(0,ev.createPortal)({react_id}.createElement("div",{{'
-        'className:"fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4",'
-        'onClick:e=>{if(e.target===e.currentTarget)setShowOpenAiModal(!1)}'
-        f'}},{react_id}.createElement("div",{{'
-        'className:"bg-background text-foreground border border-border shadow-2xl rounded-xl p-5 w-full max-w-[460px] flex flex-col gap-4 outline-none max-h-[90vh] overflow-y-auto",'
-        'onClick:e=>e.stopPropagation()'
-        f'}},{react_id}.createElement("div",{{className:"flex items-center justify-between border-b border-border pb-3"}},'
-        f'{react_id}.createElement("div",null,'
-        f'{react_id}.createElement("h2",{{className:"text-base font-semibold text-foreground m-0"}},"OpenAI Compatible Model Source"),'
-        f'{react_id}.createElement("p",{{className:"text-xs text-muted-foreground mt-0.5 m-0"}},"Configure endpoint, API key, and detect models")'
-        '),'
-        f'{react_id}.createElement("button",{{type:"button",onClick:()=>setShowOpenAiModal(!1),'
-        'className:"text-muted-foreground hover:text-foreground text-sm cursor-pointer p-1.5 rounded-md hover:bg-muted bg-transparent border-none leading-none"},"✕")'
-        '),'
-        f'{react_id}.createElement("div",{{className:"flex flex-col gap-3 py-1"}},'
+        f'showOpenAiModal?{react_id}.createElement(NC,{{'
+        'isOpen:showOpenAiModal,'
+        'onClose:()=>setShowOpenAiModal(!1),'
+        'title:"OpenAI Compatible Model Source",'
+        'className:"w-[90vw] max-w-[460px] rounded-xl",'
+        'zClassName:"z-[8500]"'
+        f'}},{react_id}.createElement("div",{{className:"flex flex-col gap-3 py-1 text-foreground"}},'
+        f'{react_id}.createElement("p",{{className:"text-xs text-muted-foreground m-0 -mt-2 mb-1"}},"Configure endpoint, API key, and detect models"),'
         f'{react_id}.createElement("div",{{className:"flex flex-col gap-1.5"}},'
         f'{react_id}.createElement("label",{{className:"text-xs font-medium text-foreground"}},"Base URL (Endpoint)"),'
         f'{react_id}.createElement("input",{{type:"text",value:openAiUrl,onChange:e=>setOpenAiUrl(e.target.value),'
@@ -166,7 +159,6 @@ def patch_main(file_path):
         f'{react_id}.createElement("input",{{type:"text",value:openAiModel,onChange:e=>setOpenAiModel(e.target.value),'
         'placeholder:"e.g. gpt-4o, deepseek-chat, claude-3-5-sonnet",'
         'className:"w-full rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground transition-colors"})'
-        ')'
         '),'
         f'{react_id}.createElement("div",{{className:"flex items-center justify-end gap-2 border-t border-border pt-3 mt-1"}},'
         f'{react_id}.createElement("button",{{type:"button",onClick:()=>setShowOpenAiModal(!1),'
@@ -174,7 +166,7 @@ def patch_main(file_path):
         f'{react_id}.createElement("button",{{type:"button",onClick:saveOpenAiConfigFn,'
         'className:"px-4 py-1.5 text-xs rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 cursor-pointer border-none shadow-xs transition-opacity"},"Save Settings")'
         ')'
-        ')),document.body):null'
+        ')):null'
     )
 
     orig_theme = theme_match.group(0)
