@@ -355,12 +355,19 @@ def patch_main(file_path):
         content = content.replace(pxb_target, pxb_replacement, 1)
         print("[web-patch] PXb dynamic custom model provider enabled")
 
-    # 6f. Reorder SXb in WXb so Custom section appears directly at the top of the menu
+    # 6f. Keep built-in Gemini/Antigravity models (VXb) first and place Custom/OpenAI models (SXb) below
     wxb_target = '"Model"),q?a.map(r=>r.options.length>0&&A.createElement(VXb,{key:r.groupName,group:r})):A.createElement("p",{"data-testid":"model-selector-empty",className:"text-xs opacity-50 px-2 py-1"},"No models available"),g&&A.createElement(SXb,{customModels:c,onAddCustomModel:e,onEditCustomModel:f}))'
-    wxb_replacement = '"Model"),A.createElement(SXb,{customModels:c,onAddCustomModel:e,onEditCustomModel:f}),q?a.map(r=>r.options.length>0&&A.createElement(VXb,{key:r.groupName,group:r})):A.createElement("p",{"data-testid":"model-selector-empty",className:"text-xs opacity-50 px-2 py-1"},"No models available"))'
+    wxb_replacement = '"Model"),q?a.map(r=>r.options.length>0&&A.createElement(VXb,{key:r.groupName,group:r})):A.createElement("p",{"data-testid":"model-selector-empty",className:"text-xs opacity-50 px-2 py-1"},"No models available"),A.createElement(SXb,{customModels:c,onAddCustomModel:e,onEditCustomModel:f}))'
     if wxb_target in content:
         content = content.replace(wxb_target, wxb_replacement, 1)
-        print("[web-patch] WXb custom models section placed at top of menu")
+        print("[web-patch] WXb updated: built-in models first, Custom/OpenAI models below")
+
+    # 6g. Fallback in LXb to first sort group if "recommended" is absent
+    lxb_target = 'var b=a.find(c=>c.name.toLowerCase()==="recommended");'
+    lxb_replacement = 'var b=a.find(c=>c.name.toLowerCase()==="recommended")||a[0];'
+    if lxb_target in content:
+        content = content.replace(lxb_target, lxb_replacement, 1)
+        print("[web-patch] LXb fallback to first sort group enabled")
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(content)
