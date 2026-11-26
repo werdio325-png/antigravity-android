@@ -223,7 +223,7 @@ def patch_main(file_path):
     injected_theme = (
         orig_theme
         + f',{react_id}.createElement({item_comp},{{label:"Color Theme",description:"Choose a colorful theme palette for the interface",'
-        + f'rightElement:{react_id}.createElement("div",{{className:"flex flex-wrap items-center justify-end gap-1.5 max-w-[260px]"}},'
+        + f'rightElement:{react_id}.createElement("div",{{className:"flex flex-wrap items-center justify-end gap-1.5 max-w-[340px]"}},'
         + f'{color_themes_list}.map(function(t){{var active=colorTheme===t.id;'
         + f'return {react_id}.createElement("button",{{key:t.id,type:"button",onClick:()=>onColorThemeSelect(t.id),'
         + 'className:"px-2 py-1 text-[11px] rounded-md font-medium cursor-pointer flex items-center gap-1.5 transition-all border "+(active?"border-primary bg-primary/15 text-foreground shadow-xs":"border-border bg-secondary text-secondary-foreground hover:bg-muted")},'
