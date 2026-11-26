@@ -98,10 +98,12 @@ def patch_main(file_path):
         "},[openAiModel]);"
         f"var saveOpenAiConfigFn=(0,{react_id}.useCallback)(()=>{{"
         "var u=openAiUrl||'https://api.openai.com/v1';var k=openAiKey||'';var m=openAiModel||'gpt-4o';"
-        "try{if(window.Android&&typeof window.Android.setOpenAiConfig==='function')window.Android.setOpenAiConfig(u,k,m);"
-        "localStorage.setItem('ag_openai_config',JSON.stringify({url:u,apiKey:k,model:m}))}catch(_){}"
+        "var allMods=detectedModels&&detectedModels.length>0?detectedModels:[m];"
+        "if(!allMods.includes(m))allMods.unshift(m);"
+        "try{if(window.Android&&typeof window.Android.setOpenAiConfig==='function')window.Android.setOpenAiConfig(u,k,allMods.join(','));"
+        "localStorage.setItem('ag_openai_config',JSON.stringify({url:u,apiKey:k,model:m,models:allMods}))}catch(_){}"
         "setShowOpenAiModal(!1);"
-        "},[openAiUrl,openAiKey,openAiModel]);"
+        "},[openAiUrl,openAiKey,openAiModel,detectedModels]);"
         + orig_hook
     )
 
@@ -299,6 +301,66 @@ def patch_main(file_path):
     if tsb_target in content:
         content = content.replace(tsb_target, tsb_replacement, 1)
         print("[web-patch] Phantom Unknown Project bug patched in tsb")
+
+    # 6. Show OpenAI compatible models in Model Selector dropdown
+    # 6a. Inject _getAgOpenAiModels, update cKa, Py, and dKa
+    cka_target = 'var cKa=a=>a?.customModels?Object.entries(a.customModels).map(([b,c])=>({label:b,value:c.modelId,isCustom:!0,customModelUrl:c.modelName})):[],Py=(a,b)=>{if(b?.customModels)return b.customModels[a]};var dKa=(a,b,c)=>{if(a=a.find(e=>e.label===c))return a;if(b=b.find(e=>e.label===c))return b};'
+    cka_replacement = (
+        'var _getAgOpenAiModels=()=>{var res=[];try{var s=localStorage.getItem("ag_openai_config"),raw="";'
+        'if(window.Android&&typeof window.Android.getOpenAiConfig==="function")raw=window.Android.getOpenAiConfig();'
+        'var cfg=null;if(s){try{cfg=JSON.parse(s)}catch(_){}}else if(raw){try{var rc=JSON.parse(raw);if(rc.apiKey&&rc.apiKey.trim())cfg=rc}catch(_){}}'
+        'if(cfg){var url=cfg.url||"https://api.openai.com/v1",mods=[];if(cfg.model&&typeof cfg.model==="string"&&cfg.model.trim())mods.push(cfg.model.trim());'
+        'if(Array.isArray(cfg.models))cfg.models.forEach(m=>{if(m&&typeof m==="string"&&m.trim()&&!mods.includes(m.trim()))mods.push(m.trim())});'
+        'else if(typeof cfg.models==="string")cfg.models.split(",").forEach(m=>{m=m.trim();if(m&&!mods.includes(m))mods.push(m)});'
+        'if(mods.length===0)mods.push("gpt-4o");'
+        'for(var mod of mods)res.push({label:mod,value:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,isCustom:!0,customModelUrl:url,disabled:!1})}}catch(_){}'
+        'return res};'
+        'var cKa=a=>{var base=a?.customModels?Object.entries(a.customModels).map(([b,c])=>({label:b,value:c.modelId,isCustom:!0,customModelUrl:c.modelName,disabled:!1})):[],ag=_getAgOpenAiModels();'
+        'for(var m of ag)if(!base.some(x=>x.label===m.label))base.push(m);return base},'
+        'Py=(a,b)=>{if(b?.customModels&&b.customModels[a])return b.customModels[a];try{var s=localStorage.getItem("ag_openai_config"),raw="";'
+        'if(window.Android&&typeof window.Android.getOpenAiConfig==="function")raw=window.Android.getOpenAiConfig();'
+        'var cfg=null;if(s){try{cfg=JSON.parse(s)}catch(_){}}else if(raw){try{var rc=JSON.parse(raw);if(rc.apiKey&&rc.apiKey.trim())cfg=rc}catch(_){}}'
+        'if(cfg){var mUrl=cfg.url||"https://api.openai.com/v1";return p(I.ModelInfoSchema,{modelId:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,apiProvider:I.APIProvider.API_PROVIDER_OPENAI_VERTEX,chatModelName:a,modelName:mUrl,maxTokens:128000})}}catch(_){}};'
+        'var dKa=(a,b,c)=>{if(a=a?.find(e=>e.label===c))return a;if(b=b?.find(e=>e.label===c))return b;var ag=_getAgOpenAiModels(),found=ag.find(e=>e.label===c);if(found)return found};'
+    )
+    if cka_target in content:
+        content = content.replace(cka_target, cka_replacement, 1)
+        print("[web-patch] cKa, Py, and dKa patched to load OpenAI compatible models")
+
+    # 6b. Enable custom models in Ycc
+    ycc_target = 'r=k.osName==="linux"&&k.isGoogleInternal;\nk=k.isGoogleInternal;'
+    ycc_replacement = 'r=!0;\nk=!0;'
+    if ycc_target in content:
+        content = content.replace(ycc_target, ycc_replacement, 1)
+        print("[web-patch] Ycc custom models gating unblocked")
+
+    # 6c. Enable supportsCustomModels in fKa provider
+    fka_target = 'customModelsState:q,supportsCustomModels:n},a))'
+    fka_replacement = 'customModelsState:q,supportsCustomModels:!0},a))'
+    if fka_target in content:
+        content = content.replace(fka_target, fka_replacement, 1)
+        print("[web-patch] fKa supportsCustomModels enabled")
+
+    # 6d. Enable supportsCustomModels and showCustomModelHeader in cYb
+    cyb_target = 'customModels:g,supportsCustomModels:h,showCustomModelHeader:O,'
+    cyb_replacement = 'customModels:g,supportsCustomModels:!0,showCustomModelHeader:!0,'
+    if cyb_target in content:
+        content = content.replace(cyb_target, cyb_replacement, 1)
+        print("[web-patch] cYb custom models header and support enabled")
+
+    # 6e. Dynamic custom models loading in PXb
+    pxb_target = 'customModels:a.customModels??[],supportsCustomModels:a.supportsCustomModels??!1,showCustomModelHeader:a.showCustomModelHeader??!1,'
+    pxb_replacement = 'customModels:(()=>{var list=a.customModels?[...a.customModels]:[];var ag=_getAgOpenAiModels();for(var m of ag){if(!list.some(x=>x.label===m.label))list.push(m)}return list})(),supportsCustomModels:!0,showCustomModelHeader:!0,'
+    if pxb_target in content:
+        content = content.replace(pxb_target, pxb_replacement, 1)
+        print("[web-patch] PXb dynamic custom model provider enabled")
+
+    # 6f. Reorder SXb in WXb so Custom section appears directly at the top of the menu
+    wxb_target = '"Model"),q?a.map(r=>r.options.length>0&&A.createElement(VXb,{key:r.groupName,group:r})):A.createElement("p",{"data-testid":"model-selector-empty",className:"text-xs opacity-50 px-2 py-1"},"No models available"),g&&A.createElement(SXb,{customModels:c,onAddCustomModel:e,onEditCustomModel:f}))'
+    wxb_replacement = '"Model"),A.createElement(SXb,{customModels:c,onAddCustomModel:e,onEditCustomModel:f}),q?a.map(r=>r.options.length>0&&A.createElement(VXb,{key:r.groupName,group:r})):A.createElement("p",{"data-testid":"model-selector-empty",className:"text-xs opacity-50 px-2 py-1"},"No models available"))'
+    if wxb_target in content:
+        content = content.replace(wxb_target, wxb_replacement, 1)
+        print("[web-patch] WXb custom models section placed at top of menu")
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(content)
