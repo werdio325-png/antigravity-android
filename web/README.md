@@ -192,9 +192,10 @@ web/
 ### 6.3. Мост ядра и транспорт (Core Transport & Fetch Rewrite)
 - **`bridge.core.js`**:
   - Создает стаб `window.process` (Linux / ARM64 / renderer) со стандартными методами `cwd()` и `nextTick()`.
-  - Переопределяет `window.fetch`. Все запросы к ConnectRPC-маркерам (`exa.language_server_pb.`, `exa.host_bridge_pb.`, `/exa.`) переписываются на целевой origin ядра `https://127.0.0.1:<enginePort>`.
+  - Переопределяет `window.fetch`. Все запросы к ConnectRPC-маркерам (`exa.language_server_pb.`, `exa.host_bridge_pb.`, `/exa.`, `/jetski.`) переписываются на целевой origin ядра `https://127.0.0.1:<enginePort>`.
   - Автоматически инжектирует CSRF-заголовок `x-codeium-csrf-token` и параметр `csrf_token`.
-  - Содержит логику ретрая `fetchWithStartupRetry` (до 30 попыток с шагом 120мс), что предотвращает сбои первого запроса, если фронтенд стартовал раньше, чем TLS-сокет ядра завершил биндинг.
+  - Содержит логику ретрая `fetchWithStartupRetry` (до 30 попыток с шагом 120мс), немедленно прекращающую повторы при отмене запроса (`AbortError` / `signal.aborted`), что предотвращает сбои первого запроса, если фронтенд стартовал раньше, чем TLS-сокет ядра завершил биндинг.
+  - **`resume-stream-recovery.js`**: отслеживает активные ConnectRPC-стримы (`Stream*`, `Subscribe*`) через `wrapStreamingFetch` и принудительно закрывает их при возврате из фона (`agy:host-resume` и fallback `visibilitychange:visible`), вынуждая клиент переподключиться и получить свежий снимок состояния.
 
 ### 6.4. Воркеры и аудиопроцессинг
 - **PDF Pipeline (`workers/`)**: изолированная работа с документами в воркере `pdf.worker.mjs` без блокировки главного потока UI.
