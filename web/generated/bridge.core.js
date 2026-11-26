@@ -254,6 +254,51 @@ function rpcPathFrom(url) {
   return s.slice(best).replace(/^\/+/, '') || null;
 }
 
+function interceptProjectRpc(path, bodyData) {
+  if (!path) return null;
+  if (path.indexOf('GetDefaultProjectDir') !== -1) {
+    var defDir = (global.Android && typeof global.Android.getDefaultProjectsDirectory === 'function')
+      ? global.Android.getDefaultProjectsDirectory()
+      : '/storage/emulated/0/Documents/Antigravity';
+    var uri = defDir.startsWith('file://') ? defDir : ('file://' + defDir);
+    return new Response(JSON.stringify({ defaultProjectDirUri: uri }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+  if (path.indexOf('CreateScratchProjectFolder') !== -1) {
+    var projName = 'project-' + Date.now().toString(36);
+    try {
+      if (bodyData) {
+        var text = (typeof bodyData === 'string')
+          ? bodyData
+          : (bodyData instanceof ArrayBuffer ? new TextDecoder().decode(bodyData) : '');
+        if (text) {
+          var parsed = JSON.parse(text);
+          if (parsed && parsed.name) {
+            projName = String(parsed.name).trim().replace(/\s+/g, '-');
+          }
+        }
+      }
+    } catch (_) {}
+    if (global.Android && typeof global.Android.createProjectDirectory === 'function') {
+      try { global.Android.createProjectDirectory(projName); } catch (_) {}
+    }
+    var baseDir = (global.Android && typeof global.Android.getDefaultProjectsDirectory === 'function')
+      ? global.Android.getDefaultProjectsDirectory()
+      : '/storage/emulated/0/Documents/Antigravity';
+    var fullPath = baseDir.replace(/\/+$/, '') + '/' + projName;
+    return new Response(JSON.stringify({
+      folderUri: 'file://' + fullPath,
+      isGitRepo: false
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+  return null;
+}
+
 function installFetchRewrite() {
   if (global.__AG_FETCH_REWRITE__ || typeof global.fetch !== 'function') return;
   var origFetch = global.fetch.bind(global);
@@ -297,6 +342,9 @@ function installFetchRewrite() {
             }
 
             return bodyPromise.then(function (bodyData) {
+              var projectResp = interceptProjectRpc(rpath, bodyData);
+              if (projectResp) return projectResp;
+
               var nextOpts = {
                 method: reqMethod,
                 headers: reqHeaders,
@@ -314,6 +362,9 @@ function installFetchRewrite() {
       if (typeof resource === 'string') {
         var path = rpcPathFrom(resource);
         if (path) {
+          var projectResp = interceptProjectRpc(path, init && init.body);
+          if (projectResp) return Promise.resolve(projectResp);
+
           var url = appendCsrfQuery(coreBase() + '/' + path);
           var headers = new Headers((init && init.headers) || {});
           ensureCsrf(headers);

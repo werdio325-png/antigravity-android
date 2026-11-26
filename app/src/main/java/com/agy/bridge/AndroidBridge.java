@@ -20,6 +20,7 @@ import java.security.SecureRandom;
  */
 public final class AndroidBridge {
 
+    private final Context appContext;
     private final UiBridge ui = new UiBridge();
     private final ThemeBridge themeBridge;
     private final EngineBridge engine;
@@ -29,7 +30,7 @@ public final class AndroidBridge {
 
     public AndroidBridge(Context context, RuntimeManager runtime,
                          ShizukuBridge shizuku, ThemeManager theme) {
-        Context appContext = context.getApplicationContext();
+        this.appContext = context.getApplicationContext();
         this.themeBridge = new ThemeBridge(theme);
         this.engine = new EngineBridge(runtime);
         this.config = new EngineConfigJson(appContext, runtime, engine, shizuku, themeBridge);
@@ -96,6 +97,174 @@ public final class AndroidBridge {
     @JavascriptInterface
     public void setDesktopMode(boolean enabled) {
         ui.setDesktopMode(enabled);
+    }
+
+    private static final String PREF_NAME = "agy_custom_prefs";
+    private static final String KEY_OPENAI_URL = "openai_gateway_url";
+    private static final String KEY_OPENAI_KEY = "openai_gateway_api_key";
+    private static final String KEY_OPENAI_MODELS = "openai_gateway_models";
+    private static final String KEY_PROJECTS_DIR = "projects_directory";
+    public static final String DEFAULT_PROJECTS_DIR = "/storage/emulated/0/Documents/Antigravity";
+
+    @JavascriptInterface
+    public String getOpenAiConfig() {
+        try {
+            android.content.SharedPreferences sp = appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+            org.json.JSONObject obj = new org.json.JSONObject();
+            obj.put("url", sp.getString(KEY_OPENAI_URL, "https://api.openai.com/v1"));
+            obj.put("apiKey", sp.getString(KEY_OPENAI_KEY, ""));
+            obj.put("models", sp.getString(KEY_OPENAI_MODELS, "gpt-4o,gpt-4o-mini"));
+            obj.put("wireProtocol", "openai");
+            return obj.toString();
+        } catch (Exception e) {
+            return "{\"url\":\"https://api.openai.com/v1\",\"apiKey\":\"\",\"models\":\"gpt-4o,gpt-4o-mini\",\"wireProtocol\":\"openai\"}";
+        }
+    }
+
+    @JavascriptInterface
+    public boolean setOpenAiConfig(String url, String apiKey, String models) {
+        try {
+            if (url == null || url.trim().isEmpty()) {
+                url = "https://api.openai.com/v1";
+            }
+            if (apiKey == null) apiKey = "";
+            if (models == null || models.trim().isEmpty()) {
+                models = "gpt-4o,gpt-4o-mini";
+            }
+
+            android.content.SharedPreferences sp = appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+            sp.edit()
+                    .putString(KEY_OPENAI_URL, url)
+                    .putString(KEY_OPENAI_KEY, apiKey)
+                    .putString(KEY_OPENAI_MODELS, models)
+                    .apply();
+
+            // Persist to $HOME/.gemini/config/openai_config.json
+            java.io.File homeDir = appContext.getFilesDir();
+            java.io.File geminiConfigDir = new java.io.File(homeDir, ".gemini/config");
+            if (!geminiConfigDir.exists()) geminiConfigDir.mkdirs();
+            java.io.File openaiConfigFile = new java.io.File(geminiConfigDir, "openai_config.json");
+            org.json.JSONObject cfg = new org.json.JSONObject();
+            cfg.put("url", url);
+            cfg.put("apiKey", apiKey);
+            cfg.put("models", models);
+            cfg.put("wireProtocol", "openai");
+            com.agy.util.AtomicFileWriter.writeText(openaiConfigFile, cfg.toString(2) + "\n");
+
+            // Persist to $HOME/.gemini/antigravity-cli/settings.json for native language_server gateway
+            java.io.File cliDir = new java.io.File(homeDir, ".gemini/antigravity-cli");
+            if (!cliDir.exists()) cliDir.mkdirs();
+            java.io.File cliSettings = new java.io.File(cliDir, "settings.json");
+            org.json.JSONObject settings = new org.json.JSONObject();
+            org.json.JSONObject gw = new org.json.JSONObject();
+            gw.put("enabled", !apiKey.trim().isEmpty());
+            gw.put("baseUrl", url);
+            gw.put("wireProtocol", "openai");
+            gw.put("apiKey", apiKey);
+            settings.put("gateway", gw);
+
+            org.json.JSONArray modelsArr = new org.json.JSONArray();
+            for (String m : models.split(",")) {
+                String trimmed = m.trim();
+                if (!trimmed.isEmpty()) {
+                    org.json.JSONObject mo = new org.json.JSONObject();
+                    mo.put("modelId", trimmed);
+                    mo.put("displayName", trimmed);
+                    mo.put("supportsThinking", true);
+                    modelsArr.put(mo);
+                }
+            }
+            settings.put("models", modelsArr);
+            com.agy.util.AtomicFileWriter.writeText(cliSettings, settings.toString(2) + "\n");
+
+            return true;
+        } catch (Exception e) {
+            android.util.Log.w("AndroidBridge", "Failed to save OpenAI config", e);
+            return false;
+        }
+    }
+
+    @JavascriptInterface
+    public String fetchOpenAiModels(String url, String apiKey) {
+        final String[] result = new String[1];
+        Thread t = new Thread(() -> {
+            try {
+                String target = (url == null || url.trim().isEmpty())
+                        ? "https://api.openai.com/v1" : url.trim();
+                target = target.replaceAll("/+$", "");
+                if (!target.endsWith("/models")) {
+                    target += "/models";
+                }
+                java.net.URL targetUrl = new java.net.URL(target);
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) targetUrl.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(8000);
+                conn.setReadTimeout(12000);
+                if (apiKey != null && !apiKey.trim().isEmpty()) {
+                    conn.setRequestProperty("Authorization", "Bearer " + apiKey.trim());
+                }
+                conn.setRequestProperty("Accept", "application/json");
+                conn.setRequestProperty("User-Agent", "Antigravity/2.0");
+
+                int responseCode = conn.getResponseCode();
+                java.io.InputStream is = (responseCode >= 200 && responseCode < 300)
+                        ? conn.getInputStream()
+                        : conn.getErrorStream();
+                if (is == null) {
+                    result[0] = "{\"error\":\"HTTP " + responseCode + "\"}";
+                    return;
+                }
+                result[0] = com.agy.util.IoUtil.readAll(is, "UTF-8");
+            } catch (Exception e) {
+                result[0] = "{\"error\":\"" + (e.getMessage() != null ? e.getMessage().replace("\"", "'") : "Unknown network error") + "\"}";
+            }
+        });
+        t.start();
+        try {
+            t.join(15000);
+        } catch (InterruptedException e) {
+            return "{\"error\":\"Request timed out\"}";
+        }
+        return result[0] != null ? result[0] : "{\"error\":\"No response received\"}";
+    }
+
+    @JavascriptInterface
+    public String getDefaultProjectsDirectory() {
+        try {
+            android.content.SharedPreferences sp = appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+            String dir = sp.getString(KEY_PROJECTS_DIR, DEFAULT_PROJECTS_DIR);
+            java.io.File f = new java.io.File(dir);
+            if (!f.exists()) f.mkdirs();
+            return dir;
+        } catch (Exception e) {
+            return DEFAULT_PROJECTS_DIR;
+        }
+    }
+
+    @JavascriptInterface
+    public boolean setDefaultProjectsDirectory(String path) {
+        if (path == null || path.trim().isEmpty()) return false;
+        try {
+            java.io.File f = new java.io.File(path);
+            if (!f.exists()) f.mkdirs();
+            android.content.SharedPreferences sp = appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+            sp.edit().putString(KEY_PROJECTS_DIR, path).apply();
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    @JavascriptInterface
+    public boolean createProjectDirectory(String name) {
+        if (name == null || name.trim().isEmpty()) return false;
+        try {
+            String base = getDefaultProjectsDirectory();
+            java.io.File proj = new java.io.File(base, name.trim());
+            return proj.exists() || proj.mkdirs();
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     // Native-only helpers used while preparing the trusted app document.

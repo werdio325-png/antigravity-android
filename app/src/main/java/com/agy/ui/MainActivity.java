@@ -350,6 +350,12 @@ public class MainActivity extends Activity
                 }, REQUEST_STORAGE);
             }
         }
+        try {
+            java.io.File docProjects = new java.io.File("/storage/emulated/0/Documents/Antigravity");
+            if (!docProjects.exists()) {
+                docProjects.mkdirs();
+            }
+        } catch (Throwable ignored) {}
     }
 
     @Override
@@ -432,7 +438,9 @@ public class MainActivity extends Activity
         try {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+                    | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
             startActivityForResult(intent, REQUEST_DIR_CHOOSER);
         } catch (Throwable t) {
             Log.w(TAG, "Cannot launch directory picker: " + t.getMessage());
@@ -450,10 +458,12 @@ public class MainActivity extends Activity
             if (resultCode == RESULT_OK && data != null && data.getData() != null) {
                 Uri treeUri = data.getData();
                 try {
-                    grantUriPermission(getPackageName(), treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    grantUriPermission(getPackageName(), treeUri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                 } catch (Throwable ignored) {}
                 try {
-                    getContentResolver().takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    getContentResolver().takePersistableUriPermission(treeUri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                 } catch (Throwable ignored) {}
                 realPath = com.agy.util.DocumentsContractHelper.resolveTreeUriToPath(this, treeUri);
             }
