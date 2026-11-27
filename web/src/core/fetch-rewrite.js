@@ -185,13 +185,22 @@ function extractCascadeUserText(req) {
   return parts.join('\n').trim();
 }
 
+function extractConversationIdFromStreamBody(bodyText) {
+  if (!bodyText) return '';
+  try {
+    var brace = bodyText.indexOf('{');
+    var end = bodyText.lastIndexOf('}');
+    if (brace === -1 || end < brace) return '';
+    var parsed = JSON.parse(bodyText.slice(brace, end + 1));
+    return (parsed && parsed.conversationId) || '';
+  } catch (_) {
+    return '';
+  }
+}
+
 function wrapAgentStateStreamResponse(resp, bodyText) {
   if (!resp || !resp.ok || !resp.body || typeof TransformStream === 'undefined') return resp;
-  var convId = '';
-  try {
-    var parsed = JSON.parse(bodyText || '{}');
-    convId = parsed.conversationId || '';
-  } catch (_) {}
+  var convId = extractConversationIdFromStreamBody(bodyText);
   if (!convId) return resp;
 
   var streamController = null;
@@ -208,6 +217,11 @@ function wrapAgentStateStreamResponse(resp, bodyText) {
       }
     },
     transform: function (chunk, controller) {
+      if (_customChatState[convId]) {
+        // Suppress language_server state updates while custom model owns this conversation,
+        // so server IDLE/empty frames cannot overwrite synthetic custom chat steps.
+        return;
+      }
       controller.enqueue(chunk);
     },
     flush: function () {
@@ -313,7 +327,12 @@ function handleCustomCascadeReq(origFetch, req) {
   var ov = pc && pc.customModelInfoOverride;
   var reqModel = pc && pc.requestedModel && pc.requestedModel.choice && pc.requestedModel.choice.value;
   var isByom = pc && (pc.planModel === 326 || pc.planModel === 'GOOGLE_GEMINI_INTERNAL_BYOM' || reqModel === 326 || reqModel === 'GOOGLE_GEMINI_INTERNAL_BYOM');
-  if (!ov && !isByom) return false;
+  if (!ov && !isByom) {
+    if (req.cascadeId && _customChatState[req.cascadeId]) {
+      delete _customChatState[req.cascadeId];
+    }
+    return false;
+  }
   var cascadeId = req.cascadeId;
   var modelLabel = (ov && ov.chatModelName) || 'gpt-4o';
   var baseUrl = (ov && ov.modelName) || '';
