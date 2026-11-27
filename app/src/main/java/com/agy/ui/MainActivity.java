@@ -350,6 +350,12 @@ public class MainActivity extends Activity
                 }, REQUEST_STORAGE);
             }
         }
+        try {
+            java.io.File docProjects = new java.io.File("/storage/emulated/0/Documents/Antigravity");
+            if (!docProjects.exists()) {
+                docProjects.mkdirs();
+            }
+        } catch (Throwable ignored) {}
     }
 
     @Override
@@ -427,12 +433,55 @@ public class MainActivity extends Activity
     }
 
     public static final int REQUEST_DIR_CHOOSER = 2002;
+    public static final int REQUEST_CHAT_BACKUP_CREATE = 2003;
+    public static final int REQUEST_CHAT_BACKUP_RESTORE = 2004;
+
+    public void launchChatBackupCreate() {
+        try {
+            String ts = new java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US).format(new java.util.Date());
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("application/zip");
+            intent.putExtra(Intent.EXTRA_TITLE, "antigravity-chats-backup-" + ts + ".zip");
+            startActivityForResult(intent, REQUEST_CHAT_BACKUP_CREATE);
+        } catch (Throwable t) {
+            Log.w(TAG, "Cannot launch backup create: " + t.getMessage());
+            notifyChatBackupResult("{\"ok\":false,\"action\":\"export\",\"error\":\"Cannot open file saver\"}");
+        }
+    }
+
+    public void launchChatBackupRestore() {
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/zip", "application/x-zip-compressed", "application/octet-stream"});
+            startActivityForResult(intent, REQUEST_CHAT_BACKUP_RESTORE);
+        } catch (Throwable t) {
+            Log.w(TAG, "Cannot launch backup restore: " + t.getMessage());
+            notifyChatBackupResult("{\"ok\":false,\"action\":\"import\",\"error\":\"Cannot open file picker\"}");
+        }
+    }
+
+    private void notifyChatBackupResult(final String json) {
+        if (webViewHost != null && webViewHost.getWebView() != null) {
+            webViewHost.getWebView().post(new Runnable() {
+                @Override
+                public void run() {
+                    webViewHost.getWebView().evaluateJavascript(
+                            "window.__onChatBackupResult && window.__onChatBackupResult(" + json + ");", null);
+                }
+            });
+        }
+    }
 
     public void launchDirectoryPicker() {
         try {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+                    | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
             startActivityForResult(intent, REQUEST_DIR_CHOOSER);
         } catch (Throwable t) {
             Log.w(TAG, "Cannot launch directory picker: " + t.getMessage());
@@ -445,15 +494,32 @@ public class MainActivity extends Activity
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_CHAT_BACKUP_CREATE || requestCode == REQUEST_CHAT_BACKUP_RESTORE) {
+            final boolean isExport = (requestCode == REQUEST_CHAT_BACKUP_CREATE);
+            if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+                notifyChatBackupResult("{\"ok\":false,\"cancelled\":true,\"action\":\"" + (isExport ? "export" : "import") + "\"}");
+                return;
+            }
+            final Uri uri = data.getData();
+            new Thread(() -> {
+                String res = isExport
+                        ? androidBridge.exportChatsToUri(uri)
+                        : androidBridge.importChatsFromUri(uri);
+                notifyChatBackupResult(res);
+            }, "ChatBackupWorker").start();
+            return;
+        }
         if (requestCode == REQUEST_DIR_CHOOSER) {
             String realPath = null;
             if (resultCode == RESULT_OK && data != null && data.getData() != null) {
                 Uri treeUri = data.getData();
                 try {
-                    grantUriPermission(getPackageName(), treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    grantUriPermission(getPackageName(), treeUri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                 } catch (Throwable ignored) {}
                 try {
-                    getContentResolver().takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    getContentResolver().takePersistableUriPermission(treeUri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                 } catch (Throwable ignored) {}
                 realPath = com.agy.util.DocumentsContractHelper.resolveTreeUriToPath(this, treeUri);
             }

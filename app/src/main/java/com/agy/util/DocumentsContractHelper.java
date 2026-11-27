@@ -31,6 +31,10 @@ public final class DocumentsContractHelper {
             String baseStorage = Environment.getExternalStorageDirectory().getAbsolutePath();
 
             // Format is often "primary:Documents/my-project" or "<volume-uuid>:folder"
+            if (documentId.startsWith("raw:")) {
+                return documentId.substring("raw:".length());
+            }
+
             if (documentId.startsWith("primary:")) {
                 String subPath = documentId.substring("primary:".length());
                 if (subPath.startsWith("/")) {

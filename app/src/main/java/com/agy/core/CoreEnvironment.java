@@ -58,6 +58,30 @@ public final class CoreEnvironment {
         String godebug = env.get("GODEBUG");
         env.put("GODEBUG", godebug == null || godebug.isEmpty()
                 ? "netdns=go" : godebug + ",netdns=go");
+
+        // Load OpenAI-compatible model gateway config if present
+        try {
+            File openaiConfigFile = new File(files, ".gemini/config/openai_config.json");
+            if (openaiConfigFile.isFile()) {
+                String jsonStr = com.agy.util.IoUtil.readAll(new java.io.FileInputStream(openaiConfigFile), "UTF-8");
+                org.json.JSONObject obj = new org.json.JSONObject(jsonStr);
+                String url = obj.optString("url", "https://api.openai.com/v1");
+                String apiKey = obj.optString("apiKey", "");
+                String models = obj.optString("models", "");
+                String wire = obj.optString("wireProtocol", "openai");
+                if (!apiKey.isEmpty()) {
+                    env.put("AGY_LLM_GATEWAY_URL", url);
+                    env.put("AGY_LLM_GATEWAY_API_KEY", apiKey);
+                    env.put("AGY_LLM_GATEWAY_WIRE_PROTOCOL", wire);
+                    if (!models.isEmpty()) {
+                        env.put("AGY_LLM_GATEWAY_MODELS", models);
+                    }
+                    Log.i(TAG, "OpenAI Gateway configured: URL=" + url + " models=" + models);
+                }
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "Error applying OpenAI gateway env: " + t.getMessage());
+        }
         // Emits "ANTIGRAVITY_OPEN_URL: <url>" directly to stdout from language_server
         // so OpenUrlWatcher captures the auth URL and opens the external browser reliably.
         env.put("ANTIGRAVITY_VSCODE_HOST", "1");
