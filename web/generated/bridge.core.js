@@ -239,19 +239,34 @@ function appendCsrfQuery(url) {
  */
 var RPC_MARKERS = ['exa.language_server_pb.', 'exa.host_bridge_pb.', '/exa.'];
 
-// RPC path (no leading slash) when `url` is a file:// or relative ConnectRPC
-// URL; null for anything else (http(s), blob, data, static assets).
-function rpcPathFrom(url) {
-  if (!url) return null;
-  var s = String(url);
-  if (/^(https?|blob|data|wss?|chrome-extension):/i.test(s)) return null;
+function rpcMarkerPath(s) {
   var best = -1;
   for (var i = 0; i < RPC_MARKERS.length; i++) {
     var at = s.indexOf(RPC_MARKERS[i]);
     if (at >= 0 && (best === -1 || at < best)) best = at;
   }
   if (best === -1) return null;
-  return s.slice(best).replace(/^\/+/, '') || null;
+  return s.slice(best).replace(/^\/+/, '').replace(/[?#].*$/, '') || null;
+}
+
+// RPC path (no leading slash) when `url` is a file:// or relative ConnectRPC
+// URL; null for anything else (http(s), blob, data, static assets).
+function rpcPathFrom(url) {
+  if (!url) return null;
+  var s = String(url);
+  if (/^(https?|blob|data|wss?|chrome-extension):/i.test(s)) return null;
+  return rpcMarkerPath(s);
+}
+
+// RPC method path for an absolute http(s) ConnectRPC URL. AppLoader bases the
+// page at https://127.0.0.1:<port>/, so main.js's transport (baseUrl =
+// location.origin) sends absolute URLs that rpcPathFrom() deliberately skips.
+// The custom-model bridge must still see those calls.
+function absoluteRpcPathFrom(url) {
+  if (!url) return null;
+  var s = String(url);
+  if (!/^https?:/i.test(s)) return null;
+  return rpcMarkerPath(s);
 }
 
 function interceptProjectRpc(path, bodyData) {
@@ -339,16 +354,18 @@ function pushCustomChatUpdate(cascadeId, steps, isRunning) {
   };
   var frame = encodeConnectFrame(payload);
   var entry = _customChatStreams[cascadeId];
-  if (!entry || !entry.controller) {
-    if (!_customChatPendingFrames[cascadeId]) _customChatPendingFrames[cascadeId] = [];
-    _customChatPendingFrames[cascadeId].push(frame);
-    return;
+  if (entry && entry.controller) {
+    try {
+      entry.controller.enqueue(frame);
+      return;
+    } catch (e) {
+      // Stream was cancelled/errored (provider disposed, reconnect pending):
+      // drop it and buffer, so the next stream for this conversation gets it.
+      if (_customChatStreams[cascadeId] === entry) delete _customChatStreams[cascadeId];
+    }
   }
-  try {
-    entry.controller.enqueue(frame);
-  } catch (e) {
-    warn('pushCustomChatUpdate', e);
-  }
+  // Every frame carries the full step list, so only the newest one matters.
+  _customChatPendingFrames[cascadeId] = [frame];
 }
 
 function resolveCustomProviderConfig(modelLabel, baseUrl) {
@@ -408,29 +425,54 @@ function extractCascadeUserText(req) {
   return parts.join('\n').trim();
 }
 
-function extractConversationIdFromStreamBody(bodyText) {
-  if (!bodyText) return '';
+// conversationId from a StreamAgentStateUpdates request body. Server-streaming
+// Connect requests are enveloped (1 flag byte + 4-byte big-endian length), so
+// strip the envelope on the raw bytes before decoding; fall back to a brace
+// scan for unenveloped/odd bodies.
+function extractConversationIdFromStreamBody(bodyData) {
+  if (!bodyData) return '';
+  var text = '';
   try {
-    var brace = bodyText.indexOf('{');
-    var end = bodyText.lastIndexOf('}');
+    var bytes = null;
+    if (bodyData instanceof ArrayBuffer) bytes = new Uint8Array(bodyData);
+    else if (ArrayBuffer.isView(bodyData)) bytes = new Uint8Array(bodyData.buffer, bodyData.byteOffset, bodyData.byteLength);
+    if (bytes && bytes.length >= 5 && (bytes[0] & 0xfe) === 0) {
+      var len = ((bytes[1] << 24) | (bytes[2] << 16) | (bytes[3] << 8) | bytes[4]) >>> 0;
+      if (5 + len <= bytes.length) {
+        var parsed = JSON.parse(new TextDecoder().decode(bytes.subarray(5, 5 + len)));
+        if (parsed && parsed.conversationId) return parsed.conversationId;
+      }
+    }
+    text = extractBodyText(bodyData);
+  } catch (_) {
+    text = extractBodyText(bodyData);
+  }
+  if (!text) return '';
+  try {
+    var brace = text.indexOf('{');
+    var end = text.lastIndexOf('}');
     if (brace === -1 || end < brace) return '';
-    var parsed = JSON.parse(bodyText.slice(brace, end + 1));
-    return (parsed && parsed.conversationId) || '';
+    var obj = JSON.parse(text.slice(brace, end + 1));
+    return (obj && obj.conversationId) || '';
   } catch (_) {
     return '';
   }
 }
 
-function wrapAgentStateStreamResponse(resp, bodyText) {
+function wrapAgentStateStreamResponse(resp, bodyData) {
   if (!resp || !resp.ok || !resp.body || typeof TransformStream === 'undefined') return resp;
-  var convId = extractConversationIdFromStreamBody(bodyText);
+  var convId = extractConversationIdFromStreamBody(bodyData);
   if (!convId) return resp;
 
-  var streamController = null;
+  var entry = { controller: null };
+  // Server bytes are re-chunked into whole Connect envelopes before they are
+  // forwarded, so synthetic frames enqueued by pushCustomChatUpdate can never
+  // land in the middle of a server frame.
+  var buf = new Uint8Array(0);
   var ts = new TransformStream({
     start: function (controller) {
-      streamController = controller;
-      _customChatStreams[convId] = { controller: controller };
+      entry.controller = controller;
+      _customChatStreams[convId] = entry;
       var pending = _customChatPendingFrames[convId];
       if (pending && pending.length > 0) {
         delete _customChatPendingFrames[convId];
@@ -440,20 +482,32 @@ function wrapAgentStateStreamResponse(resp, bodyText) {
       }
     },
     transform: function (chunk, controller) {
-      if (_customChatState[convId]) {
-        // Suppress language_server state updates while custom model owns this conversation,
-        // so server IDLE/empty frames cannot overwrite synthetic custom chat steps.
-        return;
+      var merged = new Uint8Array(buf.length + chunk.length);
+      merged.set(buf, 0);
+      merged.set(chunk, buf.length);
+      var off = 0;
+      while (merged.length - off >= 5) {
+        var len = ((merged[off + 1] << 24) | (merged[off + 2] << 16) | (merged[off + 3] << 8) | merged[off + 4]) >>> 0;
+        if (merged.length - off < 5 + len) break;
+        var flags = merged[off];
+        var env = merged.slice(off, off + 5 + len);
+        off += 5 + len;
+        // While the custom model owns this conversation, drop language_server
+        // data frames (its IDLE/empty state would overwrite the synthetic
+        // steps) but keep the end-of-stream envelope so the Connect client
+        // still sees a well-formed stream.
+        if (_customChatState[convId] && !(flags & 0x02)) continue;
+        controller.enqueue(env);
       }
-      controller.enqueue(chunk);
+      buf = merged.slice(off);
     },
     flush: function () {
-      if (_customChatStreams[convId] && _customChatStreams[convId].controller === streamController) {
-        delete _customChatStreams[convId];
-      }
+      if (_customChatStreams[convId] === entry) delete _customChatStreams[convId];
     }
   });
-  resp.body.pipeTo(ts.writable).catch(function () {});
+  resp.body.pipeTo(ts.writable).catch(function () {
+    if (_customChatStreams[convId] === entry) delete _customChatStreams[convId];
+  });
   return new Response(ts.readable, {
     status: resp.status,
     statusText: resp.statusText,
@@ -548,8 +602,15 @@ function handleCustomCascadeReq(origFetch, req) {
   if (!req) return false;
   var pc = req.cascadeConfig && req.cascadeConfig.plannerConfig;
   var ov = pc && pc.customModelInfoOverride;
-  var reqModel = pc && pc.requestedModel && pc.requestedModel.choice && pc.requestedModel.choice.value;
-  var isByom = pc && (pc.planModel === 326 || pc.planModel === 'GOOGLE_GEMINI_INTERNAL_BYOM' || reqModel === 326 || reqModel === 'GOOGLE_GEMINI_INTERNAL_BYOM');
+  // protobuf-es message (hooked path): requestedModel.choice = {case, value}.
+  // Connect JSON (fetch path): oneof flattened to requestedModel.model, and
+  // enums spelled with their proto prefix ("MODEL_...").
+  var rm = pc && pc.requestedModel;
+  var reqModel = rm && ((rm.choice && rm.choice.value) || rm.model);
+  var isByomModel = function (v) {
+    return v === 326 || v === 'GOOGLE_GEMINI_INTERNAL_BYOM' || v === 'MODEL_GOOGLE_GEMINI_INTERNAL_BYOM';
+  };
+  var isByom = pc && (isByomModel(pc.planModel) || isByomModel(reqModel));
   if (!ov && !isByom) {
     if (req.cascadeId && _customChatState[req.cascadeId]) {
       delete _customChatState[req.cascadeId];
@@ -647,14 +708,40 @@ function installFetchRewrite() {
               };
               var p = fetchWithStartupRetry(targetUrl, nextOpts, 30);
               if (rpath.indexOf('StreamAgentStateUpdates') !== -1) {
-                var bTxt = extractBodyText(bodyData);
-                return p.then(function (resp) { return wrapAgentStateStreamResponse(resp, bTxt); });
+                return p.then(function (resp) { return wrapAgentStateStreamResponse(resp, bodyData); });
               }
               return p;
             });
           } catch (e) { warn('fetch rewrite (Request)', e); }
         }
+        var absReqPath = absoluteRpcPathFrom(resource.url);
+        if (absReqPath && absReqPath.indexOf('StreamAgentStateUpdates') !== -1) {
+          var streamReq = resource.clone();
+          return origFetch(resource, init).then(function (resp) {
+            return streamReq.arrayBuffer().then(function (buf) {
+              return wrapAgentStateStreamResponse(resp, buf);
+            }, function () { return resp; });
+          });
+        }
         return origFetch(resource, init);
+      }
+
+      // Absolute core URL (https://127.0.0.1:<port>/exa....): main.js's normal
+      // case, since the page is based at the core origin. No URL rewrite is
+      // needed; only the custom OpenAI/Claude bridge hooks apply.
+      if (typeof resource === 'string') {
+        var absPath = absoluteRpcPathFrom(resource);
+        if (absPath) {
+          var absChatResp = maybeInterceptCustomChatRpc(origFetch, absPath, init && init.body);
+          if (absChatResp) return Promise.resolve(absChatResp);
+          if (absPath.indexOf('StreamAgentStateUpdates') !== -1) {
+            var absBody = init && init.body;
+            return origFetch(resource, init).then(function (resp) {
+              return wrapAgentStateStreamResponse(resp, absBody);
+            });
+          }
+          return origFetch(resource, init);
+        }
       }
 
       // String URL: the Connect/grpc-web transport's common path.
@@ -680,8 +767,8 @@ function installFetchRewrite() {
 
           var p2 = fetchWithStartupRetry(url, next, 30);
           if (path.indexOf('StreamAgentStateUpdates') !== -1) {
-            var bTxt2 = extractBodyText(init && init.body);
-            return p2.then(function (resp) { return wrapAgentStateStreamResponse(resp, bTxt2); });
+            var rawBody = init && init.body;
+            return p2.then(function (resp) { return wrapAgentStateStreamResponse(resp, rawBody); });
           }
           return p2;
         }
@@ -713,5 +800,6 @@ var api = {
 window.__agBridgeCore = api;
 
 try { console.log('[AGY bridge.core] ready (endpoints: ' + Object.keys(ENDPOINTS).length + ')'); } catch (e) {}
+
 
 })();
