@@ -195,6 +195,24 @@ public final class AndroidBridge {
     }
 
     @JavascriptInterface
+    public String getLastClaudeUsage() {
+        return AnthropicBridgeServer.getInstance(appContext).getUsageJson();
+    }
+
+    @JavascriptInterface
+    public String getClaudeUsage(String token) {
+        final String[] res = new String[1];
+        Thread t = new Thread(() -> res[0] = AnthropicBridgeServer.getInstance(appContext).fetchUsageJson(token));
+        t.start();
+        try {
+            t.join(12000);
+        } catch (InterruptedException e) {
+            return "{\"error\":\"Timed out\"}";
+        }
+        return res[0] != null ? res[0] : AnthropicBridgeServer.getInstance(appContext).getUsageJson();
+    }
+
+    @JavascriptInterface
     public boolean setOpenAiConfigs(String configsJson, int activeIndex) {
         try {
             org.json.JSONArray input = new org.json.JSONArray(configsJson == null ? "[]" : configsJson);

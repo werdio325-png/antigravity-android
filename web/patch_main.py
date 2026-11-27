@@ -86,6 +86,14 @@ def patch_main(file_path):
         f"var [showKeyText,setShowKeyText]=(0,{react_id}.useState)(!1);"
         f"var [isDetecting,setIsDetecting]=(0,{react_id}.useState)(!1);"
         f"var [detectStatus,setDetectStatus]=(0,{react_id}.useState)('');"
+        f"var [claudeUsage,setClaudeUsage]=(0,{react_id}.useState)(()=>{{"
+        "try{if(window.Android&&typeof window.Android.getLastClaudeUsage==='function'){return JSON.parse(window.Android.getLastClaudeUsage());}}catch(_){}return null;});"
+        f"var [isCheckingUsage,setIsCheckingUsage]=(0,{react_id}.useState)(!1);"
+        f"var checkClaudeUsageFn=(0,{react_id}.useCallback)((tok)=>{{"
+        "if(!window.Android||typeof window.Android.getClaudeUsage!=='function')return;"
+        "setIsCheckingUsage(!0);try{var raw=window.Android.getClaudeUsage(tok||'');if(raw){setClaudeUsage(JSON.parse(raw));}}catch(_){}finally{setIsCheckingUsage(!1);}"
+        "},[]);"
+        "var fmtReset=function(r){if(!r)return '';try{var d=/^\\d+$/.test(String(r))?new Date(Number(r)*1000):new Date(r);var diff=Math.max(0,d.getTime()-Date.now());if(isNaN(diff))return '';var mins=Math.floor(diff/60000),hrs=Math.floor(mins/60),days=Math.floor(hrs/24);if(days>0)return 'resets in '+days+'d '+(hrs%24)+'h';if(hrs>0)return 'resets in '+hrs+'h '+(mins%60)+'m';return 'resets in '+mins+'m';}catch(_){return '';}};"
         f"var addApiSlot=(0,{react_id}.useCallback)(()=>{{"
         "setOpenAiConfigs(prev=>{if(prev.length>=5)return prev;"
         "var nextIdx=prev.length;"
@@ -110,6 +118,7 @@ def patch_main(file_path):
         "raw=await res.text();"
         "}"
         "var d=JSON.parse(raw);"
+        "if(isClaude){checkClaudeUsageFn(k);}"
         "if(d.error){"
         "if(isClaude){var defC=['claude-sonnet-4-5-20250929','claude-opus-4-5-20251101','claude-3-7-sonnet-20250219','claude-3-5-sonnet-20241022','claude-3-5-haiku-20241022'];updateActiveCfg({models:defC,model:defC.includes(activeCfg.model)?activeCfg.model:defC[0]});setDetectStatus('Loaded '+defC.length+' Claude models');return;}"
         "var em=typeof d.error==='string'?d.error:(d.error.message||JSON.stringify(d.error));setDetectStatus('Error: '+em);return;}"
@@ -120,7 +129,7 @@ def patch_main(file_path):
         "else{setDetectStatus('No models found at endpoint.');}"
         "}catch(err){setDetectStatus('Failed: '+(err.message||String(err)));}"
         "finally{setIsDetecting(!1);}"
-        "},[activeCfg,updateActiveCfg]);"
+        "},[activeCfg,updateActiveCfg,checkClaudeUsageFn]);"
         f"var saveOpenAiConfigFn=(0,{react_id}.useCallback)(()=>{{"
         "var bridgeUrl=(window.Android&&typeof window.Android.getAnthropicBridgeUrl==='function')?window.Android.getAnthropicBridgeUrl():'';"
         "var normalized=openAiConfigs.slice(0,5).map((c,idx)=>{"
@@ -206,6 +215,25 @@ def patch_main(file_path):
         'placeholder:activeCfg.providerType==="anthropic-setup-token"?"sk-ant-oat01-...":"sk-...",'
         'className:"w-full rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground transition-colors"})'
         '),'
+        f'activeCfg.providerType==="anthropic-setup-token"?{react_id}.createElement("div",{{className:"flex flex-col gap-1.5 rounded-md border border-border bg-muted/30 p-2.5"}},'
+        f'{react_id}.createElement("div",{{className:"flex items-center justify-between"}},'
+        f'{react_id}.createElement("span",{{className:"text-[11px] font-semibold text-foreground"}},"Claude Quota (5h & 7d)"),'
+        f'{react_id}.createElement("button",{{type:"button",disabled:isCheckingUsage||!activeCfg.apiKey,onClick:()=>checkClaudeUsageFn(activeCfg.apiKey),'
+        'className:"text-[11px] text-primary hover:underline cursor-pointer bg-transparent border-none p-0 disabled:opacity-50"},isCheckingUsage?"Checking...":"Check Usage")'
+        '),'
+        f'claudeUsage&&(claudeUsage.fiveHourRemaining!==undefined||claudeUsage.sevenDayRemaining!==undefined)?'
+        f'{react_id}.createElement("div",{{className:"flex flex-col gap-1 text-[11px] text-muted-foreground"}},'
+        f'claudeUsage.fiveHourRemaining!==undefined?{react_id}.createElement("div",{{className:"flex items-center justify-between"}},'
+        f'{react_id}.createElement("span",null,"5-Hour: "+claudeUsage.fiveHourRemaining+"% left"),'
+        f'{react_id}.createElement("span",{{className:"text-[10px] opacity-80"}},fmtReset(claudeUsage.fiveHourReset))'
+        '):null,'
+        f'claudeUsage.sevenDayRemaining!==undefined?{react_id}.createElement("div",{{className:"flex items-center justify-between"}},'
+        f'{react_id}.createElement("span",null,"7-Day: "+claudeUsage.sevenDayRemaining+"% left"),'
+        f'{react_id}.createElement("span",{{className:"text-[10px] opacity-80"}},fmtReset(claudeUsage.sevenDayReset))'
+        '):null'
+        '):'
+        f'{react_id}.createElement("span",{{className:"text-[11px] text-muted-foreground"}},"Tap Check Usage (or send a message) to read 5h & 7d remaining quota.")'
+        '):null,'
         f'{react_id}.createElement("div",{{className:"flex flex-wrap items-center gap-2 pt-1"}},'
         f'{react_id}.createElement("button",{{type:"button",disabled:isDetecting||!activeCfg.url,onClick:()=>detectModelsFn(activeCfg.url,activeCfg.apiKey),'
         'className:"px-3 py-1.5 text-xs rounded-md bg-secondary text-secondary-foreground font-medium hover:bg-muted border border-border cursor-pointer flex items-center gap-1.5 transition-colors disabled:opacity-50"},isDetecting?"Detecting...":"🔍 Detect Models"),'

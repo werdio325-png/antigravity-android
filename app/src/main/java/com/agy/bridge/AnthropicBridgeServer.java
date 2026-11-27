@@ -41,6 +41,12 @@ public final class AnthropicBridgeServer {
     private ServerSocket serverSocket;
     private volatile int port = -1;
     private volatile String token = "";
+    private volatile double fiveHourUsed = -1;
+    private volatile String fiveHourReset = "";
+    private volatile double sevenDayUsed = -1;
+    private volatile String sevenDayReset = "";
+    private volatile String quotaStatus = "";
+    private volatile long quotaUpdatedAt = 0L;
 
     private AnthropicBridgeServer(Context context) {
         this.appContext = context.getApplicationContext();
@@ -165,6 +171,106 @@ public final class AnthropicBridgeServer {
         }
     }
 
+    private void captureRateLimitHeaders(HttpURLConnection conn) {
+        if (conn == null) return;
+        try {
+            String st = conn.getHeaderField("anthropic-ratelimit-unified-status");
+            String u5 = conn.getHeaderField("anthropic-ratelimit-unified-5h-utilization");
+            String r5 = conn.getHeaderField("anthropic-ratelimit-unified-5h-reset");
+            String u7 = conn.getHeaderField("anthropic-ratelimit-unified-7d-utilization");
+            String r7 = conn.getHeaderField("anthropic-ratelimit-unified-7d-reset");
+            boolean updated = false;
+            if (st != null && !st.isEmpty()) { this.quotaStatus = st; updated = true; }
+            if (u5 != null && !u5.isEmpty()) {
+                double v = Double.parseDouble(u5);
+                this.fiveHourUsed = v <= 1.0 ? v * 100.0 : v;
+                updated = true;
+            }
+            if (r5 != null && !r5.isEmpty()) { this.fiveHourReset = r5; updated = true; }
+            if (u7 != null && !u7.isEmpty()) {
+                double v = Double.parseDouble(u7);
+                this.sevenDayUsed = v <= 1.0 ? v * 100.0 : v;
+                updated = true;
+            }
+            if (r7 != null && !r7.isEmpty()) { this.sevenDayReset = r7; updated = true; }
+            if (updated) this.quotaUpdatedAt = System.currentTimeMillis();
+        } catch (Exception ignored) {}
+    }
+
+    public String getUsageJson() {
+        try {
+            JSONObject obj = new JSONObject();
+            obj.put("status", quotaStatus);
+            if (fiveHourUsed >= 0) {
+                double rem5 = Math.max(0.0, Math.min(100.0, 100.0 - fiveHourUsed));
+                obj.put("fiveHourUsed", Math.round(fiveHourUsed * 10.0) / 10.0);
+                obj.put("fiveHourRemaining", Math.round(rem5 * 10.0) / 10.0);
+            }
+            obj.put("fiveHourReset", fiveHourReset);
+            if (sevenDayUsed >= 0) {
+                double rem7 = Math.max(0.0, Math.min(100.0, 100.0 - sevenDayUsed));
+                obj.put("sevenDayUsed", Math.round(sevenDayUsed * 10.0) / 10.0);
+                obj.put("sevenDayRemaining", Math.round(rem7 * 10.0) / 10.0);
+            }
+            obj.put("sevenDayReset", sevenDayReset);
+            obj.put("updatedAt", quotaUpdatedAt);
+            return obj.toString();
+        } catch (Exception e) {
+            return "{}";
+        }
+    }
+
+    public String fetchUsageJson(String tokenOverride) {
+        String activeToken = (tokenOverride != null && !tokenOverride.trim().isEmpty())
+                ? tokenOverride.trim() : this.token;
+        if (activeToken == null || activeToken.isEmpty()) {
+            return "{\"error\":\"Missing Claude setup-token\"}";
+        }
+        try {
+            HttpURLConnection conn = (HttpURLConnection) new URL("https://api.anthropic.com/api/oauth/usage").openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(10_000);
+            conn.setReadTimeout(10_000);
+            conn.setRequestProperty("Authorization", "Bearer " + activeToken);
+            conn.setRequestProperty("anthropic-beta", ANTHROPIC_OAUTH_BETA);
+            conn.setRequestProperty("Accept", "application/json");
+            conn.setRequestProperty("User-Agent", "claude-code/2.0.0");
+            int code = conn.getResponseCode();
+            captureRateLimitHeaders(conn);
+            InputStream stream = (code >= 200 && code < 300) ? conn.getInputStream() : conn.getErrorStream();
+            String resp = readAll(stream);
+            conn.disconnect();
+            if (code >= 200 && code < 300 && !resp.isEmpty()) {
+                JSONObject uObj = new JSONObject(resp);
+                JSONObject h5 = uObj.optJSONObject("five_hour");
+                if (h5 != null) {
+                    if (h5.has("utilization") && !h5.isNull("utilization")) {
+                        double u = h5.optDouble("utilization", 0.0);
+                        this.fiveHourUsed = u <= 1.0 && u > 0 && u < 1.0 ? u * 100.0 : u;
+                    }
+                    if (h5.has("resets_at") && !h5.isNull("resets_at")) {
+                        this.fiveHourReset = h5.optString("resets_at", "");
+                    }
+                    this.quotaUpdatedAt = System.currentTimeMillis();
+                }
+                JSONObject d7 = uObj.optJSONObject("seven_day");
+                if (d7 != null) {
+                    if (d7.has("utilization") && !d7.isNull("utilization")) {
+                        double u = d7.optDouble("utilization", 0.0);
+                        this.sevenDayUsed = u <= 1.0 && u > 0 && u < 1.0 ? u * 100.0 : u;
+                    }
+                    if (d7.has("resets_at") && !d7.isNull("resets_at")) {
+                        this.sevenDayReset = d7.optString("resets_at", "");
+                    }
+                    this.quotaUpdatedAt = System.currentTimeMillis();
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "OAuth usage fetch failed: " + e.getMessage());
+        }
+        return getUsageJson();
+    }
+
     private void handleModels(OutputStream out, String activeToken) throws Exception {
         JSONArray dataArr = new JSONArray();
         try {
@@ -174,6 +280,7 @@ public final class AnthropicBridgeServer {
             conn.setReadTimeout(10_000);
             applyAnthropicHeaders(conn, activeToken);
             int code = conn.getResponseCode();
+            captureRateLimitHeaders(conn);
             InputStream stream = (code >= 200 && code < 300) ? conn.getInputStream() : conn.getErrorStream();
             String resp = readAll(stream);
             conn.disconnect();
@@ -278,6 +385,7 @@ public final class AnthropicBridgeServer {
         }
 
         int code = conn.getResponseCode();
+        captureRateLimitHeaders(conn);
         if (code < 200 || code >= 300) {
             String err = readAll(conn.getErrorStream());
             conn.disconnect();
