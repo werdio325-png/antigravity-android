@@ -165,6 +165,7 @@ public final class AnthropicBridgeServer {
             if (activeToken.startsWith("sk-ant-oat")) {
                 conn.setRequestProperty("Authorization", "Bearer " + activeToken);
                 conn.setRequestProperty("anthropic-beta", ANTHROPIC_OAUTH_BETA);
+                conn.setRequestProperty("User-Agent", "claude-code/2.0.0");
             } else {
                 conn.setRequestProperty("x-api-key", activeToken);
             }
@@ -349,16 +350,80 @@ public final class AnthropicBridgeServer {
                 Object contentObj = msg.opt("content");
                 String textContent = extractText(contentObj);
                 if ("system".equals(role) || "developer".equals(role)) {
-                    if (systemSb.length() > 0) systemSb.append("\n\n");
-                    systemSb.append(textContent);
-                } else {
-                    String mappedRole = "assistant".equals(role) ? "assistant" : "user";
-                    JSONObject mOut = new JSONObject();
-                    mOut.put("role", mappedRole);
-                    mOut.put("content", textContent);
-                    outMessages.put(mOut);
+                    if (!textContent.isEmpty()) {
+                        if (systemSb.length() > 0) systemSb.append("\n\n");
+                        systemSb.append(textContent);
+                    }
+                    continue;
                 }
+
+                String mappedRole;
+                JSONArray blocks = new JSONArray();
+                if ("tool".equals(role)) {
+                    mappedRole = "user";
+                    JSONObject toolRes = new JSONObject();
+                    toolRes.put("type", "tool_result");
+                    toolRes.put("tool_use_id", msg.optString("tool_call_id", "call_0"));
+                    toolRes.put("content", textContent);
+                    blocks.put(toolRes);
+                } else if ("assistant".equals(role)) {
+                    mappedRole = "assistant";
+                    if (!textContent.isEmpty()) {
+                        blocks.put(new JSONObject().put("type", "text").put("text", textContent));
+                    }
+                    JSONArray toolCalls = msg.optJSONArray("tool_calls");
+                    if (toolCalls != null) {
+                        for (int t = 0; t < toolCalls.length(); t++) {
+                            JSONObject tc = toolCalls.optJSONObject(t);
+                            if (tc == null) continue;
+                            JSONObject fn = tc.optJSONObject("function");
+                            if (fn == null) continue;
+                            JSONObject tu = new JSONObject();
+                            tu.put("type", "tool_use");
+                            tu.put("id", tc.optString("id", "call_" + t));
+                            tu.put("name", fn.optString("name", ""));
+                            String argsStr = fn.optString("arguments", "{}");
+                            JSONObject inputObj;
+                            try {
+                                inputObj = argsStr.trim().isEmpty() ? new JSONObject() : new JSONObject(argsStr);
+                            } catch (Exception ignored) {
+                                inputObj = new JSONObject();
+                            }
+                            tu.put("input", inputObj);
+                            blocks.put(tu);
+                        }
+                    }
+                    if (blocks.length() == 0) continue;
+                } else {
+                    mappedRole = "user";
+                    if (textContent.isEmpty()) continue;
+                    blocks.put(new JSONObject().put("type", "text").put("text", textContent));
+                }
+
+                // Anthropic requires alternating user/assistant roles; merge consecutive same-role messages
+                if (outMessages.length() > 0) {
+                    JSONObject prev = outMessages.getJSONObject(outMessages.length() - 1);
+                    if (mappedRole.equals(prev.optString("role"))) {
+                        JSONArray prevBlocks = prev.optJSONArray("content");
+                        if (prevBlocks == null) {
+                            prevBlocks = new JSONArray();
+                            prev.put("content", prevBlocks);
+                        }
+                        for (int b = 0; b < blocks.length(); b++) {
+                            prevBlocks.put(blocks.get(b));
+                        }
+                        continue;
+                    }
+                }
+                JSONObject mOut = new JSONObject();
+                mOut.put("role", mappedRole);
+                mOut.put("content", blocks);
+                outMessages.put(mOut);
             }
+        }
+        if (outMessages.length() == 0) {
+            JSONArray fallbackBlocks = new JSONArray().put(new JSONObject().put("type", "text").put("text", " "));
+            outMessages.put(new JSONObject().put("role", "user").put("content", fallbackBlocks));
         }
 
         JSONObject anthropicReq = new JSONObject();
@@ -370,6 +435,53 @@ public final class AnthropicBridgeServer {
         }
         if (req.has("temperature")) {
             anthropicReq.put("temperature", req.optDouble("temperature", 0.7));
+        }
+
+        // Translate OpenAI tools -> Anthropic tools
+        JSONArray inTools = req.optJSONArray("tools");
+        boolean disableTools = false;
+        Object tcObj = req.opt("tool_choice");
+        if (tcObj instanceof String && "none".equals(tcObj)) {
+            disableTools = true;
+        }
+        if (!disableTools && inTools != null && inTools.length() > 0) {
+            JSONArray aTools = new JSONArray();
+            for (int i = 0; i < inTools.length(); i++) {
+                JSONObject t = inTools.optJSONObject(i);
+                if (t == null) continue;
+                JSONObject fn = "function".equals(t.optString("type")) ? t.optJSONObject("function") : t;
+                if (fn == null || !fn.has("name")) continue;
+                JSONObject aTool = new JSONObject();
+                aTool.put("name", fn.getString("name"));
+                if (fn.has("description")) {
+                    aTool.put("description", fn.optString("description", ""));
+                }
+                JSONObject schema = fn.optJSONObject("parameters");
+                if (schema == null) {
+                    schema = new JSONObject().put("type", "object").put("properties", new JSONObject());
+                }
+                aTool.put("input_schema", schema);
+                aTools.put(aTool);
+            }
+            if (aTools.length() > 0) {
+                anthropicReq.put("tools", aTools);
+                if (tcObj instanceof String) {
+                    String tcStr = (String) tcObj;
+                    if ("required".equals(tcStr)) {
+                        anthropicReq.put("tool_choice", new JSONObject().put("type", "any"));
+                    } else if ("auto".equals(tcStr)) {
+                        anthropicReq.put("tool_choice", new JSONObject().put("type", "auto"));
+                    }
+                } else if (tcObj instanceof JSONObject) {
+                    JSONObject tcJson = (JSONObject) tcObj;
+                    JSONObject tcFn = tcJson.optJSONObject("function");
+                    if (tcFn != null && tcFn.has("name")) {
+                        anthropicReq.put("tool_choice", new JSONObject()
+                                .put("type", "tool")
+                                .put("name", tcFn.getString("name")));
+                    }
+                }
+            }
         }
         anthropicReq.put("messages", outMessages);
 
@@ -389,7 +501,8 @@ public final class AnthropicBridgeServer {
         if (code < 200 || code >= 300) {
             String err = readAll(conn.getErrorStream());
             conn.disconnect();
-            writeJsonResponse(out, code, err.isEmpty() ? "{\"error\":{\"message\":\"Anthropic HTTP " + code + "\"}}" : err);
+            String formattedErr = formatOpenAiError(code, err);
+            writeJsonResponse(out, code, formattedErr);
             return;
         }
 
@@ -398,18 +511,34 @@ public final class AnthropicBridgeServer {
             conn.disconnect();
             JSONObject aResp = new JSONObject(respStr);
             StringBuilder textOut = new StringBuilder();
+            JSONArray toolCallsOut = new JSONArray();
             JSONArray contentArr = aResp.optJSONArray("content");
             if (contentArr != null) {
                 for (int i = 0; i < contentArr.length(); i++) {
                     JSONObject block = contentArr.optJSONObject(i);
-                    if (block != null && "text".equals(block.optString("type"))) {
+                    if (block == null) continue;
+                    String bType = block.optString("type");
+                    if ("text".equals(bType)) {
                         textOut.append(block.optString("text", ""));
+                    } else if ("tool_use".equals(bType)) {
+                        JSONObject fnObj = new JSONObject();
+                        fnObj.put("name", block.optString("name", ""));
+                        JSONObject inp = block.optJSONObject("input");
+                        fnObj.put("arguments", inp != null ? inp.toString() : "{}");
+                        JSONObject tc = new JSONObject();
+                        tc.put("id", block.optString("id", "call_" + i));
+                        tc.put("type", "function");
+                        tc.put("function", fnObj);
+                        toolCallsOut.put(tc);
                     }
                 }
             }
             JSONObject msgObj = new JSONObject();
             msgObj.put("role", "assistant");
-            msgObj.put("content", textOut.toString());
+            msgObj.put("content", textOut.length() > 0 ? textOut.toString() : (toolCallsOut.length() > 0 ? JSONObject.NULL : ""));
+            if (toolCallsOut.length() > 0) {
+                msgObj.put("tool_calls", toolCallsOut);
+            }
             JSONObject choice = new JSONObject();
             choice.put("index", 0);
             choice.put("message", msgObj);
@@ -435,6 +564,7 @@ public final class AnthropicBridgeServer {
         out.flush();
 
         String chunkId = "chatcmpl-" + System.currentTimeMillis();
+        int toolCallIndex = -1;
         try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = br.readLine()) != null) {
@@ -444,12 +574,51 @@ public final class AnthropicBridgeServer {
                 try {
                     JSONObject ev = new JSONObject(data);
                     String type = ev.optString("type", "");
-                    if ("content_block_delta".equals(type)) {
+                    if ("content_block_start".equals(type)) {
+                        JSONObject cb = ev.optJSONObject("content_block");
+                        if (cb != null && "tool_use".equals(cb.optString("type"))) {
+                            toolCallIndex++;
+                            JSONObject fn = new JSONObject()
+                                    .put("name", cb.optString("name", ""))
+                                    .put("arguments", "");
+                            JSONObject tc = new JSONObject()
+                                    .put("index", toolCallIndex)
+                                    .put("id", cb.optString("id", "call_" + toolCallIndex))
+                                    .put("type", "function")
+                                    .put("function", fn);
+                            JSONObject cDelta = new JSONObject().put("tool_calls", new JSONArray().put(tc));
+                            JSONObject cChoice = new JSONObject().put("index", 0).put("delta", cDelta).put("finish_reason", JSONObject.NULL);
+                            JSONObject chunk = new JSONObject()
+                                    .put("id", chunkId)
+                                    .put("object", "chat.completion.chunk")
+                                    .put("created", System.currentTimeMillis() / 1000L)
+                                    .put("model", model)
+                                    .put("choices", new JSONArray().put(cChoice));
+                            out.write(("data: " + chunk.toString() + "\n\n").getBytes(StandardCharsets.UTF_8));
+                            out.flush();
+                        }
+                    } else if ("content_block_delta".equals(type)) {
                         JSONObject delta = ev.optJSONObject("delta");
                         if (delta != null && "text_delta".equals(delta.optString("type"))) {
                             String txt = delta.optString("text", "");
                             if (!txt.isEmpty()) {
                                 JSONObject cDelta = new JSONObject().put("content", txt);
+                                JSONObject cChoice = new JSONObject().put("index", 0).put("delta", cDelta).put("finish_reason", JSONObject.NULL);
+                                JSONObject chunk = new JSONObject()
+                                        .put("id", chunkId)
+                                        .put("object", "chat.completion.chunk")
+                                        .put("created", System.currentTimeMillis() / 1000L)
+                                        .put("model", model)
+                                        .put("choices", new JSONArray().put(cChoice));
+                                out.write(("data: " + chunk.toString() + "\n\n").getBytes(StandardCharsets.UTF_8));
+                                out.flush();
+                            }
+                        } else if (delta != null && "input_json_delta".equals(delta.optString("type")) && toolCallIndex >= 0) {
+                            String pj = delta.optString("partial_json", "");
+                            if (!pj.isEmpty()) {
+                                JSONObject fn = new JSONObject().put("arguments", pj);
+                                JSONObject tc = new JSONObject().put("index", toolCallIndex).put("function", fn);
+                                JSONObject cDelta = new JSONObject().put("tool_calls", new JSONArray().put(tc));
                                 JSONObject cChoice = new JSONObject().put("index", 0).put("delta", cDelta).put("finish_reason", JSONObject.NULL);
                                 JSONObject chunk = new JSONObject()
                                         .put("id", chunkId)
@@ -483,8 +652,40 @@ public final class AnthropicBridgeServer {
         out.flush();
     }
 
+    private static String formatOpenAiError(int code, String rawErr) {
+        String msg = "Anthropic HTTP " + code;
+        String errType = "api_error";
+        if (rawErr != null && !rawErr.trim().isEmpty()) {
+            try {
+                JSONObject eo = new JSONObject(rawErr);
+                JSONObject inner = eo.optJSONObject("error");
+                if (inner != null) {
+                    String m = inner.optString("message", "");
+                    String t = inner.optString("type", "");
+                    if (!t.isEmpty()) errType = t;
+                    if (!m.isEmpty() && !"Error".equals(m)) {
+                        msg = m;
+                    } else if (!t.isEmpty()) {
+                        msg = "Anthropic " + t + " (HTTP " + code + ")";
+                    }
+                }
+            } catch (Exception ignored) {
+                msg = rawErr.trim();
+            }
+        }
+        try {
+            return new JSONObject().put("error", new JSONObject()
+                    .put("message", msg)
+                    .put("type", errType)
+                    .put("code", code)).toString();
+        } catch (Exception e) {
+            return "{\"error\":{\"message\":\"Anthropic HTTP " + code + "\"}}";
+        }
+    }
+
     private static String mapStopReason(String sr) {
         if ("max_tokens".equals(sr)) return "length";
+        if ("tool_use".equals(sr)) return "tool_calls";
         return "stop";
     }
 

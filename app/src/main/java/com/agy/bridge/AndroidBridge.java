@@ -51,7 +51,7 @@ public final class AndroidBridge {
                             AnthropicBridgeServer srv = AnthropicBridgeServer.getInstance(appContext);
                             srv.setToken(tok);
                             obj.put("url", srv.getBaseUrl());
-                            sp.edit().putString(KEY_OPENAI_CONFIGS, arr.toString()).apply();
+                            setOpenAiConfigs(arr.toString(), i);
                             break;
                         }
                     }
