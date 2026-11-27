@@ -532,6 +532,13 @@ def patch_main(file_path):
         content = content.replace(fka_sel_target, fka_sel_replacement, 1)
         print("[web-patch] fKa C() fallback to _getAgOpenAiModels enabled")
 
+    # 7. Intercept sendUserCascadeMessage for custom BYOM/OpenAI/Claude models
+    send_msg_target = 'l=async n=>{var q=p(ii,n);xJa(q.cascadeId,q);return f("sendUserCascadeMessage",n,r=>r.sendUserCascadeMessage(q))}'
+    send_msg_replacement = 'l=async n=>{var q=p(ii,n);xJa(q.cascadeId,q);if(window.__agHandleCustomCascadeMessage&&window.__agHandleCustomCascadeMessage(q))return{};return f("sendUserCascadeMessage",n,r=>r.sendUserCascadeMessage(q))}'
+    if send_msg_target in content:
+        content = content.replace(send_msg_target, send_msg_replacement, 1)
+        print("[web-patch] sendUserCascadeMessage custom model hook enabled")
+
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(content)
 

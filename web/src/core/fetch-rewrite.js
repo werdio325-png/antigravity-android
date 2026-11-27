@@ -78,6 +78,7 @@ function interceptProjectRpc(path, bodyData) {
 
 // --- Custom OpenAI / Claude ConnectRPC Bridge ---
 var _customChatStreams = Object.create(null);
+var _customChatPendingFrames = Object.create(null);
 var _customChatState = Object.create(null);
 
 function encodeConnectFrame(obj) {
@@ -95,8 +96,6 @@ function encodeConnectFrame(obj) {
 }
 
 function pushCustomChatUpdate(cascadeId, steps, isRunning) {
-  var entry = _customChatStreams[cascadeId];
-  if (!entry || !entry.controller) return;
   var indices = [];
   for (var i = 0; i < steps.length; i++) indices.push(i);
   var payload = {
@@ -115,8 +114,15 @@ function pushCustomChatUpdate(cascadeId, steps, isRunning) {
       }
     }
   };
+  var frame = encodeConnectFrame(payload);
+  var entry = _customChatStreams[cascadeId];
+  if (!entry || !entry.controller) {
+    if (!_customChatPendingFrames[cascadeId]) _customChatPendingFrames[cascadeId] = [];
+    _customChatPendingFrames[cascadeId].push(frame);
+    return;
+  }
   try {
-    entry.controller.enqueue(encodeConnectFrame(payload));
+    entry.controller.enqueue(frame);
   } catch (e) {
     warn('pushCustomChatUpdate', e);
   }
@@ -172,6 +178,7 @@ function extractCascadeUserText(req) {
     var it = req.items[i];
     if (!it) continue;
     if (typeof it.text === 'string') parts.push(it.text);
+    else if (it.chunk && it.chunk.case === 'text' && typeof it.chunk.value === 'string') parts.push(it.chunk.value);
     else if (it.chunk && typeof it.chunk.text === 'string') parts.push(it.chunk.text);
     else if (it.item && it.item.case === 'text' && typeof it.item.value === 'string') parts.push(it.item.value);
   }
@@ -192,6 +199,13 @@ function wrapAgentStateStreamResponse(resp, bodyText) {
     start: function (controller) {
       streamController = controller;
       _customChatStreams[convId] = { controller: controller };
+      var pending = _customChatPendingFrames[convId];
+      if (pending && pending.length > 0) {
+        delete _customChatPendingFrames[convId];
+        for (var i = 0; i < pending.length; i++) {
+          try { controller.enqueue(pending[i]); } catch (_) {}
+        }
+      }
     },
     transform: function (chunk, controller) {
       controller.enqueue(chunk);
@@ -293,22 +307,29 @@ function runCustomModelTurn(origFetch, cascadeId, userText, modelLabel, baseUrl)
   });
 }
 
+function handleCustomCascadeReq(origFetch, req) {
+  if (!req) return false;
+  var pc = req.cascadeConfig && req.cascadeConfig.plannerConfig;
+  var ov = pc && pc.customModelInfoOverride;
+  var reqModel = pc && pc.requestedModel && pc.requestedModel.choice && pc.requestedModel.choice.value;
+  var isByom = pc && (pc.planModel === 326 || pc.planModel === 'GOOGLE_GEMINI_INTERNAL_BYOM' || reqModel === 326 || reqModel === 'GOOGLE_GEMINI_INTERNAL_BYOM');
+  if (!ov && !isByom) return false;
+  var cascadeId = req.cascadeId;
+  var modelLabel = (ov && ov.chatModelName) || 'gpt-4o';
+  var baseUrl = (ov && ov.modelName) || '';
+  var userText = extractCascadeUserText(req);
+  if (!cascadeId || !userText) return false;
+  runCustomModelTurn(origFetch, cascadeId, userText, modelLabel, baseUrl);
+  return true;
+}
+
 function maybeInterceptCustomChatRpc(origFetch, path, bodyData) {
   if (!path || path.indexOf('SendUserCascadeMessage') === -1) return null;
   var text = extractBodyText(bodyData);
   if (!text) return null;
   try {
     var req = JSON.parse(text);
-    var pc = req && req.cascadeConfig && req.cascadeConfig.plannerConfig;
-    var ov = pc && pc.customModelInfoOverride;
-    var isByom = pc && (pc.planModel === 326 || pc.planModel === 'GOOGLE_GEMINI_INTERNAL_BYOM');
-    if (!ov && !isByom) return null;
-    var cascadeId = req.cascadeId;
-    var modelLabel = (ov && ov.chatModelName) || 'gpt-4o';
-    var baseUrl = (ov && ov.modelName) || '';
-    var userText = extractCascadeUserText(req);
-    if (!cascadeId || !userText) return null;
-    runCustomModelTurn(origFetch, cascadeId, userText, modelLabel, baseUrl);
+    if (!handleCustomCascadeReq(origFetch, req)) return null;
     return new Response('{}', {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
@@ -322,6 +343,14 @@ function maybeInterceptCustomChatRpc(origFetch, path, bodyData) {
 function installFetchRewrite() {
   if (global.__AG_FETCH_REWRITE__ || typeof global.fetch !== 'function') return;
   var origFetch = global.fetch.bind(global);
+  global.__agHandleCustomCascadeMessage = function (req) {
+    try {
+      return handleCustomCascadeReq(origFetch, req);
+    } catch (e) {
+      warn('__agHandleCustomCascadeMessage', e);
+      return false;
+    }
+  };
 
   function fetchWithStartupRetry(u, opts, retries) {
     return origFetch(u, opts).catch(function (err) {
