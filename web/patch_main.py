@@ -145,6 +145,7 @@ def patch_main(file_path):
         "localStorage.setItem('ag_openai_config',JSON.stringify({url:act.url,apiKey:act.apiKey,model:act.model,models:act.models}));"
         "if(window.Android&&typeof window.Android.setOpenAiConfigs==='function'){window.Android.setOpenAiConfigs(JSON.stringify(normalized),activeApiIdx);}"
         "else if(window.Android&&typeof window.Android.setOpenAiConfig==='function'){window.Android.setOpenAiConfig(act.url,act.apiKey,act.models.join(','));}"
+        "window.dispatchEvent(new Event('ag-openai-configs-updated'));"
         "}catch(_){}"
         "setOpenAiConfigs(normalized);setShowOpenAiModal(!1);"
         "},[openAiConfigs,activeApiIdx]);"
@@ -351,6 +352,7 @@ def patch_main(file_path):
         'localStorage.setItem("ag_openai_config",JSON.stringify({url:u,apiKey:apiKey,model:k,models:cfgs[matchIdx].models}));'
         'if(window.Android&&typeof window.Android.setOpenAiConfigs==="function")window.Android.setOpenAiConfigs(JSON.stringify(cfgs),matchIdx);'
         'else if(window.Android&&typeof window.Android.setOpenAiConfig==="function")window.Android.setOpenAiConfig(u,apiKey,cfgs[matchIdx].models.join(","));'
+        'window.dispatchEvent(new Event("ag-openai-configs-updated"));'
         '}catch(_){}}'
         'var _effUrl=(provider==="claude"&&window.Android&&typeof window.Android.getAnthropicBridgeUrl==="function")?(window.Android.getAnthropicBridgeUrl()||m):m;'
         'L=p(I.ModelInfoSchema,{modelId:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,apiProvider:(provider==="openai"||provider==="claude")?I.APIProvider.API_PROVIDER_OPENAI_VERTEX:I.APIProvider.API_PROVIDER_GOOGLE_EVERGREEN,chatModelName:k,modelName:_effUrl||(provider==="openai"?"https://api.openai.com/v1":""),maxTokens:Math.max(0,Math.min(Number(q)||0,Number.MAX_SAFE_INTEGER)),modelFeatures:L});b==="edit"&&e?g({type:"editCustomModel",oldLabel:e,label:k,modelInfo:L}):g({type:"addCustomModel",label:k,modelInfo:L});h({label:k,value:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,isCustom:!0,customModelUrl:L.modelName,disabled:!1});'
@@ -494,6 +496,25 @@ def patch_main(file_path):
     if lxb_target in content:
         content = content.replace(lxb_target, lxb_replacement, 1)
         print("[web-patch] LXb fallback to first sort group enabled")
+
+    # 6h. Keep fKa customModels reactive on ag-openai-configs-updated and fallback to _getAgOpenAiModels in w and C
+    fka_memo_target = 'var [l,m]=(0,A.useState)(null),[n,q]=(0,A.useState)({}),r=(0,A.useMemo)(()=>{var G=cKa(k);for(let H of G)H.disabled=!f;return G},[k,f]),t='
+    fka_memo_replacement = 'var [l,m]=(0,A.useState)(null),[n,q]=(0,A.useState)({}),[agVer,setAgVer]=(0,A.useState)(0);(0,A.useEffect)(()=>{var h=()=>setAgVer(z=>z+1);window.addEventListener("ag-openai-configs-updated",h);return()=>window.removeEventListener("ag-openai-configs-updated",h)},[]);var r=(0,A.useMemo)(()=>{var G=cKa(k);for(let H of G)H.disabled=!f;return G},[k,f,agVer]),t='
+    if fka_memo_target in content:
+        content = content.replace(fka_memo_target, fka_memo_replacement, 1)
+        print("[web-patch] fKa customModels reactive refresh enabled")
+
+    fka_find_target = 'if(G===I.Model.GOOGLE_GEMINI_INTERNAL_BYOM&&H){let J=r.find(K=>K.label===H);if(J)return J}'
+    fka_find_replacement = 'if(G===I.Model.GOOGLE_GEMINI_INTERNAL_BYOM&&H){let J=r.find(K=>K.label===H)||_getAgOpenAiModels().find(K=>K.label===H);if(J)return J}'
+    if fka_find_target in content:
+        content = content.replace(fka_find_target, fka_find_replacement, 1)
+        print("[web-patch] fKa w() fallback to _getAgOpenAiModels enabled")
+
+    fka_sel_target = 'var L=r.some(M=>M.label===G);m(L?G:null);B(H,K.value,J,L?G:void 0)'
+    fka_sel_replacement = 'var L=r.some(M=>M.label===G)||_getAgOpenAiModels().some(M=>M.label===G);m(L?G:null);B(H,K.value,J,L?G:void 0)'
+    if fka_sel_target in content:
+        content = content.replace(fka_sel_target, fka_sel_replacement, 1)
+        print("[web-patch] fKa C() fallback to _getAgOpenAiModels enabled")
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(content)
