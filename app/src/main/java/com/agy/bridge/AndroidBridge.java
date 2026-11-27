@@ -455,6 +455,123 @@ public final class AndroidBridge {
         }
     }
 
+    @JavascriptInterface
+    public void exportChatBackup() {
+        final MainActivity act = activityRef != null ? activityRef.get() : MainActivity.activeActivity;
+        if (act != null) {
+            act.runOnUiThread(act::launchChatBackupCreate);
+        }
+    }
+
+    @JavascriptInterface
+    public void importChatBackup() {
+        final MainActivity act = activityRef != null ? activityRef.get() : MainActivity.activeActivity;
+        if (act != null) {
+            act.runOnUiThread(act::launchChatBackupRestore);
+        }
+    }
+
+    public String exportChatsToUri(android.net.Uri destUri) {
+        if (destUri == null) return "{\"ok\":false,\"error\":\"Cancelled\"}";
+        java.io.File geminiDir = new java.io.File(appContext.getFilesDir(), ".gemini");
+        if (!geminiDir.isDirectory()) {
+            return "{\"ok\":false,\"error\":\"No Antigravity data directory found\"}";
+        }
+        String[] targets = {
+                "antigravity",
+                "antigravity-app",
+                "config/openai_configs.json",
+                "config/openai_config.json"
+        };
+        int count = 0;
+        try (java.io.OutputStream os = appContext.getContentResolver().openOutputStream(destUri);
+             java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(new java.io.BufferedOutputStream(os))) {
+            byte[] buf = new byte[8192];
+            for (String rel : targets) {
+                java.io.File f = new java.io.File(geminiDir, rel);
+                if (!f.exists()) continue;
+                count += zipRecursive(f, rel, zos, buf);
+            }
+            zos.finish();
+            return "{\"ok\":true,\"action\":\"export\",\"files\":" + count + "}";
+        } catch (Exception e) {
+            android.util.Log.w("AndroidBridge", "Chat backup export failed", e);
+            return "{\"ok\":false,\"action\":\"export\",\"error\":" + org.json.JSONObject.quote(String.valueOf(e.getMessage())) + "}";
+        }
+    }
+
+    private static int zipRecursive(java.io.File file, String entryName, java.util.zip.ZipOutputStream zos, byte[] buf) throws java.io.IOException {
+        if (file.isDirectory()) {
+            java.io.File[] children = file.listFiles();
+            if (children == null) return 0;
+            int total = 0;
+            for (java.io.File child : children) {
+                total += zipRecursive(child, entryName + "/" + child.getName(), zos, buf);
+            }
+            return total;
+        }
+        java.util.zip.ZipEntry ze = new java.util.zip.ZipEntry(entryName);
+        ze.setTime(file.lastModified());
+        zos.putNextEntry(ze);
+        try (java.io.InputStream in = new java.io.BufferedInputStream(new java.io.FileInputStream(file))) {
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                zos.write(buf, 0, n);
+            }
+        }
+        zos.closeEntry();
+        return 1;
+    }
+
+    public String importChatsFromUri(android.net.Uri srcUri) {
+        if (srcUri == null) return "{\"ok\":false,\"error\":\"Cancelled\"}";
+        java.io.File geminiDir = new java.io.File(appContext.getFilesDir(), ".gemini");
+        if (!geminiDir.exists()) geminiDir.mkdirs();
+        int count = 0;
+        try {
+            String canonicalRoot = geminiDir.getCanonicalPath() + java.io.File.separator;
+            try (java.io.InputStream is = appContext.getContentResolver().openInputStream(srcUri);
+                 java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(new java.io.BufferedInputStream(is))) {
+                byte[] buf = new byte[8192];
+                java.util.zip.ZipEntry ze;
+                while ((ze = zis.getNextEntry()) != null) {
+                    if (ze.isDirectory()) continue;
+                    String name = ze.getName().replace('\\', '/');
+                    while (name.startsWith("/")) name = name.substring(1);
+                    if (name.isEmpty()) continue;
+                    java.io.File outFile = new java.io.File(geminiDir, name);
+                    if (!outFile.getCanonicalPath().startsWith(canonicalRoot)) {
+                        throw new SecurityException("Blocked invalid zip entry: " + name);
+                    }
+                    java.io.File parent = outFile.getParentFile();
+                    if (parent != null && !parent.exists()) parent.mkdirs();
+                    try (java.io.OutputStream fos = new java.io.BufferedOutputStream(new java.io.FileOutputStream(outFile))) {
+                        int n;
+                        while ((n = zis.read(buf)) > 0) {
+                            fos.write(buf, 0, n);
+                        }
+                    }
+                    zis.closeEntry();
+                    count++;
+                }
+            }
+            // Reload OpenAI/Claude configs into SharedPreferences if restored
+            java.io.File restoredConfigs = new java.io.File(geminiDir, "config/openai_configs.json");
+            if (restoredConfigs.isFile()) {
+                String raw = com.agy.util.IoUtil.readAll(new java.io.FileInputStream(restoredConfigs), "UTF-8");
+                if (raw != null && !raw.trim().isEmpty()) {
+                    appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                            .edit().putString(KEY_OPENAI_CONFIGS, raw.trim()).apply();
+                    initAnthropicBridgeIfConfigured();
+                }
+            }
+            return "{\"ok\":true,\"action\":\"import\",\"files\":" + count + "}";
+        } catch (Exception e) {
+            android.util.Log.w("AndroidBridge", "Chat backup restore failed", e);
+            return "{\"ok\":false,\"action\":\"import\",\"error\":" + org.json.JSONObject.quote(String.valueOf(e.getMessage())) + "}";
+        }
+    }
+
     // Native-only helpers used while preparing the trusted app document.
     public boolean isEngineReady() {
         return engine.isReady();
