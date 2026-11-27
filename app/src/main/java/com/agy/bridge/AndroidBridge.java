@@ -34,6 +34,30 @@ public final class AndroidBridge {
         this.themeBridge = new ThemeBridge(theme);
         this.engine = new EngineBridge(runtime);
         this.config = new EngineConfigJson(appContext, runtime, engine, shizuku, themeBridge);
+        initAnthropicBridgeIfConfigured();
+    }
+
+    private void initAnthropicBridgeIfConfigured() {
+        try {
+            android.content.SharedPreferences sp = appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+            String raw = sp.getString(KEY_OPENAI_CONFIGS, "");
+            if (raw != null && !raw.trim().isEmpty()) {
+                org.json.JSONArray arr = new org.json.JSONArray(raw);
+                for (int i = 0; i < arr.length(); i++) {
+                    org.json.JSONObject obj = arr.optJSONObject(i);
+                    if (obj != null && "anthropic-setup-token".equals(obj.optString("providerType", ""))) {
+                        String tok = obj.optString("apiKey", "").trim();
+                        if (!tok.isEmpty()) {
+                            AnthropicBridgeServer srv = AnthropicBridgeServer.getInstance(appContext);
+                            srv.setToken(tok);
+                            obj.put("url", srv.getBaseUrl());
+                            sp.edit().putString(KEY_OPENAI_CONFIGS, arr.toString()).apply();
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
     }
 
     /** Host activity, used to dismiss the native splash once the UI has painted. */
@@ -166,30 +190,46 @@ public final class AndroidBridge {
     }
 
     @JavascriptInterface
+    public String getAnthropicBridgeUrl() {
+        return AnthropicBridgeServer.getInstance(appContext).getBaseUrl();
+    }
+
+    @JavascriptInterface
     public boolean setOpenAiConfigs(String configsJson, int activeIndex) {
         try {
             org.json.JSONArray input = new org.json.JSONArray(configsJson == null ? "[]" : configsJson);
             org.json.JSONArray capped = new org.json.JSONArray();
             int limit = Math.min(input.length(), MAX_OPENAI_CONFIGS);
+            String anthropicToken = "";
             for (int i = 0; i < limit; i++) {
                 org.json.JSONObject src = input.optJSONObject(i);
                 if (src == null) continue;
                 org.json.JSONObject clean = new org.json.JSONObject();
                 String id = src.optString("id", "api-" + (i + 1));
                 String name = src.optString("name", "API " + (i + 1));
+                String pType = src.optString("providerType", "openai");
                 String url = src.optString("url", "https://api.openai.com/v1").trim();
                 if (url.isEmpty()) url = "https://api.openai.com/v1";
                 String key = src.optString("apiKey", "");
                 String model = src.optString("model", "gpt-4o");
                 org.json.JSONArray mods = src.optJSONArray("models");
                 if (mods == null) mods = new org.json.JSONArray();
+                if ("anthropic-setup-token".equals(pType) && !key.trim().isEmpty()) {
+                    anthropicToken = key.trim();
+                    url = AnthropicBridgeServer.getInstance(appContext).getBaseUrl();
+                }
                 clean.put("id", id);
                 clean.put("name", name.isEmpty() ? ("API " + (i + 1)) : name);
+                clean.put("providerType", pType);
                 clean.put("url", url);
                 clean.put("apiKey", key);
                 clean.put("model", model);
                 clean.put("models", mods);
                 capped.put(clean);
+            }
+
+            if (!anthropicToken.isEmpty()) {
+                AnthropicBridgeServer.getInstance(appContext).setToken(anthropicToken);
             }
 
             android.content.SharedPreferences sp = appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
@@ -320,7 +360,18 @@ public final class AndroidBridge {
                 conn.setConnectTimeout(8000);
                 conn.setReadTimeout(12000);
                 if (apiKey != null && !apiKey.trim().isEmpty()) {
-                    conn.setRequestProperty("Authorization", "Bearer " + apiKey.trim());
+                    String k = apiKey.trim();
+                    if (target.contains("api.anthropic.com") || k.startsWith("sk-ant-")) {
+                        conn.setRequestProperty("anthropic-version", "2023-06-01");
+                        if (k.startsWith("sk-ant-oat")) {
+                            conn.setRequestProperty("Authorization", "Bearer " + k);
+                            conn.setRequestProperty("anthropic-beta", "oauth-2025-04-20");
+                        } else {
+                            conn.setRequestProperty("x-api-key", k);
+                        }
+                    } else {
+                        conn.setRequestProperty("Authorization", "Bearer " + k);
+                    }
                 }
                 conn.setRequestProperty("Accept", "application/json");
                 conn.setRequestProperty("User-Agent", "Antigravity/2.0");

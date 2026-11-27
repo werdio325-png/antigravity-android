@@ -99,16 +99,20 @@ def patch_main(file_path):
         "},[]);"
         f"var detectModelsFn=(0,{react_id}.useCallback)(async(u,k)=>{{"
         "setIsDetecting(!0);setDetectStatus('Detecting models...');try{"
+        "var isClaude=activeCfg.providerType==='anthropic-setup-token';"
+        "var targetUrl=isClaude?'https://api.anthropic.com/v1':(u||'https://api.openai.com/v1');"
         "var raw='';"
         "if(window.Android&&typeof window.Android.fetchOpenAiModels==='function'){"
-        "raw=window.Android.fetchOpenAiModels(u||'https://api.openai.com/v1',k);"
+        "raw=window.Android.fetchOpenAiModels(targetUrl,k);"
         "}else{"
-        "var fu=(u||'https://api.openai.com/v1').replace(/\\/+$/,'')+'/models';"
+        "var fu=targetUrl.replace(/\\/+$/,'')+'/models';"
         "var res=await fetch(fu,{headers:k?{'Authorization':'Bearer '+k}:{}});"
         "raw=await res.text();"
         "}"
         "var d=JSON.parse(raw);"
-        "if(d.error){var em=typeof d.error==='string'?d.error:(d.error.message||JSON.stringify(d.error));setDetectStatus('Error: '+em);return;}"
+        "if(d.error){"
+        "if(isClaude){var defC=['claude-sonnet-4-5-20250929','claude-opus-4-5-20251101','claude-3-7-sonnet-20250219','claude-3-5-sonnet-20241022','claude-3-5-haiku-20241022'];updateActiveCfg({models:defC,model:defC.includes(activeCfg.model)?activeCfg.model:defC[0]});setDetectStatus('Loaded '+defC.length+' Claude models');return;}"
+        "var em=typeof d.error==='string'?d.error:(d.error.message||JSON.stringify(d.error));setDetectStatus('Error: '+em);return;}"
         "var l=[];if(Array.isArray(d.data)){l=d.data.map(m=>m.id||m.name).filter(Boolean);}"
         "else if(Array.isArray(d.models)){l=d.models.map(m=>m.name||m.id||m.model).filter(Boolean);}"
         "if(l.length>0){l.sort();setDetectStatus('Found '+l.length+' models!');"
@@ -118,11 +122,14 @@ def patch_main(file_path):
         "finally{setIsDetecting(!1);}"
         "},[activeCfg,updateActiveCfg]);"
         f"var saveOpenAiConfigFn=(0,{react_id}.useCallback)(()=>{{"
+        "var bridgeUrl=(window.Android&&typeof window.Android.getAnthropicBridgeUrl==='function')?window.Android.getAnthropicBridgeUrl():'';"
         "var normalized=openAiConfigs.slice(0,5).map((c,idx)=>{"
-        "var u=(c.url||'').trim()||'https://api.openai.com/v1';var k=c.apiKey||'';var m=(c.model||'').trim()||'gpt-4o';"
+        "var pt=c.providerType||'openai';"
+        "var u=pt==='anthropic-setup-token'?(bridgeUrl||(c.url||'').trim()||'https://api.anthropic.com/v1'):((c.url||'').trim()||'https://api.openai.com/v1');"
+        "var k=c.apiKey||'';var m=(c.model||'').trim()||(pt==='anthropic-setup-token'?'claude-sonnet-4-5-20250929':'gpt-4o');"
         "var mods=Array.isArray(c.models)&&c.models.length>0?c.models.slice():[m];"
         "if(!mods.includes(m))mods.unshift(m);"
-        "return {id:c.id||('api-'+(idx+1)),name:(c.name||'').trim()||('API '+(idx+1)),url:u,apiKey:k,model:m,models:mods};});"
+        "return {id:c.id||('api-'+(idx+1)),name:(c.name||'').trim()||('API '+(idx+1)),providerType:pt,url:u,apiKey:k,model:m,models:mods};});"
         "var act=normalized[activeApiIdx]||normalized[0];"
         "try{"
         "localStorage.setItem('ag_openai_configs',JSON.stringify(normalized));"
@@ -152,11 +159,11 @@ def patch_main(file_path):
         f'showOpenAiModal?{react_id}.createElement(NC,{{'
         'isOpen:showOpenAiModal,'
         'onClose:()=>setShowOpenAiModal(!1),'
-        'title:"OpenAI Compatible Model Sources",'
+        'title:"Model Sources (OpenAI & Claude)",'
         'className:"w-[92vw] max-w-[480px] rounded-xl",'
         'zClassName:"z-[8500]"'
         f'}},{react_id}.createElement("div",{{className:"flex flex-col gap-3 py-1 text-foreground"}},'
-        f'{react_id}.createElement("p",{{className:"text-xs text-muted-foreground m-0 -mt-2"}},"Configure up to 5 OpenAI-compatible API endpoints & models"),'
+        f'{react_id}.createElement("p",{{className:"text-xs text-muted-foreground m-0 -mt-2"}},"Configure up to 5 OpenAI-compatible APIs or Claude (setup-token)"),'
         f'{react_id}.createElement("div",{{className:"flex flex-wrap items-center gap-1.5 pb-1 border-b border-border"}},'
         f'openAiConfigs.map(function(cfg,idx){{var isSel=idx===activeApiIdx;var hasKey=Boolean(cfg.apiKey&&cfg.apiKey.trim());'
         f'return {react_id}.createElement("button",{{key:cfg.id||idx,type:"button",onClick:()=>{{setActiveApiIdx(idx);setDetectStatus("");}},'
@@ -166,6 +173,12 @@ def patch_main(file_path):
         f'openAiConfigs.length<5?{react_id}.createElement("button",{{type:"button",onClick:addApiSlot,'
         'className:"px-2.5 py-1 text-xs rounded-md font-medium cursor-pointer bg-muted/60 text-foreground border border-dashed border-border hover:bg-muted transition-colors"},"+ Add API ("+openAiConfigs.length+"/5)"):null'
         '),'
+        f'{react_id}.createElement("div",{{className:"flex items-center gap-1.5 p-1 bg-muted rounded-md"}},'
+        f'{react_id}.createElement("button",{{type:"button",onClick:()=>updateActiveCfg({{providerType:"openai",url:(!activeCfg.url||activeCfg.url.includes("127.0.0.1")||activeCfg.url.includes("anthropic.com"))?"https://api.openai.com/v1":activeCfg.url}}),'
+        'className:"flex-1 py-1 text-xs rounded font-medium cursor-pointer border-none transition-colors "+((activeCfg.providerType||"openai")==="openai"?"bg-background text-foreground shadow-xs":"bg-transparent text-muted-foreground")},"OpenAI Compatible"),'
+        f'{react_id}.createElement("button",{{type:"button",onClick:()=>{{var bu=(window.Android&&typeof window.Android.getAnthropicBridgeUrl==="function")?window.Android.getAnthropicBridgeUrl():"https://api.anthropic.com/v1";var defM=["claude-sonnet-4-5-20250929","claude-opus-4-5-20251101","claude-3-7-sonnet-20250219","claude-3-5-sonnet-20241022","claude-3-5-haiku-20241022"];updateActiveCfg({{providerType:"anthropic-setup-token",name:(activeCfg.name||"").startsWith("API ")?"Claude":activeCfg.name,url:bu,model:(!activeCfg.model||activeCfg.model==="gpt-4o")?defM[0]:activeCfg.model,models:(Array.isArray(activeCfg.models)&&activeCfg.models.length>0)?activeCfg.models:defM}});}},'
+        'className:"flex-1 py-1 text-xs rounded font-medium cursor-pointer border-none transition-colors "+(activeCfg.providerType==="anthropic-setup-token"?"bg-background text-foreground shadow-xs":"bg-transparent text-muted-foreground")},"Claude (setup-token)")'
+        '),'
         f'{react_id}.createElement("div",{{className:"flex flex-col gap-1.5"}},'
         f'{react_id}.createElement("div",{{className:"flex items-center justify-between"}},'
         f'{react_id}.createElement("label",{{className:"text-xs font-medium text-foreground"}},"Provider Label"),'
@@ -173,9 +186,10 @@ def patch_main(file_path):
         'className:"text-xs text-destructive hover:underline cursor-pointer bg-transparent border-none p-0"},"Remove Slot"):null'
         '),'
         f'{react_id}.createElement("input",{{type:"text",value:activeCfg.name||"",onChange:e=>updateActiveCfg({{name:e.target.value}}),'
-        'placeholder:"e.g. OpenAI, DeepSeek, Groq, OpenRouter, Ollama",'
+        'placeholder:"e.g. OpenAI, Claude, DeepSeek, Groq, Ollama",'
         'className:"w-full rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground transition-colors"})'
         '),'
+        f'activeCfg.providerType==="anthropic-setup-token"?{react_id}.createElement("div",{{className:"text-[11px] text-emerald-500 bg-emerald-500/10 border border-emerald-500/30 rounded-md px-2.5 py-1.5"}},"Built-in OpenAI <-> Anthropic bridge active (paste token from claude setup-token)"):'
         f'{react_id}.createElement("div",{{className:"flex flex-col gap-1.5"}},'
         f'{react_id}.createElement("label",{{className:"text-xs font-medium text-foreground"}},"Base URL (Endpoint)"),'
         f'{react_id}.createElement("input",{{type:"text",value:activeCfg.url||"",onChange:e=>updateActiveCfg({{url:e.target.value}}),'
@@ -184,12 +198,12 @@ def patch_main(file_path):
         '),'
         f'{react_id}.createElement("div",{{className:"flex flex-col gap-1.5"}},'
         f'{react_id}.createElement("div",{{className:"flex items-center justify-between"}},'
-        f'{react_id}.createElement("label",{{className:"text-xs font-medium text-foreground"}},"API Key"),'
+        f'{react_id}.createElement("label",{{className:"text-xs font-medium text-foreground"}},activeCfg.providerType==="anthropic-setup-token"?"Claude Setup Token (claude setup-token)":"API Key"),'
         f'{react_id}.createElement("button",{{type:"button",onClick:()=>setShowKeyText(!showKeyText),'
         'className:"text-xs text-primary hover:underline cursor-pointer bg-transparent border-none p-0"},showKeyText?"Hide":"Show")'
         '),'
         f'{react_id}.createElement("input",{{type:showKeyText?"text":"password",value:activeCfg.apiKey||"",onChange:e=>updateActiveCfg({{apiKey:e.target.value}}),'
-        'placeholder:"sk-...",'
+        'placeholder:activeCfg.providerType==="anthropic-setup-token"?"sk-ant-oat01-...":"sk-...",'
         'className:"w-full rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground transition-colors"})'
         '),'
         f'{react_id}.createElement("div",{{className:"flex flex-wrap items-center gap-2 pt-1"}},'
@@ -389,16 +403,17 @@ def patch_main(file_path):
         'var _extractMods=cfg=>{var mods=[];if(cfg.model&&typeof cfg.model==="string"&&cfg.model.trim())mods.push(cfg.model.trim());'
         'if(Array.isArray(cfg.models))cfg.models.forEach(m=>{if(m&&typeof m==="string"&&m.trim()&&!mods.includes(m.trim()))mods.push(m.trim())});'
         'else if(typeof cfg.models==="string")cfg.models.split(",").forEach(m=>{m=m.trim();if(m&&!mods.includes(m))mods.push(m)});return mods};'
+        'var _resolveAgUrl=cfg=>{if(cfg&&cfg.providerType==="anthropic-setup-token"&&window.Android&&typeof window.Android.getAnthropicBridgeUrl==="function"){try{var bu=window.Android.getAnthropicBridgeUrl();if(bu)return bu}catch(_){}}return (cfg&&cfg.url)||"https://api.openai.com/v1"};'
         'var _getAgOpenAiModels=()=>{var res=[],seen={};try{var cfgs=_loadAgOpenAiConfigs();'
         'for(var cfg of cfgs){if(!cfg)continue;var hasKey=cfg.apiKey&&String(cfg.apiKey).trim();var mods=_extractMods(cfg);'
-        'if(!hasKey&&mods.length===0)continue;var url=cfg.url||"https://api.openai.com/v1";if(mods.length===0)mods.push("gpt-4o");'
+        'if(!hasKey&&mods.length===0)continue;var url=_resolveAgUrl(cfg);if(mods.length===0)mods.push("gpt-4o");'
         'for(var mod of mods){if(!seen[mod]){seen[mod]=1;res.push({label:mod,value:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,isCustom:!0,customModelUrl:url,disabled:!1})}}}}catch(_){}'
         'return res};'
         'var cKa=a=>{var base=a?.customModels?Object.entries(a.customModels).map(([b,c])=>({label:b,value:c.modelId,isCustom:!0,customModelUrl:c.modelName,disabled:!1})):[],ag=_getAgOpenAiModels();'
         'for(var m of ag)if(!base.some(x=>x.label===m.label))base.push(m);return base},'
         'Py=(a,b)=>{if(b?.customModels&&b.customModels[a])return b.customModels[a];try{var cfgs=_loadAgOpenAiConfigs();'
         'var matched=cfgs.find(c=>c&&_extractMods(c).includes(a))||cfgs.find(c=>c&&c.apiKey&&String(c.apiKey).trim())||cfgs[0];'
-        'if(matched){var mUrl=matched.url||"https://api.openai.com/v1";return p(I.ModelInfoSchema,{modelId:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,apiProvider:I.APIProvider.API_PROVIDER_OPENAI_VERTEX,chatModelName:a,modelName:mUrl,maxTokens:128000})}}catch(_){}};'
+        'if(matched){var mUrl=_resolveAgUrl(matched);return p(I.ModelInfoSchema,{modelId:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,apiProvider:I.APIProvider.API_PROVIDER_OPENAI_VERTEX,chatModelName:a,modelName:mUrl,maxTokens:128000})}}catch(_){}};'
         'var dKa=(a,b,c)=>{if(a=a?.find(e=>e.label===c))return a;if(b=b?.find(e=>e.label===c))return b;var ag=_getAgOpenAiModels(),found=ag.find(e=>e.label===c);if(found)return found};'
     )
     if cka_target in content:
