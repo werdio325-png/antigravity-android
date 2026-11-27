@@ -319,9 +319,10 @@ def patch_main(file_path):
         '[gzbDetectStatus,setGzbDetectStatus]=(0,A.useState)(""),'
         'detectModelsInGzb=async()=>{\n'
         'setGzbIsDetecting(!0);setGzbDetectStatus("Detecting...");try{\n'
-        'var raw="";if(window.Android&&typeof window.Android.fetchOpenAiModels==="function"){raw=window.Android.fetchOpenAiModels(m||"https://api.openai.com/v1",apiKey);}\n'
-        'else{var fu=(m||"https://api.openai.com/v1").replace(/\\/+$/,"")+"/models";var res=await fetch(fu,{headers:apiKey?{"Authorization":"Bearer "+apiKey}:{}});raw=await res.text();}\n'
-        'var d=JSON.parse(raw);if(d.error){setGzbDetectStatus("Error: "+(typeof d.error==="string"?d.error:(d.error.message||JSON.stringify(d.error))));return;}\n'
+        'var targetU=provider==="claude"?"https://api.anthropic.com/v1":(m||"https://api.openai.com/v1");\n'
+        'var raw="";if(window.Android&&typeof window.Android.fetchOpenAiModels==="function"){raw=window.Android.fetchOpenAiModels(targetU,apiKey);}\n'
+        'else{var fu=targetU.replace(/\\/+$/,"")+"/models";var res=await fetch(fu,{headers:apiKey?{"Authorization":"Bearer "+apiKey}:{}});raw=await res.text();}\n'
+        'var d=JSON.parse(raw);if(d.error){if(provider==="claude"){var defC=["claude-sonnet-4-5-20250929","claude-opus-4-5-20251101","claude-3-7-sonnet-20250219","claude-3-5-sonnet-20241022","claude-3-5-haiku-20241022"];setGzbDetectedModels(defC);setGzbDetectStatus("Loaded "+defC.length+" Claude models");if(!k||!defC.includes(k))l(defC[0]);return;}setGzbDetectStatus("Error: "+(typeof d.error==="string"?d.error:(d.error.message||JSON.stringify(d.error))));return;}\n'
         'var list=[];if(Array.isArray(d.data)){list=d.data.map(item=>item.id||item.name).filter(Boolean);}\n'
         'else if(Array.isArray(d.models)){list=d.models.map(item=>item.name||item.id||item.model).filter(Boolean);}\n'
         'if(list.length>0){list.sort();setGzbDetectedModels(list);setGzbDetectStatus("Found "+list.length+" models!");if(!k||!list.includes(k)){l(list[0]);}}\n'
@@ -335,29 +336,31 @@ def patch_main(file_path):
 
     gzb_save_target = 'L=p(I.ModelInfoSchema,{modelId:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,apiProvider:I.APIProvider.API_PROVIDER_GOOGLE_EVERGREEN,chatModelName:k,modelName:m,maxTokens:Math.max(0,Math.min(Number(q)||0,Number.MAX_SAFE_INTEGER)),modelFeatures:L});b==="edit"&&e?g({type:"editCustomModel",oldLabel:e,label:k,modelInfo:L}):g({type:"addCustomModel",label:k,modelInfo:L});h({label:k,value:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,isCustom:!0,customModelUrl:L.modelName,disabled:!1});'
     gzb_save_replacement = (
-        'if(provider==="openai"){try{var u=m||"https://api.openai.com/v1";'
+        'if(provider==="openai"||provider==="claude"){try{var isCl=provider==="claude";var bu=(isCl&&window.Android&&typeof window.Android.getAnthropicBridgeUrl==="function")?window.Android.getAnthropicBridgeUrl():"";var u=isCl?(bu||m||"https://api.anthropic.com/v1"):(m||"https://api.openai.com/v1");'
         'var rawC="";if(window.Android&&typeof window.Android.getOpenAiConfigs==="function")rawC=window.Android.getOpenAiConfigs();'
         'if(!rawC)rawC=localStorage.getItem("ag_openai_configs")||"";'
         'var cfgs=[];if(rawC){try{var pa=JSON.parse(rawC);if(Array.isArray(pa))cfgs=pa}catch(_){}}'
-        'var matchIdx=cfgs.findIndex(c=>c&&c.url===u&&c.apiKey===apiKey);'
+        'var pType=isCl?"anthropic-setup-token":"openai";'
+        'var matchIdx=cfgs.findIndex(c=>c&&(isCl?c.providerType==="anthropic-setup-token":(c.url===u&&c.apiKey===apiKey)));'
         'if(matchIdx<0)matchIdx=cfgs.findIndex(c=>c&&(!c.apiKey||!c.apiKey.trim()));'
         'var modsToSave=gzbDetectedModels&&gzbDetectedModels.length>0?gzbDetectedModels.slice():[k];if(!modsToSave.includes(k))modsToSave.unshift(k);'
-        'if(matchIdx>=0){var exMods=Array.isArray(cfgs[matchIdx].models)?cfgs[matchIdx].models:[];modsToSave.forEach(x=>{if(x&&!exMods.includes(x))exMods.push(x)});cfgs[matchIdx]=Object.assign({},cfgs[matchIdx],{url:u,apiKey:apiKey,model:k,models:exMods});}'
-        'else if(cfgs.length<5){matchIdx=cfgs.length;cfgs.push({id:"api-"+(matchIdx+1),name:"API "+(matchIdx+1),url:u,apiKey:apiKey,model:k,models:modsToSave});}'
-        'else{matchIdx=cfgs.length-1;cfgs[matchIdx]=Object.assign({},cfgs[matchIdx],{url:u,apiKey:apiKey,model:k,models:modsToSave});}'
+        'if(matchIdx>=0){var exMods=Array.isArray(cfgs[matchIdx].models)?cfgs[matchIdx].models:[];modsToSave.forEach(x=>{if(x&&!exMods.includes(x))exMods.push(x)});cfgs[matchIdx]=Object.assign({},cfgs[matchIdx],{providerType:pType,name:isCl?"Claude":(cfgs[matchIdx].name||"API "+(matchIdx+1)),url:u,apiKey:apiKey,model:k,models:exMods});}'
+        'else if(cfgs.length<5){matchIdx=cfgs.length;cfgs.push({id:"api-"+(matchIdx+1),name:isCl?"Claude":"API "+(matchIdx+1),providerType:pType,url:u,apiKey:apiKey,model:k,models:modsToSave});}'
+        'else{matchIdx=cfgs.length-1;cfgs[matchIdx]=Object.assign({},cfgs[matchIdx],{providerType:pType,name:isCl?"Claude":(cfgs[matchIdx].name||"API "+(matchIdx+1)),url:u,apiKey:apiKey,model:k,models:modsToSave});}'
         'localStorage.setItem("ag_openai_configs",JSON.stringify(cfgs));'
         'localStorage.setItem("ag_openai_config",JSON.stringify({url:u,apiKey:apiKey,model:k,models:cfgs[matchIdx].models}));'
         'if(window.Android&&typeof window.Android.setOpenAiConfigs==="function")window.Android.setOpenAiConfigs(JSON.stringify(cfgs),matchIdx);'
         'else if(window.Android&&typeof window.Android.setOpenAiConfig==="function")window.Android.setOpenAiConfig(u,apiKey,cfgs[matchIdx].models.join(","));'
         '}catch(_){}}'
-        'L=p(I.ModelInfoSchema,{modelId:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,apiProvider:provider==="openai"?I.APIProvider.API_PROVIDER_OPENAI_VERTEX:I.APIProvider.API_PROVIDER_GOOGLE_EVERGREEN,chatModelName:k,modelName:m||(provider==="openai"?"https://api.openai.com/v1":""),maxTokens:Math.max(0,Math.min(Number(q)||0,Number.MAX_SAFE_INTEGER)),modelFeatures:L});b==="edit"&&e?g({type:"editCustomModel",oldLabel:e,label:k,modelInfo:L}):g({type:"addCustomModel",label:k,modelInfo:L});h({label:k,value:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,isCustom:!0,customModelUrl:L.modelName,disabled:!1});'
+        'var _effUrl=(provider==="claude"&&window.Android&&typeof window.Android.getAnthropicBridgeUrl==="function")?(window.Android.getAnthropicBridgeUrl()||m):m;'
+        'L=p(I.ModelInfoSchema,{modelId:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,apiProvider:(provider==="openai"||provider==="claude")?I.APIProvider.API_PROVIDER_OPENAI_VERTEX:I.APIProvider.API_PROVIDER_GOOGLE_EVERGREEN,chatModelName:k,modelName:_effUrl||(provider==="openai"?"https://api.openai.com/v1":""),maxTokens:Math.max(0,Math.min(Number(q)||0,Number.MAX_SAFE_INTEGER)),modelFeatures:L});b==="edit"&&e?g({type:"editCustomModel",oldLabel:e,label:k,modelInfo:L}):g({type:"addCustomModel",label:k,modelInfo:L});h({label:k,value:I.Model.GOOGLE_GEMINI_INTERNAL_BYOM,isCustom:!0,customModelUrl:L.modelName,disabled:!1});'
     )
     if gzb_save_target in content:
         content = content.replace(gzb_save_target, gzb_save_replacement, 1)
-        print("[web-patch] Gzb save callback updated with OpenAI persistence")
+        print("[web-patch] Gzb save callback updated with OpenAI & Claude persistence")
 
     gzb_dis_target = "onClick:J,disabled:!k||!m||!q"
-    gzb_dis_replacement = 'onClick:J,disabled:!k||!q||(provider==="openai"?!apiKey:!m)'
+    gzb_dis_replacement = 'onClick:J,disabled:!k||!q||((provider==="openai"||provider==="claude")?!apiKey:!m)'
     if gzb_dis_target in content:
         content = content.replace(gzb_dis_target, gzb_dis_replacement, 1)
         print("[web-patch] Gzb validation logic updated")
@@ -365,11 +368,13 @@ def patch_main(file_path):
     tab_target = 'A.createElement("div",{className:"grid w-full grid-cols-1 gap-2"},A.createElement("div",{className:"flex flex-col gap-1"},\nA.createElement("label",{htmlFor:C,className:"text-sm"},"Model Label")'
     tab_replacement = (
         'A.createElement("div",{className:"grid w-full grid-cols-1 gap-2"},'
-        'A.createElement("div",{className:"flex items-center gap-2 mb-1 p-1 bg-muted rounded-md w-full"},'
-        'A.createElement("button",{type:"button",onClick:()=>{setProvider("openai");if(!m||m.startsWith("gemini-api:"))n("https://api.openai.com/v1");if(!k)l("gpt-4o");if(!q)r("128000")},'
-        'className:"flex-1 py-1.5 text-xs rounded-md font-medium cursor-pointer border-none transition-colors "+(provider==="openai"?"bg-background text-foreground shadow-xs":"bg-transparent text-muted-foreground hover:text-foreground")},"OpenAI Compatible"),'
-        'A.createElement("button",{type:"button",onClick:()=>{setProvider("gemini");if(m==="https://api.openai.com/v1")n("")},'
-        'className:"flex-1 py-1.5 text-xs rounded-md font-medium cursor-pointer border-none transition-colors "+(provider==="gemini"?"bg-background text-foreground shadow-xs":"bg-transparent text-muted-foreground hover:text-foreground")},"Google Gemini")'
+        'A.createElement("div",{className:"flex items-center gap-1 mb-1 p-1 bg-muted rounded-md w-full"},'
+        'A.createElement("button",{type:"button",onClick:()=>{setProvider("openai");if(!m||m.startsWith("gemini-api:")||m.includes("anthropic.com")||m.includes("127.0.0.1"))n("https://api.openai.com/v1");if(!k||k.startsWith("claude-"))l("gpt-4o");if(!q)r("128000")},'
+        'className:"flex-1 py-1.5 text-[11px] rounded-md font-medium cursor-pointer border-none transition-colors "+(provider==="openai"?"bg-background text-foreground shadow-xs":"bg-transparent text-muted-foreground hover:text-foreground")},"OpenAI"),'
+        'A.createElement("button",{type:"button",onClick:()=>{setProvider("claude");var bu=(window.Android&&typeof window.Android.getAnthropicBridgeUrl==="function")?window.Android.getAnthropicBridgeUrl():"https://api.anthropic.com/v1";n(bu);if(!k||k==="gpt-4o")l("claude-sonnet-4-5-20250929");if(!q)r("200000");setGzbDetectedModels(["claude-sonnet-4-5-20250929","claude-opus-4-5-20251101","claude-3-7-sonnet-20250219","claude-3-5-sonnet-20241022","claude-3-5-haiku-20241022"])},'
+        'className:"flex-1 py-1.5 text-[11px] rounded-md font-medium cursor-pointer border-none transition-colors "+(provider==="claude"?"bg-background text-foreground shadow-xs":"bg-transparent text-muted-foreground hover:text-foreground")},"Claude (setup-token)"),'
+        'A.createElement("button",{type:"button",onClick:()=>{setProvider("gemini");if(m==="https://api.openai.com/v1"||m.includes("anthropic.com")||m.includes("127.0.0.1"))n("")},'
+        'className:"flex-1 py-1.5 text-[11px] rounded-md font-medium cursor-pointer border-none transition-colors "+(provider==="gemini"?"bg-background text-foreground shadow-xs":"bg-transparent text-muted-foreground hover:text-foreground")},"Gemini")'
         '),'
         'A.createElement("div",{className:"flex flex-col gap-1"},\nA.createElement("label",{htmlFor:C,className:"text-sm"},"Model Label")'
     )
@@ -379,24 +384,24 @@ def patch_main(file_path):
 
     apikey_field_target = "placeholder:'e.g. \"gemini-api:/models/gemini-v3-byom\"'}))),"
     apikey_field_replacement = (
-        'placeholder:provider==="openai"?"https://api.openai.com/v1":\'e.g. "gemini-api:/models/gemini-v3-byom"\'}))),'
-        '(provider==="openai"?'
+        'placeholder:provider==="openai"?"https://api.openai.com/v1":(provider==="claude"?"Built-in Claude Bridge":\'e.g. "gemini-api:/models/gemini-v3-byom"\')}))),'
+        '((provider==="openai"||provider==="claude")?'
         'A.createElement("div",{className:"flex flex-col gap-2"},'
         'A.createElement("div",{className:"flex flex-col gap-1"},'
         'A.createElement("div",{className:"flex items-center justify-between"},'
-        'A.createElement("label",{className:"text-sm"},"API Key"),'
+        'A.createElement("label",{className:"text-sm"},provider==="claude"?"Claude Setup Token (claude setup-token)":"API Key"),'
         'A.createElement("button",{type:"button",onClick:()=>setShowKey(s=>!s),'
         'className:"text-xs text-muted-foreground hover:text-foreground cursor-pointer bg-transparent border-none"},showKey?"Hide":"Show")'
         '),'
         'A.createElement("div",{className:"bg-muted rounded-md w-full"},'
         'A.createElement("input",{type:showKey?"text":"password",value:apiKey,onChange:L=>setApiKey(L.target.value),onKeyDown:K,'
-        'placeholder:"sk-...",className:"w-full rounded-md border-none bg-background p-2 text-foreground outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus:ring-transparent placeholder:text-muted-foreground"})'
+        'placeholder:provider==="claude"?"sk-ant-oat01-...":"sk-...",className:"w-full rounded-md border-none bg-background p-2 text-foreground outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus:ring-transparent placeholder:text-muted-foreground"})'
         ')'
         '),'
         'A.createElement("div",{className:"flex flex-wrap items-center gap-2 pt-1"},'
-        'A.createElement("button",{type:"button",disabled:gzbIsDetecting||!m,onClick:detectModelsInGzb,'
+        'A.createElement("button",{type:"button",disabled:gzbIsDetecting||(!m&&provider!=="claude"),onClick:detectModelsInGzb,'
         'className:"px-3 py-1.5 text-xs rounded-md bg-secondary text-secondary-foreground font-medium hover:bg-muted border border-border cursor-pointer flex items-center gap-1.5 transition-colors disabled:opacity-50"},gzbIsDetecting?"Detecting...":"🔍 Detect Models"),'
-        'gzbDetectStatus?A.createElement("span",{className:"text-xs "+(gzbDetectStatus.startsWith("Error")?"text-destructive font-medium":(gzbDetectStatus.startsWith("Found")?"text-emerald-500 font-medium":"text-muted-foreground"))},gzbDetectStatus):null'
+        'gzbDetectStatus?A.createElement("span",{className:"text-xs "+(gzbDetectStatus.startsWith("Error")?"text-destructive font-medium":(gzbDetectStatus.startsWith("Found")||gzbDetectStatus.startsWith("Loaded")?"text-emerald-500 font-medium":"text-muted-foreground"))},gzbDetectStatus):null'
         '),'
         'gzbDetectedModels.length>0?A.createElement("div",{className:"flex flex-col gap-1"},'
         'A.createElement("label",{className:"text-xs text-muted-foreground"},"Pick Detected Model:"),'
