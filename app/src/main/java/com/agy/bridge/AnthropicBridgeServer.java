@@ -32,7 +32,9 @@ public final class AnthropicBridgeServer {
     private static final String TAG = "AnthropicBridge";
     private static final String ANTHROPIC_BASE = "https://api.anthropic.com/v1";
     private static final String ANTHROPIC_VERSION = "2023-06-01";
-    private static final String ANTHROPIC_OAUTH_BETA = "oauth-2025-04-20";
+    private static final String ANTHROPIC_OAUTH_BETA = "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14";
+    private static final String CLAUDE_CODE_SYSTEM_PREFIX = "You are Claude Code, Anthropic's official CLI for Claude.";
+    private static final int PREFERRED_PORT = 18421;
 
     private static AnthropicBridgeServer instance;
 
@@ -73,7 +75,13 @@ public final class AnthropicBridgeServer {
             return;
         }
         try {
-            serverSocket = new ServerSocket(0, 32, InetAddress.getByName("127.0.0.1"));
+            try {
+                serverSocket = new ServerSocket();
+                serverSocket.setReuseAddress(true);
+                serverSocket.bind(new java.net.InetSocketAddress(InetAddress.getByName("127.0.0.1"), PREFERRED_PORT), 32);
+            } catch (Exception bindEx) {
+                serverSocket = new ServerSocket(0, 32, InetAddress.getByName("127.0.0.1"));
+            }
             port = serverSocket.getLocalPort();
             Thread acceptThread = new Thread(() -> {
                 while (serverSocket != null && !serverSocket.isClosed()) {
@@ -165,7 +173,8 @@ public final class AnthropicBridgeServer {
             if (activeToken.startsWith("sk-ant-oat")) {
                 conn.setRequestProperty("Authorization", "Bearer " + activeToken);
                 conn.setRequestProperty("anthropic-beta", ANTHROPIC_OAUTH_BETA);
-                conn.setRequestProperty("User-Agent", "claude-code/2.0.0");
+                conn.setRequestProperty("User-Agent", "claude-cli/2.1.2 (external, cli)");
+                conn.setRequestProperty("x-app", "cli");
             } else {
                 conn.setRequestProperty("x-api-key", activeToken);
             }
@@ -430,11 +439,21 @@ public final class AnthropicBridgeServer {
         anthropicReq.put("model", model);
         anthropicReq.put("max_tokens", maxTokens);
         anthropicReq.put("stream", stream);
-        if (systemSb.length() > 0) {
+        if (activeToken.startsWith("sk-ant-oat")) {
+            JSONArray sysArr = new JSONArray();
+            sysArr.put(new JSONObject().put("type", "text").put("text", CLAUDE_CODE_SYSTEM_PREFIX));
+            if (systemSb.length() > 0) {
+                sysArr.put(new JSONObject().put("type", "text").put("text", systemSb.toString()));
+            }
+            anthropicReq.put("system", sysArr);
+        } else if (systemSb.length() > 0) {
             anthropicReq.put("system", systemSb.toString());
         }
-        if (req.has("temperature")) {
-            anthropicReq.put("temperature", req.optDouble("temperature", 0.7));
+        if (req.has("temperature") && !req.isNull("temperature")) {
+            double temp = req.optDouble("temperature", Double.NaN);
+            if (!Double.isNaN(temp) && !Double.isInfinite(temp)) {
+                anthropicReq.put("temperature", temp);
+            }
         }
 
         // Translate OpenAI tools -> Anthropic tools
@@ -565,6 +584,19 @@ public final class AnthropicBridgeServer {
 
         String chunkId = "chatcmpl-" + System.currentTimeMillis();
         int toolCallIndex = -1;
+        // Emit initial role chunk so strict OpenAI SSE clients recognize the assistant turn
+        {
+            JSONObject roleDelta = new JSONObject().put("role", "assistant").put("content", "");
+            JSONObject roleChoice = new JSONObject().put("index", 0).put("delta", roleDelta).put("finish_reason", JSONObject.NULL);
+            JSONObject roleChunk = new JSONObject()
+                    .put("id", chunkId)
+                    .put("object", "chat.completion.chunk")
+                    .put("created", System.currentTimeMillis() / 1000L)
+                    .put("model", model)
+                    .put("choices", new JSONArray().put(roleChoice));
+            out.write(("data: " + roleChunk.toString() + "\n\n").getBytes(StandardCharsets.UTF_8));
+            out.flush();
+        }
         try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = br.readLine()) != null) {
@@ -641,6 +673,19 @@ public final class AnthropicBridgeServer {
                                 .put("model", model)
                                 .put("choices", new JSONArray().put(cChoice));
                         out.write(("data: " + chunk.toString() + "\n\n").getBytes(StandardCharsets.UTF_8));
+                        out.flush();
+                    } else if ("error".equals(type)) {
+                        JSONObject errObj = ev.optJSONObject("error");
+                        String errMsg = errObj != null ? errObj.optString("message", "Anthropic stream error") : "Anthropic stream error";
+                        JSONObject eDelta = new JSONObject().put("content", "\n[Error: " + errMsg + "]");
+                        JSONObject eChoice = new JSONObject().put("index", 0).put("delta", eDelta).put("finish_reason", "stop");
+                        JSONObject eChunk = new JSONObject()
+                                .put("id", chunkId)
+                                .put("object", "chat.completion.chunk")
+                                .put("created", System.currentTimeMillis() / 1000L)
+                                .put("model", model)
+                                .put("choices", new JSONArray().put(eChoice));
+                        out.write(("data: " + eChunk.toString() + "\n\n").getBytes(StandardCharsets.UTF_8));
                         out.flush();
                     }
                 } catch (Exception ignored) {}

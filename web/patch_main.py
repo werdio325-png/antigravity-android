@@ -476,9 +476,9 @@ def patch_main(file_path):
         content = content.replace(cyb_target, cyb_replacement, 1)
         print("[web-patch] cYb custom models header and support enabled")
 
-    # 6e. Dynamic custom models loading in PXb (and deduplicate from built-in groups)
+    # 6e. Dynamic custom models loading in PXb (and deduplicate from built-in groups when built-in models exist)
     pxb_target = 'customModels:a.customModels??[],supportsCustomModels:a.supportsCustomModels??!1,showCustomModelHeader:a.showCustomModelHeader??!1,groups:k,'
-    pxb_replacement = '...(()=>{var list=a.customModels?[...a.customModels]:[];var ag=_getAgOpenAiModels();for(var m of ag){if(!list.some(x=>x.label===m.label))list.push(m)}var cmSet=new Set(list.map(x=>x.label));return{customModels:list,supportsCustomModels:!0,showCustomModelHeader:!0,groups:k.map(gr=>({...gr,options:(gr.options||[]).filter(o=>!cmSet.has(o.label))}))}})(),'
+    pxb_replacement = '...(()=>{var list=a.customModels?[...a.customModels]:[];var ag=_getAgOpenAiModels();for(var m of ag){if(!list.some(x=>x.label===m.label))list.push(m)}var cmSet=new Set(list.map(x=>x.label));var filt=k.map(gr=>({...gr,options:(gr.options||[]).filter(o=>!cmSet.has(o.label))}));var hasBuiltIn=filt.some(gr=>gr.options&&gr.options.length>0);return{customModels:list,supportsCustomModels:!0,showCustomModelHeader:!0,groups:hasBuiltIn?filt:k}})(),'
     if pxb_target in content:
         content = content.replace(pxb_target, pxb_replacement, 1)
         print("[web-patch] PXb dynamic custom model provider enabled")
