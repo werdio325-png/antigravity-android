@@ -102,8 +102,8 @@ function pushCustomChatUpdate(cascadeId, steps, isRunning) {
     update: {
       conversationId: cascadeId,
       trajectoryId: cascadeId,
-      status: isRunning ? 'RUNNING' : 'IDLE',
-      executableStatus: isRunning ? 'RUNNING' : 'IDLE',
+      status: isRunning ? 2 : 1,
+      executableStatus: isRunning ? 2 : 1,
       fullyIdle: !isRunning,
       mainTrajectoryUpdate: {
         stepsUpdate: {
@@ -232,13 +232,13 @@ function runCustomModelTurn(origFetch, cascadeId, userText, modelLabel, baseUrl)
   }
   state.messages.push({ role: 'user', content: userText });
   var userStep = {
-    type: 'USER_INPUT',
-    status: 'DONE',
+    type: 14,
+    status: 3,
     userInput: { items: [{ text: userText }] }
   };
   var assistantStep = {
-    type: 'PLANNER_RESPONSE',
-    status: 'RUNNING',
+    type: 15,
+    status: 2,
     plannerResponse: { response: '' }
   };
   state.steps.push(userStep);
@@ -272,7 +272,7 @@ function runCustomModelTurn(origFetch, cascadeId, userText, modelLabel, baseUrl)
     function pump() {
       return reader.read().then(function (r) {
         if (r.done) {
-          assistantStep.status = 'DONE';
+          assistantStep.status = 3;
           assistantStep.plannerResponse.response = acc || '(No response)';
           state.messages.push({ role: 'assistant', content: assistantStep.plannerResponse.response });
           pushCustomChatUpdate(cascadeId, state.steps, false);
@@ -301,7 +301,7 @@ function runCustomModelTurn(origFetch, cascadeId, userText, modelLabel, baseUrl)
     }
     return pump();
   }).catch(function (err) {
-    assistantStep.status = 'DONE';
+    assistantStep.status = 3;
     assistantStep.plannerResponse.response = 'Error (' + modelLabel + '): ' + (err && err.message ? err.message : String(err));
     pushCustomChatUpdate(cascadeId, state.steps, false);
   });
